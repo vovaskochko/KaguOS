@@ -123,16 +123,31 @@ for FILE in ${SRC_FILES}; do
     done < "${FILE}"
 
     # Stage 2. Lets convert object file to disk image
-    # As of now we just copy object file line by line to disk file
-    # but later we will process markers related to labels, variables, functions, etc
+    # We are processing address related markers like labels, variables, functions, etc
+    CUR_ADDRESS=${GLOBAL_KERNEL_START}
     while read -r LINE; do
+        # Check for label definition and store its name to a list of unassigned labels:
+        # NOTE: we are interested in the address of the first instruction that will be stored to the CUR_ADDRESS
+        #       so we will get it automatically from CURRENT_ADDRESS with will be used when the next instruction will be find.
+        if [ "${LINE:0:6}" = "LABEL:" ]; then
+            LABEL=$(echo "${LINE#LABEL:}")
+            echo "export LABEL_${LABEL}=${CUR_ADDRESS}" >> "${GLOBAL_ENV_FILE}"
+            continue
+        fi
+
         # Output result line to disk file:
         echo "${LINE}" >> "${GLOBAL_KERNEL_DISK}"
+
+        CUR_ADDRESS=$((CUR_ADDRESS + 1))
     done < "${OBJ_FILE}"
 done
 
 # If full compilation requested, substitute all address constants with their numeric value
 if [ "${FULL_KERNEL_COMPILATION}" = "1" ]; then
+    # Source environment file from the first stage of compilation to substitute all variables correctly
+    source "${GLOBAL_ENV_FILE}"
+
+    # Replace all addresses constants with their numeric value
     # NOTE AI: Learn about envsubst command in bash.
     cat "${GLOBAL_KERNEL_DISK}" | envsubst > "${GLOBAL_KERNEL_DISK}.tmp"
     mv "${GLOBAL_KERNEL_DISK}.tmp" "${GLOBAL_KERNEL_DISK}"
