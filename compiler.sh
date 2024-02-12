@@ -158,6 +158,12 @@ for FILE in ${SRC_FILES}; do
             continue
         fi
 
+        if [[ "${LINE:0:5}" = "FUNC:" ]]; then
+            FUNC=$(echo "${LINE#FUNC:}")
+            echo "export FUNC_${FUNC}=${CUR_ADDRESS}" >> "${GLOBAL_ENV_FILE}"
+            continue
+        fi
+
         # Output result line to disk file:
         echo "${LINE}" >> "${GLOBAL_KERNEL_DISK}"
 

@@ -10,6 +10,7 @@
 *GLOBAL_OUTPUT_INFO_ADDRESS="${GLOBAL_OUTPUT_INFO}"
 *GLOBAL_COMPARE_RESULT_INFO_ADDRESS="${GLOBAL_COMPARE_RESULT_INFO}"
 *GLOBAL_NEXT_CMD_INFO_ADDRESS="${GLOBAL_NEXT_CMD_INFO}"
+*GLOBAL_CURRENT_FRAME_COUNT_INFO_ADDRESS="${GLOBAL_CURRENT_FRAME_COUNT_INFO}"
 
 *GLOBAL_DISPLAY_ADDRESS="RAMFS init - done."
 display_success
@@ -49,10 +50,23 @@ println(*GLOBAL_OUTPUT_ADDRESS)
 cpu_execute "${CPU_EQUAL_CMD}" ${GLOBAL_OUTPUT_ADDRESS} ${GLOBAL_ARG1_ADDRESS}
 jump_if ${LABEL_kernel_terminate}
 
+# check for hi command:
+*GLOBAL_ARG1_ADDRESS="hi"
+cpu_execute "${CPU_EQUAL_CMD}" ${GLOBAL_OUTPUT_ADDRESS} ${GLOBAL_ARG1_ADDRESS}
+call_func_if print_hello
+
 # TODO
-#     1. Migrate your functions from Lesson 1.1 to labels approach instead of hardcoded values.
-#     2. Add support for more commands.
-#     3. Add command that will use the second argument for some logic(use lines 37-39 as a reference)
+#     1. Migrate your code from previous lessons from labels and jump to function calls jump_if.
+#     2. The main loop should look like this
+#   LABEL:kernel_loop_start
+#           <code to read input>
+#           check cmd name1
+#           call_func_if func1 ...
+#           check cmd name2
+#           call_func_if func2 ...
+#           ...
+#           jump_to ${LABEL_kernel_loop_start}
+#     3. Add command that will use argument for some logic(use lines 37-39 to get second parameter)
 
 
 # go back to the start of the loop:
@@ -66,6 +80,25 @@ LABEL:kernel_terminate
 display_success
 jump_to ${GLOBAL_TERMINATE_ADDRESS}
 
+FUNC:print_hello
+    call_func generate_hello_string
+    *GLOBAL_DISPLAY_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+    display_success
+# TODO
+#     1. Uncomment the following recursive call of print_hello function.
+#     2. Run OS with sleep between commands -s=0.5 or longer.
+#     3. Enter hi command and review the growth of the stack from the end of file tmp/RAM.txt to the start.
+#    call_func print_hello
+    func_return
+
+FUNC:generate_hello_string
+    *GLOBAL_OUTPUT_ADDRESS="Hello!!!"
+    func_return
+# TODO
+#     1. Patch compiler to add some syntax sugar which allows you to write:
+#           FUNC:generate_hello_string
+#               func_return "Hello!!!"
+#     2. Check that generated build/kernel.disk is the same as it was before.
 
 ##########################################
 # KERNEL_END                             #
