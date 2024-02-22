@@ -43,11 +43,8 @@ cpu_execute "${CPU_GET_COLUMN_CMD}" ${GLOBAL_INPUT_ADDRESS} ${GLOBAL_ARG1_ADDRES
 
 
 # Display a message with first component of input:
-write_to_address ${GLOBAL_DISPLAY_ADDRESS} "Parsed command:"
-display_println
-
-copy_from_to_address ${GLOBAL_OUTPUT_ADDRESS} ${GLOBAL_DISPLAY_ADDRESS}
-display_println
+println("Parsed command:")
+println(*GLOBAL_OUTPUT_ADDRESS)
 
 # TODO 
 #      1. Uncomment the following code.

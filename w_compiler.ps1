@@ -69,20 +69,51 @@ foreach ($FILE in ${SRC_FILES}) {
     echo "Compiling ${FILE}..."
 
     # Stage 1. Lets prepare an object file using some preprocessing
-    # As of now we just skip empty lines and commented lines
-    # but later we will process syntax sugar patterns here.
+    # We will process syntax sugar patterns in this loop.
     $OBJ_FILE = Join-Path `
         $GLOBAL_BUILD_DIR `
         ($FILE -replace "/", "___")
     New-Item -ItemType File -Path $OBJ_FILE > $null
-    $LINES = Get-Content "${FILE}"
 
+    $LINE_NO=0
     ForEach ($LINE in Get-Content "${FILE}") {
         # remove leading and trailing spaces
         $LINE=${LINE}.Trim()
+        $LINE_NO++
 
         # Skip empty lines and comments:
         if (( "${LINE}" -eq "") -or ($LINE.Substring(0,1) -eq "#" )) {
+            continue
+        }
+
+        # Lets add a possibility to use the following patterns in source code:
+        #       1. println("Some string") as a short form of
+        #               write_to_address ${GLOBAL_DISPLAY_ADDRESS} "Some string"
+        #               display_println
+        #       2. println(*SOME_ADDRESS) as a short form of
+        #               copy_from_to_address ${SOME_ADDRESS} ${GLOBAL_DISPLAY_ADDRESS}
+        #               display_println
+        # NOTE AI: What is "syntax sugar"? Why do we need it? How it impacts source code quality?
+        # TODO:
+        #       1. Implement parsing of print(*SOME_ADDRESS) and print("Some string")
+        #       2. Implement parsing of println(*SOME_ADDRESS, SUCCESS), println(*SOME_ADDRESS, WARNING), println(*SOME_ADDRESS, ERROR)
+        #       3. Implement parsing of println("Some string", SUCCESS), println("Some string", WARNING), println("Some string", ERROR)
+        # TODO_END
+        if ($LINE.Substring(0, 8) -eq "println(" ) {
+            $SUBLINE=$LINE.Substring(8)
+            if ($SUBLINE.Substring(0, 1) -eq '"' ) {
+                $STR_VALUE=$SUBLINE.Substring(1, $SUBLINE.Length - 3)
+                "write_to_address `${GLOBAL_DISPLAY_ADDRESS} `"${STR_VALUE}`"" | Out-File "${OBJ_FILE}" -Append
+            }
+            elseif ($SUBLINE.Substring(0, 1) -eq "*") {
+                $SRC_ADDRESS=$SUBLINE.Substring(1, $SUBLINE.Length - 2)
+                "copy_from_to_address `${$SRC_ADDRESS} `${GLOBAL_DISPLAY_ADDRESS}" | Out-File "${OBJ_FILE}" -Append
+            }
+            else {
+                write-host "Compilation failed at  ${FILE}:${LINE_NO} ${LINE}" -ForegroundColor Red
+                exit 1
+            }
+            "display_println" | Out-File "${OBJ_FILE}" -Append
             continue
         }
 
@@ -94,7 +125,6 @@ foreach ($FILE in ${SRC_FILES}) {
     # Stage 2. Lets convert object file to disk image
     # As of now we just copy object file line by line to disk file
     # but later we will process markers related to labels, variables, functions, etc
-    $LINES = Get-Content "${OBJ_FILE}"
     ForEach ($LINE in Get-Content "${OBJ_FILE}") {
         # Output result line to disk file:
         "${LINE}" | Out-File "${GLOBAL_KERNEL_DISK}" -Append

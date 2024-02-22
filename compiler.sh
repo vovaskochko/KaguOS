@@ -70,18 +70,46 @@ mkdir -p "${GLOBAL_BUILD_DIR}"
 for FILE in ${SRC_FILES}; do
     echo "Compiling ${FILE}..."
 
+    LINE_NO=0
     # Stage 1. Lets prepare an object file using some preprocessing
-    # As of now we just skip empty lines and commented lines
-    # but later we will process syntax sugar patterns here.
+    # We will process syntax sugar patterns in this loop.
     OBJ_FILE="${GLOBAL_BUILD_DIR}"/"$(echo "${FILE}" | sed "s,/,___,g")".o
     while read -r LINE; do
         # remove leading and trailing spaces
         # NOTE AI: Learn about piping | which allows to use output of one command as input of another.
         LINE=$(echo "${LINE}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+        LINE_NO=$((LINE_NO+1))
 
         # Skip empty lines and comments:
         # NOTE: ${VAR_NAME:0:1} - get first character of string
         if [ -z "${LINE}" ] || [ "${LINE:0:1}" = "#" ]; then
+            continue
+        fi
+
+        # Lets add a possibility to use the following patterns in source code:
+        #       1. println("Some string") as a short form of
+        #               write_to_address ${GLOBAL_DISPLAY_ADDRESS} "Some string"
+        #               display_println
+        #       2. println(*SOME_ADDRESS) as a short form of
+        #               copy_from_to_address ${SOME_ADDRESS} ${GLOBAL_DISPLAY_ADDRESS}
+        #               display_println
+        # NOTE AI: What is "syntax sugar"? Why do we need it? How it impacts source code quality?
+        # TODO:
+        #       1. Implement parsing of print(*SOME_ADDRESS) and print("Some string")
+        #       2. Implement parsing of println(*SOME_ADDRESS, SUCCESS), println(*SOME_ADDRESS, WARNING), println(*SOME_ADDRESS, ERROR)
+        #       3. Implement parsing of println("Some string", SUCCESS), println("Some string", WARNING), println("Some string", ERROR)
+        # TODO_END
+        if [ "${LINE:0:8}" = "println(" ]; then
+            SUBLINE=$(echo "${LINE#println(}")
+            if [ "${SUBLINE:0:1}" = '"' ]; then
+                echo "write_to_address \${GLOBAL_DISPLAY_ADDRESS} \"${SUBLINE:1:-2}\"" >> "${OBJ_FILE}"
+            elif [ "${SUBLINE:0:1}" = '*' ]; then
+                echo "copy_from_to_address \${${SUBLINE:1:-1}} \${GLOBAL_DISPLAY_ADDRESS}" >> "${OBJ_FILE}"
+            else
+                echo "Compilation failed at  ${FILE}:${LINE_NO} ${LINE}"
+                exit 1
+            fi
+            echo "display_println" >>  "${OBJ_FILE}"
             continue
         fi
 
