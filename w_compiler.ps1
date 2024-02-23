@@ -77,7 +77,7 @@ foreach ($FILE in ${SRC_FILES}) {
     New-Item -ItemType File -Path $OBJ_FILE > $null
 
     $LINE_NO=0
-    ForEach ($LINE in Get-Content "${FILE}") {
+    foreach ($LINE in Get-Content "${FILE}") {
         # remove leading and trailing spaces
         $LINE=${LINE}.Trim()
         $LINE_NO++
@@ -116,6 +116,36 @@ foreach ($FILE in ${SRC_FILES}) {
             }
             "display_println" | Out-File "${OBJ_FILE}" -Append
             continue
+        }
+        if ($LINE.Substring(0, 1) -eq "*") {
+            if ($LINE.contains("=")) {
+                # search for *ADDR_VAR1=... pattern
+                $LEFT_SIDE,$RIGHT_SIDE= $LINE -split '=', 2
+
+                # search for *ADDR_VAR1=*ADDR_VAR2 pattern
+                if ($RIGHT_SIDE.Substring(0, 1) -eq "*") {
+                    # NOTE AI: Learn about symbol escaping in PowerShell.
+                    #          Here we escape $ while for TODO task below you may need to escape " as well
+                    $RIGHT_SIDE_VAR_NAME=$RIGHT_SIDE.Substring(1)
+                    $LEFT_SIDE_VAR_NAME=$LEFT_SIDE.Substring(1)
+                    "copy_from_to_address `${$RIGHT_SIDE_VAR_NAME} `${$LEFT_SIDE_VAR_NAME}" | Out-File "${OBJ_FILE}" -Append
+                    continue
+                }
+
+                # search for *ADDR_VAR1="..." pattern
+                if (($RIGHT_SIDE[0] -eq '"') -and ($RIGHT_SIDE.Substring($RIGHT_SIDE.Length - 1, 1) -eq '"' )) {
+                    $LEFT_SIDE_VAR_NAME=$LEFT_SIDE.Substring(1)
+                    $STR_ON_THE_RIGHT=$RIGHT_SIDE.Substring(1, $RIGHT_SIDE.Length - 2)
+                    echo "write_to_address `${$LEFT_SIDE_VAR_NAME} `"$STR_ON_THE_RIGHT`"" | Out-File "${OBJ_FILE}" -Append
+                    continue
+                }
+            }
+
+            # TODO
+            #     1. Add support of short version for increment *ADDR_VAR++ should be converted to :
+            #           cpu_execute "${CPU_INCREMENT_CMD}" ${ADDR_VAR_NAME}
+            #           copy_from_to_address ${GLOBAL_OUTPUT_ADDRESS} ${ADDR_VAR_NAME}
+            #     2. Add support of short version for decrement *ADDR_VAR--.
         }
 
         # Output result line to object file:

@@ -113,6 +113,29 @@ for FILE in ${SRC_FILES}; do
             continue
         fi
 
+        if [ "${LINE:0:1}" = "*" ]; then
+            # search for *ADDR_VAR1=... pattern
+            LEFT_SIDE=$(echo "${LINE}" | awk -F'=' ' {print $1}')
+            RIGHT_SIDE=$(echo "${LINE#${LEFT_SIDE}=}")
+            # search for *ADDR_VAR1=*ADDR_VAR2 pattern
+            if [ "${RIGHT_SIDE:0:1}" = '*' ]; then
+                # NOTE AI: Learn about symbol escaping in bash.
+                #          Here we escape $ while for TODO task below you may need to escape " as well
+                echo "copy_from_to_address \${${RIGHT_SIDE:1}} \${${LEFT_SIDE:1}}" >> "${OBJ_FILE}"
+                continue
+            fi
+            # search for *ADDR_VAR1="..." pattern
+            if [ "${RIGHT_SIDE:0:1}" = '"' ] && [ "${RIGHT_SIDE: -1}" = '"' ]; then
+                echo "write_to_address \${${LEFT_SIDE:1}} \"${RIGHT_SIDE:1:-1}\"" >> "${OBJ_FILE}"
+                continue
+            fi
+            # TODO
+            #     1. Add support of short version for increment *ADDR_VAR++ should be converted to :
+            #           cpu_execute "${CPU_INCREMENT_CMD}" ${ADDR_VAR_NAME}
+            #           copy_from_to_address ${GLOBAL_OUTPUT_ADDRESS} ${ADDR_VAR_NAME}
+            #     2. Add support of short version for decrement *ADDR_VAR--.
+        fi
+
         # Output result line to object file:
         # NOTE AI: Learn about output redirection operators > and >> in bash.
         #          What is the difference between them?
