@@ -15,12 +15,13 @@ export GLOBAL_HW_DIR="tmp"
 
 # RAM constants:
 export GLOBAL_RAM_FILE="${GLOBAL_HW_DIR}/RAM.txt"
-export GLOBAL_RAM_SIZE="50"
+export GLOBAL_RAM_SIZE="128"
 export GLOBAL_TERMINATE_ADDRESS="${GLOBAL_RAM_SIZE}"
 
 # Kernel constants:
 export GLOBAL_BUILD_DIR="build"
 export GLOBAL_KERNEL_DISK="${GLOBAL_BUILD_DIR}/kernel.disk"
+export GLOBAL_ENV_FILE="${GLOBAL_BUILD_DIR}/env.sh"
 export GLOBAL_KERNEL_START_INFO_ADDRESS="19"
 export GLOBAL_KERNEL_START="20"
 

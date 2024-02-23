@@ -52,6 +52,9 @@ done
 # Lets include some human readable names for addresses to simplify reading and writing the code
 source include/Bash/defines.sh
 
+if [ -f "${GLOBAL_ENV_FILE}" ]; then
+    source "${GLOBAL_ENV_FILE}"
+fi
 
 
 ###########################

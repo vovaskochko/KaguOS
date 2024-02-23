@@ -63,6 +63,7 @@ if (Test-Path -Path "${GLOBAL_BUILD_DIR}") {
 
 New-Item -ItemType Directory -Path "${GLOBAL_BUILD_DIR}" -Force > $null
 New-Item -ItemType File -Path "${GLOBAL_KERNEL_DISK}" > $null
+New-Item -ItemType File -Path "${GLOBAL_ENV_FILE}" > $null
 
 # Let's process provided source files one by one:
 foreach ($FILE in ${SRC_FILES}) {
@@ -123,11 +124,22 @@ foreach ($FILE in ${SRC_FILES}) {
     }
 
     # Stage 2. Lets convert object file to disk image
-    # As of now we just copy object file line by line to disk file
-    # but later we will process markers related to labels, variables, functions, etc
+    # We are processing address related markers like labels, variables, functions, etc
+    $CUR_ADDRESS=${GLOBAL_KERNEL_START}
     ForEach ($LINE in Get-Content "${OBJ_FILE}") {
+        # Check for label definition and store its name to a list of unassigned labels:
+        # NOTE: we are interested in the address of the first instruction that will be stored to the CUR_ADDRESS
+        #       so we will get it automatically from CURRENT_ADDRESS with will be used when the next instruction will be find.
+        if ($LINE.Substring(0, 6) -eq "LABEL:") {
+            $LABEL=$LINE.Substring(6)
+            "`$LABEL_${LABEL}=${CUR_ADDRESS}" | Out-File "${GLOBAL_ENV_FILE}" -Append
+            continue
+        }
+
         # Output result line to disk file:
         "${LINE}" | Out-File "${GLOBAL_KERNEL_DISK}" -Append
+
+        $CUR_ADDRESS=[int]$CUR_ADDRESS + 1
     }
 }
 
@@ -135,6 +147,9 @@ foreach ($FILE in ${SRC_FILES}) {
 if  ("${FULL_KERNEL_COMPILATION}" -eq "1" ) {
     # Let's create a temp file to store expanded strings
     New-Item -ItemType File -Path "${GLOBAL_KERNEL_DISK}.tmp" > $null
+
+    # Source environment file from the first stage of compilation to substitute all variables correctly
+    . "${GLOBAL_ENV_FILE}"
 
     # Expand variables to their values and append the result to the temp file
     ForEach ($LINE in Get-Content "${GLOBAL_KERNEL_DISK}") {

@@ -58,6 +58,9 @@ for ($i=0; $i -lt $args_fixed.count; $i++) {
 
 # Lets include some human readable names for addresses to simplify reading and writing the code
 . ./include/PowerShell/defines.ps1
+if (Test-Path -Path "${GLOBAL_ENV_FILE}") {
+    . "${GLOBAL_ENV_FILE}"
+}
 
 ###########################
 #######  INIT HW  #########
