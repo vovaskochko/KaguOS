@@ -82,8 +82,7 @@ display_success
 jump_to ${GLOBAL_TERMINATE_ADDRESS}
 
 FUNC:print_hello
-    call_func generate_hello_string
-    *GLOBAL_DISPLAY_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+    *GLOBAL_DISPLAY_ADDRESS=generate_hello_string()
     display_success
 # TODO
 #     1. Uncomment the following recursive call of print_hello function.

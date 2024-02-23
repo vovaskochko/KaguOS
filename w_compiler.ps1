@@ -117,6 +117,32 @@ foreach ($FILE in ${SRC_FILES}) {
             "display_println" | Out-File "${OBJ_FILE}" -Append
             continue
         }
+
+        # Lets add parsing of function call without parameters e.g. func_name() and *SOME_ADDRESS=func_name()
+        if ($LINE.Substring($LINE.length -2) -eq "()") {
+            if ($LINE.Substring(0, 1) -eq "*") {
+                if ($LINE.contains("=")) {
+                    # search for *ADDR_VAR1=... pattern
+                    $LEFT_SIDE,$RIGHT_SIDE= $LINE.Substring(1, $LINE.length - 3) -split '=', 2
+                    "call_func ${RIGHT_SIDE}" | Out-File "${OBJ_FILE}" -Append
+                    "copy_from_to_address `${GLOBAL_OUTPUT_ADDRESS} `${${LEFT_SIDE}}" | Out-File "${OBJ_FILE}" -Append
+                }
+                else {
+                    write-host "Compilation failed at  ${FILE}:${LINE_NO} ${LINE}" -ForegroundColor Red
+                }
+            }
+            else {
+                $FUNC_NAME=$LINE.Substring(0, $LINE.length - 2)
+                "call_func ${FUNC_NAME}" | Out-File "${OBJ_FILE}" -Append
+            }
+            continue
+        }
+        # TODO:
+        #       Lets add parsing of function call with parameters
+        #       e.g.  func_name(*PARAM1_ADDRESS) and *SOME_ADDRESS=func_name(*PARAM1_ADDRESS)
+        #             func_name(*PARAM1_ADDRESS, *PARAM2_ADDRESS) and *SOME_ADDRESS=func_name(*PARAM1_ADDRESS, *PARAM2_ADDRESS)
+        # TODO_END
+
         if ($LINE.Substring(0, 1) -eq "*") {
             if ($LINE.contains("=")) {
                 # search for *ADDR_VAR1=... pattern

@@ -113,6 +113,24 @@ for FILE in ${SRC_FILES}; do
             continue
         fi
 
+        # Lets add parsing of function call without parameters e.g. func_name() and *SOME_ADDRESS=func_name()
+        if [ "${LINE: -2}" = "()" ]; then
+            if [ "${LINE:0:1}" = "*" ]; then
+                LEFT_SIDE=$(echo "${LINE:1}" | awk -F'=' ' {print $1}')
+                RIGHT_SIDE=$(echo "${LINE:0:-2}" | awk -F'=' ' {print $2}')
+                echo "call_func ${RIGHT_SIDE}" >> "${OBJ_FILE}"
+                echo "copy_from_to_address \${GLOBAL_OUTPUT_ADDRESS} \${${LEFT_SIDE}}" >> "${OBJ_FILE}"
+            else
+                FUNC_NAME="${LINE:0:-2}"
+                echo "call_func ${FUNC_NAME}" >> "${OBJ_FILE}"
+            fi
+            continue
+        fi
+        # TODO:
+        #       Lets add parsing of function call with parameters
+        #       e.g.  func_name(*PARAM1_ADDRESS) and *SOME_ADDRESS=func_name(*PARAM1_ADDRESS)
+        #             func_name(*PARAM1_ADDRESS, *PARAM2_ADDRESS) and *SOME_ADDRESS=func_name(*PARAM1_ADDRESS, *PARAM2_ADDRESS)
+        # TODO_END
         if [ "${LINE:0:1}" = "*" ]; then
             # search for *ADDR_VAR1=... pattern
             LEFT_SIDE=$(echo "${LINE}" | awk -F'=' ' {print $1}')
