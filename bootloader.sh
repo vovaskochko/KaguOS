@@ -109,6 +109,8 @@ write_to_address ${CUR_ADDRESS} "############ KERNEL END #############"
 # Jump to the address in RAM
 # where the kernel was loaded:
 source include/Bash/jump.sh
+source include/Bash/stack.sh
+source include/Bash/function.sh
 
 jump_to ${GLOBAL_KERNEL_START}
 

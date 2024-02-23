@@ -118,6 +118,9 @@ write_to_address ${CUR_ADDRESS} "############ KERNEL END #############"
 # Jump to the address in RAM
 # where the kernel was loaded:
 . ./include/PowerShell/jump.ps1
+. ./include/PowerShell/stack.ps1
+. ./include/PowerShell/function.ps1
+
 jump_to ${GLOBAL_KERNEL_START}
 
 # Run kernel main loop.

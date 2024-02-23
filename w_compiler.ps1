@@ -166,6 +166,13 @@ foreach ($FILE in ${SRC_FILES}) {
             continue
         }
 
+        # We are parsing function identifier in the similar manner as labels:
+        if ($LINE.Substring(0, 5) -eq "FUNC:") {
+            $FUNC=$LINE.Substring(5)
+            "`$FUNC_${FUNC}=${CUR_ADDRESS}" | Out-File "${GLOBAL_ENV_FILE}" -Append
+            continue
+        }
+
         # Output result line to disk file:
         "${LINE}" | Out-File "${GLOBAL_KERNEL_DISK}" -Append
 
