@@ -1,0 +1,3 @@
+/dir1/ dev/primary.disk part2
+/dir2/ dev/primary.disk part3
+/ dev/primary.disk part1

@@ -12,8 +12,12 @@ export CPU_DIVIDE_CMD="divide"
 export CPU_CONCAT_CMD="concat"
 export CPU_CONCAT_SPACES_CMD="concat_spaces"
 export CPU_GET_COLUMN_CMD="get_column"
+export CPU_REPLACE_COLUMN_CMD="replace_column"
 export CPU_LESS_THAN_CMD="less_than"
 export CPU_LESS_THAN_EQUAL_CMD="less_than_equal"
+export CPU_STARTS_WITH_CMD="starts_with"
+export CPU_ENCRYPT_CMD="encrypt"
+export CPU_DECRYPT_CMD="decrypt"
 
 # CPU execution function
 
@@ -25,6 +29,7 @@ function cpu_execute {
     local CPU_REGISTER_CMD="${1}"
     local CPU_REGISTER1=""
     local CPU_REGISTER2=""
+    local CPU_REGISTER3=""
     local CPU_REGISTER_OUT=""
 
     if [ ! -z "$2" ]; then
@@ -32,6 +37,9 @@ function cpu_execute {
     fi
     if [ ! -z "$3" ]; then
         CPU_REGISTER2="$(read_from_address ${3})"
+    fi
+    if [ ! -z "$4" ]; then
+        CPU_REGISTER3="$(read_from_address ${4})"
     fi
 
     case "${CPU_REGISTER_CMD}" in
@@ -97,6 +105,28 @@ function cpu_execute {
             ;;
         "${CPU_GET_COLUMN_CMD}")
             CPU_REGISTER_OUT=$(echo "${CPU_REGISTER1}" | awk -F' ' ' {print $'${CPU_REGISTER2}'}')
+            ;;
+        "${CPU_REPLACE_COLUMN_CMD}")
+            CPU_REGISTER_OUT=$(echo "${CPU_REGISTER1}" | awk -F' ' '{$'${CPU_REGISTER2}'='${CPU_REGISTER3}'}1' )
+            ;;
+        "${CPU_STARTS_WITH_CMD}")
+            if [[ "${CPU_REGISTER1}" == "${CPU_REGISTER2}"* ]]; then
+                CPU_REGISTER_OUT="1"
+            else
+                CPU_REGISTER_OUT="0"
+            fi
+            write_to_address ${GLOBAL_COMPARE_RES_ADDRESS} "${CPU_REGISTER_OUT}"
+            if [ "${CPU_REGISTER_OUT}" == "1" ]; then
+                CPU_REGISTER_OUT=${CPU_REGISTER1#${CPU_REGISTER2}}
+                write_to_address ${GLOBAL_OUTPUT_ADDRESS} "${CPU_REGISTER_OUT}"
+            fi
+            return 0
+            ;;
+        "${CPU_ENCRYPT_CMD}")
+            CPU_REGISTER_OUT="${CPU_REGISTER1}"
+            ;;
+        "${CPU_DECRYPT_CMD}")
+            CPU_REGISTER_OUT="${CPU_REGISTER1}"
             ;;
         *)
             exit_fatal "Unknown cpu instruction: ${CPU_REGISTER_CMD}"

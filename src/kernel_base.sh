@@ -11,6 +11,9 @@
 *GLOBAL_COMPARE_RESULT_INFO_ADDRESS="${GLOBAL_COMPARE_RESULT_INFO}"
 *GLOBAL_NEXT_CMD_INFO_ADDRESS="${GLOBAL_NEXT_CMD_INFO}"
 *GLOBAL_CURRENT_FRAME_COUNT_INFO_ADDRESS="${GLOBAL_CURRENT_FRAME_COUNT_INFO}"
+*GLOBAL_MOUNT_INFO_DISK_ADDRESS="${GLOBAL_MOUNT_INFO_DISK}"
+
+*GLOBAL_WORKING_DIR_ADDRESS="/"
 
 *GLOBAL_DISPLAY_ADDRESS="RAMFS init - done."
 display_success
@@ -32,42 +35,61 @@ LABEL:kernel_loop_start
 
 
 # Display prompt to enter the value:
+*GLOBAL_DISPLAY_ADDRESS=*GLOBAL_WORKING_DIR_ADDRESS
+display_print
 *GLOBAL_DISPLAY_ADDRESS=" :) "
 display_print
 
 # read cmd from keyboard and split into command and arguments:
 read_input
+
+var original_input
+var original_input_cmd
+var original_input_arg1
+var original_input_arg2
+
+*VAR_original_input_ADDRESS=*GLOBAL_INPUT_ADDRESS
 *GLOBAL_ARG1_ADDRESS="1"
-cpu_execute "${CPU_GET_COLUMN_CMD}" ${GLOBAL_INPUT_ADDRESS} ${GLOBAL_ARG1_ADDRESS}
+cpu_execute "${CPU_GET_COLUMN_CMD}" ${VAR_original_input_ADDRESS} ${GLOBAL_ARG1_ADDRESS}
+*VAR_original_input_cmd_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
 
+*GLOBAL_ARG1_ADDRESS="2"
+cpu_execute "${CPU_GET_COLUMN_CMD}" ${VAR_original_input_ADDRESS} ${GLOBAL_ARG1_ADDRESS}
+*VAR_original_input_arg1_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
 
-# Display a message with first component of input:
-println("Parsed command:")
-println(*GLOBAL_OUTPUT_ADDRESS)
+*GLOBAL_ARG1_ADDRESS="3"
+cpu_execute "${CPU_GET_COLUMN_CMD}" ${VAR_original_input_ADDRESS} ${GLOBAL_ARG1_ADDRESS}
+*VAR_original_input_arg2_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
 
 # check for exit command:
 *GLOBAL_ARG1_ADDRESS="exit"
-cpu_execute "${CPU_EQUAL_CMD}" ${GLOBAL_OUTPUT_ADDRESS} ${GLOBAL_ARG1_ADDRESS}
+cpu_execute "${CPU_EQUAL_CMD}" ${VAR_original_input_cmd_ADDRESS} ${GLOBAL_ARG1_ADDRESS}
 jump_if ${LABEL_kernel_terminate}
 
 # check for hi command:
 *GLOBAL_ARG1_ADDRESS="hi"
-cpu_execute "${CPU_EQUAL_CMD}" ${GLOBAL_OUTPUT_ADDRESS} ${GLOBAL_ARG1_ADDRESS}
+cpu_execute "${CPU_EQUAL_CMD}" ${VAR_original_input_cmd_ADDRESS} ${GLOBAL_ARG1_ADDRESS}
 call_func_if print_hello
 
-# TODO
-#     1. Migrate your code from previous lessons from labels and jump to function calls jump_if.
-#     2. The main loop should look like this
-#   LABEL:kernel_loop_start
-#           <code to read input>
-#           check cmd name1
-#           call_func_if func1 ...
-#           check cmd name2
-#           call_func_if func2 ...
-#           ...
-#           jump_to ${LABEL_kernel_loop_start}
-#     3. Add command that will use argument for some logic(use lines 37-39 to get second parameter)
+*GLOBAL_ARG1_ADDRESS="cat"
+cpu_execute "${CPU_EQUAL_CMD}" ${VAR_original_input_cmd_ADDRESS} ${GLOBAL_ARG1_ADDRESS}
+call_func_if system_cat ${VAR_original_input_arg1_ADDRESS}
 
+*GLOBAL_ARG1_ADDRESS="touch"
+cpu_execute "${CPU_EQUAL_CMD}" ${VAR_original_input_cmd_ADDRESS} ${GLOBAL_ARG1_ADDRESS}
+call_func_if system_touch ${VAR_original_input_arg1_ADDRESS} ${VAR_original_input_arg2_ADDRESS}
+
+*GLOBAL_ARG1_ADDRESS="pwd"
+cpu_execute "${CPU_EQUAL_CMD}" ${VAR_original_input_cmd_ADDRESS} ${GLOBAL_ARG1_ADDRESS}
+call_func_if system_pwd
+
+var main_loop_temp_var
+*VAR_main_loop_temp_var_ADDRESS="0"
+cpu_execute "${CPU_EQUAL_CMD}" ${GLOBAL_OUTPUT_ADDRESS} ${VAR_main_loop_temp_var_ADDRESS}
+jump_if ${LABEL_kernel_loop_start}
+
+*GLOBAL_DISPLAY_ADDRESS="Unknown command or bad args"
+display_warning
 
 # go back to the start of the loop:
 jump_to ${LABEL_kernel_loop_start}
@@ -83,22 +105,107 @@ jump_to ${GLOBAL_TERMINATE_ADDRESS}
 FUNC:print_hello
     *GLOBAL_DISPLAY_ADDRESS=generate_hello_string()
     display_success
-# TODO
-#     1. Uncomment the following recursive call of print_hello function.
-#     2. Run OS with sleep between commands -s=0.5 or longer.
-#     3. Enter hi command and review the growth of the stack from the end of file tmp/RAM.txt to the start.
-#    call_func print_hello
+    *GLOBAL_OUTPUT_ADDRESS="0"
     func_return
 
 FUNC:generate_hello_string
     *GLOBAL_OUTPUT_ADDRESS="Hello!!!"
     func_return
-# TODO
-#     1. Patch compiler to add some syntax sugar which allows you to write:
-#           FUNC:generate_hello_string
-#               func_return "Hello!!!"
-#     2. Check that generated build/kernel.disk is the same as it was before.
 
+FUNC:system_pwd
+    println(*GLOBAL_WORKING_DIR_ADDRESS)
+    *GLOBAL_OUTPUT_ADDRESS="0"
+    func_return
+
+FUNC:system_cat
+    var system_cat_temp_var
+    var system_cat_file_descriptor
+    var system_cat_read_result
+
+    *VAR_system_cat_temp_var_ADDRESS="/"
+    cpu_execute "${CPU_STARTS_WITH_CMD}" ${GLOBAL_ARG1_ADDRESS} ${VAR_system_cat_temp_var_ADDRESS}
+    jump_if ${LABEL_system_cat_open_file}
+    cpu_execute "${CPU_CONCAT_CMD}" ${GLOBAL_WORKING_DIR_ADDRESS} ${GLOBAL_ARG1_ADDRESS}
+    *GLOBAL_ARG1_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+
+  LABEL:system_cat_open_file
+    call_func file_open ${GLOBAL_ARG1_ADDRESS}
+    *VAR_system_cat_file_descriptor_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+
+    *VAR_system_cat_temp_var_ADDRESS="-1"
+    cpu_execute "${CPU_EQUAL_CMD}" ${VAR_system_cat_file_descriptor_ADDRESS} "${VAR_system_cat_temp_var_ADDRESS}"
+    jump_if ${LABEL_system_cat_error}
+
+  LABEL:system_cat_loop
+    call_func file_read ${VAR_system_cat_file_descriptor_ADDRESS}
+    *VAR_system_cat_temp_var_ADDRESS="-1"
+    cpu_execute "${CPU_EQUAL_CMD}" ${GLOBAL_OUTPUT_ADDRESS} "${VAR_system_cat_temp_var_ADDRESS}"
+    jump_if ${LABEL_system_cat_end}
+    *GLOBAL_DISPLAY_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+    display_println
+    jump_to ${LABEL_system_cat_loop}
+
+  LABEL:system_cat_end
+    call_func file_close ${VAR_system_cat_file_descriptor_ADDRESS}
+    *GLOBAL_OUTPUT_ADDRESS="0"
+    func_return
+
+  LABEL:system_cat_error
+    *GLOBAL_DISPLAY_ADDRESS="Error opening file"
+    display_error
+    *GLOBAL_OUTPUT_ADDRESS="1"
+    func_return
+
+FUNC:system_touch
+    var system_touch_temp_var
+    var system_touch_file_descriptor
+    var system_touch_counter
+
+    # if one of the arguments is empty, return error:
+    *VAR_system_touch_temp_var_ADDRESS=""
+    cpu_execute "${CPU_EQUAL_CMD}" ${GLOBAL_ARG1_ADDRESS} ${VAR_system_touch_temp_var_ADDRESS}
+    jump_if ${LABEL_system_touch_error}
+    cpu_execute "${CPU_EQUAL_CMD}" ${GLOBAL_ARG2_ADDRESS} ${VAR_system_touch_temp_var_ADDRESS}
+    jump_if ${LABEL_system_touch_error}
+
+    # check if path is not absolute then concat it with working dir:
+    *VAR_system_touch_temp_var_ADDRESS="/"
+    cpu_execute "${CPU_STARTS_WITH_CMD}" ${GLOBAL_ARG1_ADDRESS} ${VAR_system_touch_temp_var_ADDRESS}
+    jump_if ${LABEL_system_touch_create_file}
+    cpu_execute "${CPU_CONCAT_CMD}" ${GLOBAL_WORKING_DIR_ADDRESS} ${GLOBAL_ARG1_ADDRESS}
+    *GLOBAL_ARG1_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+
+  LABEL:system_touch_create_file
+    # call function to create file and check the result:
+    call_func file_create ${GLOBAL_ARG1_ADDRESS} ${GLOBAL_ARG2_ADDRESS}
+    *VAR_system_touch_temp_var_ADDRESS="-1"
+    cpu_execute "${CPU_EQUAL_CMD}" ${GLOBAL_OUTPUT_ADDRESS} ${VAR_system_touch_temp_var_ADDRESS}
+    jump_if ${LABEL_system_touch_error}
+
+    # at this point file was created and we have a valid descriptor
+    # now lets query user to fill all the lines in the new file:
+    *VAR_system_touch_file_descriptor_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+    *GLOBAL_DISPLAY_ADDRESS="Empty file is created. Enter the content of the new file:"
+    display_success
+
+    *VAR_system_touch_counter_ADDRESS="0"
+  LABEL:system_touch_loop
+    read_input
+    call_func file_write ${VAR_system_touch_file_descriptor_ADDRESS} ${GLOBAL_INPUT_ADDRESS}
+
+    *VAR_system_touch_counter_ADDRESS++
+    cpu_execute "${CPU_LESS_THAN_CMD}" ${VAR_system_touch_counter_ADDRESS} ${GLOBAL_ARG2_ADDRESS}
+    jump_if ${LABEL_system_touch_loop}
+
+    call_func file_close ${VAR_system_touch_file_descriptor_ADDRESS}
+    *GLOBAL_OUTPUT_ADDRESS="0"
+    func_return
+
+  LABEL:system_touch_error
+    *GLOBAL_DISPLAY_ADDRESS="Error creating file"
+    display_error
+    *GLOBAL_OUTPUT_ADDRESS="1"
+    func_return
 ##########################################
 # KERNEL_END                             #
 ##########################################

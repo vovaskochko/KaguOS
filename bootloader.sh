@@ -51,7 +51,7 @@ done
 
 # Lets include some human readable names for addresses to simplify reading and writing the code
 source include/defines.sh
-source build/env.sh
+source "${GLOBAL_ENV_FILE}"
 
 
 

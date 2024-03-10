@@ -71,7 +71,9 @@ source include/hw/cpu.sh
 rm -rf "${GLOBAL_BUILD_DIR}"
 mkdir -p "${GLOBAL_BUILD_DIR}"
 
-# Let's process provided source files one by one:
+# Let's process provided source files one by one
+# and store each command to the disk starting from the kernel start address:
+CUR_ADDRESS=${GLOBAL_KERNEL_START}
 for FILE in ${SRC_FILES}; do
     echo "Compiling ${FILE}..."
 
@@ -113,6 +115,20 @@ for FILE in ${SRC_FILES}; do
                 exit 1
             fi
             echo "display_println" >>  "${OBJ_FILE}"
+            continue
+        fi
+
+        if [ "${LINE:0:1}" = "*" ] && [ "${LINE: -2}" = "++" ]; then
+            ADDR_VAR="${LINE:1:-2}"
+            echo "cpu_execute \"\${CPU_INCREMENT_CMD}\" \${${ADDR_VAR}}" >> "${OBJ_FILE}"
+            echo "copy_from_to_address \${GLOBAL_OUTPUT_ADDRESS} \${${ADDR_VAR}}" >> "${OBJ_FILE}"
+            continue
+        fi
+
+        if [ "${LINE:0:1}" = "*" ] && [ "${LINE: -2}" = "--" ]; then
+            ADDR_VAR="${LINE:1:-2}"
+            echo "cpu_execute \"\${CPU_DECREMENT_CMD}\" \${${ADDR_VAR}}" >> "${OBJ_FILE}"
+            echo "copy_from_to_address \${GLOBAL_OUTPUT_ADDRESS} \${${ADDR_VAR}}" >> "${OBJ_FILE}"
             continue
         fi
 
@@ -165,7 +181,6 @@ for FILE in ${SRC_FILES}; do
 
     # Stage 2. Lets convert object file to disk image
     # We are processing address related markers like labels, variables, functions, etc
-    CUR_ADDRESS=${GLOBAL_KERNEL_START}
     while read -r LINE; do
         # Check for label definition and store its name to a list of unassigned labels:
         # NOTE: we are interested in the address of the first instruction that will be stored to the CUR_ADDRESS
@@ -182,11 +197,28 @@ for FILE in ${SRC_FILES}; do
             continue
         fi
 
+        # Process variable declaration:
+        if [[ "${LINE:0:4}" = "var " ]]; then
+            VAR_NAME=$(echo "${LINE#var }")
+            echo "VAR_${VAR_NAME}_ADDRESS" >> "${GLOBAL_VARS_FILE}"
+            continue
+        fi
+
         # Output result line to disk file:
         echo "${LINE}" >> "${GLOBAL_KERNEL_DISK}"
 
         CUR_ADDRESS=$((CUR_ADDRESS + 1))
     done < "${OBJ_FILE}"
+
+    # Stage 3. Lets assign addresses to variables just after the end of this unit in memory:
+    if [ -f "${GLOBAL_VARS_FILE}" ]; then
+        while read -r CUR_VAR; do
+            echo "export ${CUR_VAR}=${CUR_ADDRESS}" >> "${GLOBAL_ENV_FILE}"
+            echo "0" >> "${GLOBAL_KERNEL_DISK}"
+            CUR_ADDRESS=$((CUR_ADDRESS + 1))
+        done < "${GLOBAL_VARS_FILE}"
+        rm -f "${GLOBAL_VARS_FILE}"
+    fi
 done
 
 # If full compilation requested, substitute all address constants with their numeric value

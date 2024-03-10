@@ -8,6 +8,35 @@ function read_input() {
     write_to_address ${GLOBAL_INPUT_ADDRESS} "${INPUT_LINE}"
 }
 
+function read_device_buffer {
+    local DEVICE_TO_READ=$(read_from_address ${1})
+    local DEVICE_INPUT_ARG=$(read_from_address ${2})
+
+    if [ ! -f "${DEVICE_TO_READ}" ]; then
+        exit_fatal "Device ${DEVICE_TO_READ} does not exist"
+    fi
+
+    RES=$(sed -n "${DEVICE_INPUT_ARG}p" "${DEVICE_TO_READ}")
+    write_to_address ${GLOBAL_OUTPUT_ADDRESS} "${RES}"
+}
+
+function write_device_buffer {
+    local DEVICE_TO_WRITE=$(read_from_address ${1})
+    local DEVICE_OUTPUT_LINE=$(read_from_address ${2})
+    local DEVICE_OUTPUT_CONTENT=$(read_from_address ${3})
+    if [ ! -f "${DEVICE_TO_WRITE}" ]; then
+        exit_fatal "Device ${DEVICE_TO_WRITE} does not exist"
+    fi
+
+    DEVICE_OUTPUT_CONTENT_ESC=$(sed 's/[\*\.&\/]/\\&/g' <<<"$DEVICE_OUTPUT_CONTENT")
+    if [ "$(uname -s)" = "Darwin" ]; then
+        RES=$(sed -i '' "${DEVICE_OUTPUT_LINE}s/.*/${DEVICE_OUTPUT_CONTENT_ESC}/" "${DEVICE_TO_WRITE}")
+    else
+        RES=$(sed -i "${DEVICE_OUTPUT_LINE}s/.*/${DEVICE_OUTPUT_CONTENT_ESC}/" "${DEVICE_TO_WRITE}")
+    fi
+}
+
+
 
 # print regular logs
 function display_println {
