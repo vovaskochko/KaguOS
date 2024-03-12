@@ -527,3 +527,35 @@ FUNC:file_create
 
     LABEL:file_create_error
         return "-1"
+
+# Conversion of int value permission to string like rwx, r-x, etc
+FUNC:system_permission_int_to_string
+    if *GLOBAL_ARG1_ADDRESS=="0"
+        return "---"
+    fi
+
+    if *GLOBAL_ARG1_ADDRESS=="1"
+        return "--x"
+    fi
+
+    if *GLOBAL_ARG1_ADDRESS=="2"
+        return "-w-"
+    fi
+    if *GLOBAL_ARG1_ADDRESS=="3"
+        return "-wx"
+    fi
+
+    if *GLOBAL_ARG1_ADDRESS=="4"
+        return "r--"
+    fi
+
+    if *GLOBAL_ARG1_ADDRESS=="5"
+        return "r-x"
+    fi
+    if *GLOBAL_ARG1_ADDRESS=="6"
+        return "rw-"
+    fi
+    if *GLOBAL_ARG1_ADDRESS=="7"
+        return "rwx"
+    fi
+    return "-1"

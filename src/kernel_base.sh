@@ -87,6 +87,11 @@ if *VAR_original_input_cmd_ADDRESS=="touch"
     jump_to ${LABEL_kernel_loop_start}
 fi
 
+if *VAR_original_input_cmd_ADDRESS=="ls"
+    call_func system_ls ${VAR_original_input_arg1_ADDRESS} ${VAR_original_input_arg2_ADDRESS}
+    jump_to ${LABEL_kernel_loop_start}
+fi
+
 # check for pwd command:
 if *VAR_original_input_cmd_ADDRESS=="pwd"
     call_func system_pwd
@@ -204,6 +209,104 @@ FUNC:system_touch
     *GLOBAL_DISPLAY_ADDRESS="Error creating file"
     display_error
     return "1"
+
+FUNC:system_ls
+    var system_ls_file_descriptor
+    var system_ls_temp_var
+    var system_ls_file_info
+    var system_ls_disk
+    var system_ls_file_header_line
+    var system_ls_file_header
+    var system_ls_res
+
+    if *GLOBAL_ARG1_ADDRESS!="-la"
+        *GLOBAL_DISPLAY_ADDRESS="Unknown args. Usage: ls -la <filename>"
+        display_error
+        return "1"
+    fi
+
+    if *GLOBAL_ARG2_ADDRESS==""
+        *GLOBAL_DISPLAY_ADDRESS="Unknown args. Usage: ls -la <filename>"
+        display_error
+        return "1"
+    fi
+
+    # check if path is not absolute then concat it with working dir:
+    *VAR_system_touch_temp_var_ADDRESS="/"
+    cpu_execute "${CPU_STARTS_WITH_CMD}" ${GLOBAL_ARG2_ADDRESS} ${VAR_system_touch_temp_var_ADDRESS}
+    jump_if ${LABEL_system_ls_path_absolute}
+    cpu_execute "${CPU_CONCAT_CMD}" ${GLOBAL_WORKING_DIR_ADDRESS} ${GLOBAL_ARG2_ADDRESS}
+    *GLOBAL_ARG2_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+
+  LABEL:system_ls_path_absolute
+    call_func file_open ${GLOBAL_ARG2_ADDRESS}
+    if *GLOBAL_OUTPUT_ADDRESS=="-1"
+        *GLOBAL_DISPLAY_ADDRESS="No such file"
+        return "1"
+    else
+        *VAR_system_ls_file_descriptor_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+    fi
+
+    call_func file_info ${VAR_system_ls_file_descriptor_ADDRESS}
+    *VAR_system_ls_file_info_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+    call_func file_close ${VAR_system_ls_file_descriptor_ADDRESS}
+
+    *VAR_system_ls_temp_var_ADDRESS="2"
+    cpu_execute "${CPU_GET_COLUMN_CMD}" ${VAR_system_ls_file_info_ADDRESS} ${VAR_system_ls_temp_var_ADDRESS}
+    *VAR_system_ls_disk_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+
+    *VAR_system_ls_temp_var_ADDRESS="6"
+    cpu_execute "${CPU_GET_COLUMN_CMD}" ${VAR_system_ls_file_info_ADDRESS} ${VAR_system_ls_temp_var_ADDRESS}
+    *VAR_system_ls_file_header_line_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+
+    read_device_buffer ${VAR_system_ls_disk_ADDRESS} ${VAR_system_ls_file_header_line_ADDRESS}
+    *VAR_system_ls_file_header_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+
+    *VAR_system_ls_temp_var_ADDRESS="2"
+    cpu_execute "${CPU_GET_COLUMN_CMD}" ${VAR_system_ls_file_header_ADDRESS} ${VAR_system_ls_temp_var_ADDRESS}
+    if *GLOBAL_OUTPUT_ADDRESS=="file"
+        *VAR_system_ls_res_ADDRESS="-"
+    fi
+    if *GLOBAL_OUTPUT_ADDRESS=="dir"
+        *VAR_system_ls_res_ADDRESS="d"
+    fi
+
+    *VAR_system_ls_temp_var_ADDRESS="3"
+    cpu_execute "${CPU_GET_COLUMN_CMD}" ${VAR_system_ls_file_header_ADDRESS} ${VAR_system_ls_temp_var_ADDRESS}
+    call_func system_permission_int_to_string ${GLOBAL_OUTPUT_ADDRESS}
+    cpu_execute "${CPU_CONCAT_CMD}" ${VAR_system_ls_res_ADDRESS} ${GLOBAL_OUTPUT_ADDRESS}
+    *VAR_system_ls_res_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+
+    *VAR_system_ls_temp_var_ADDRESS="4"
+    cpu_execute "${CPU_GET_COLUMN_CMD}" ${VAR_system_ls_file_header_ADDRESS} ${VAR_system_ls_temp_var_ADDRESS}
+    call_func system_permission_int_to_string ${GLOBAL_OUTPUT_ADDRESS}
+    cpu_execute "${CPU_CONCAT_CMD}" ${VAR_system_ls_res_ADDRESS} ${GLOBAL_OUTPUT_ADDRESS}
+    *VAR_system_ls_res_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+
+    *VAR_system_ls_temp_var_ADDRESS="5"
+    cpu_execute "${CPU_GET_COLUMN_CMD}" ${VAR_system_ls_file_header_ADDRESS} ${VAR_system_ls_temp_var_ADDRESS}
+    call_func system_permission_int_to_string ${GLOBAL_OUTPUT_ADDRESS}
+    cpu_execute "${CPU_CONCAT_CMD}" ${VAR_system_ls_res_ADDRESS} ${GLOBAL_OUTPUT_ADDRESS}
+    *VAR_system_ls_res_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+
+    *VAR_system_ls_temp_var_ADDRESS="6"
+    cpu_execute "${CPU_GET_COLUMN_CMD}" ${VAR_system_ls_file_header_ADDRESS} ${VAR_system_ls_temp_var_ADDRESS}
+    cpu_execute "${CPU_CONCAT_SPACES_CMD}" ${VAR_system_ls_res_ADDRESS} ${GLOBAL_OUTPUT_ADDRESS}
+    *VAR_system_ls_res_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+
+    *VAR_system_ls_temp_var_ADDRESS="7"
+    cpu_execute "${CPU_GET_COLUMN_CMD}" ${VAR_system_ls_file_header_ADDRESS} ${VAR_system_ls_temp_var_ADDRESS}
+    cpu_execute "${CPU_CONCAT_SPACES_CMD}" ${VAR_system_ls_res_ADDRESS} ${GLOBAL_OUTPUT_ADDRESS}
+    *VAR_system_ls_res_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+
+    *VAR_system_ls_temp_var_ADDRESS="1"
+    cpu_execute "${CPU_GET_COLUMN_CMD}" ${VAR_system_ls_file_header_ADDRESS} ${VAR_system_ls_temp_var_ADDRESS}
+    cpu_execute "${CPU_CONCAT_SPACES_CMD}" ${VAR_system_ls_res_ADDRESS} ${GLOBAL_OUTPUT_ADDRESS}
+    *VAR_system_ls_res_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+
+    println(*VAR_system_ls_res_ADDRESS)
+    return "0"
+
 ##########################################
 # KERNEL_END                             #
 ##########################################
