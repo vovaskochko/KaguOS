@@ -74,16 +74,24 @@ mkdir -p "${GLOBAL_BUILD_DIR}"
 # Let's process provided source files one by one
 # and store each command to the disk starting from the kernel start address:
 CUR_ADDRESS=${GLOBAL_KERNEL_START}
+
+# Add variables to handle if-else-fi
+IF_LABEL=""
+ELSE_FOUND=""
+IF_COUNT="0"
 for FILE in ${SRC_FILES}; do
     echo "Compiling ${FILE}..."
 
     # Stage 1. Lets prepare an object file using some preprocessing
     # We will process syntax sugar patterns in this loop.
     OBJ_FILE="${GLOBAL_BUILD_DIR}"/"$(echo "${FILE}" | sed "s,/,___,g")".o
+    LINE_NO="0"
     while read -r LINE; do
         # remove leading and trailing spaces
         # NOTE AI: Learn about piping | which allows to use output of one command as input of another.
         LINE=$(echo "${LINE}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+
+        LINE_NO=$((LINE_NO+1))
 
         # Skip empty lines and comments:
         # NOTE: ${VAR_NAME:0:1} - get first character of string
@@ -115,6 +123,82 @@ for FILE in ${SRC_FILES}; do
                 exit 1
             fi
             echo "display_println" >>  "${OBJ_FILE}"
+            continue
+        fi
+
+        # Let's handle
+        #   return "some string"
+        # as a short form of
+        #   write_to_address ${GLOBAL_OUTPUT_ADDRESS} "some string"
+        #   func_return
+        # and
+        #   return *VAR
+        # as a short form of
+        #   copy_from_to_address ${VAR} ${GLOBAL_OUTPUT_ADDRESS}
+        #   func_return
+        if [ "${LINE:0:7}" = "return " ]; then
+            SUBLINE="${LINE#return }"
+            if [ "${SUBLINE:0:1}" = '"' ]; then
+                echo "write_to_address \${GLOBAL_OUTPUT_ADDRESS} \"${SUBLINE:1:-1}\"" >> "${OBJ_FILE}"
+                echo "func_return" >> "${OBJ_FILE}"
+                continue
+            fi
+            if [ "${SUBLINE:0:1}" = '*' ]; then
+                echo "copy_from_to_address \${${SUBLINE:1}} \${GLOBAL_OUTPUT_ADDRESS}" >> "${OBJ_FILE}"
+                echo "func_return" >> "${OBJ_FILE}"
+                continue
+            fi
+            echo "Compilation failed at  ${FILE}:${LINE_NO} ${LINE}"
+            exit 1
+        fi
+
+        # Let's handle if-else-fi statements
+        #           if *VAR=="value"
+        # or        if *VAR!="value"
+        # or        if *VAR==*VAR1
+        # or        if *VAR!=*VAR1
+        #               <if instructions>
+        # optional  else
+        # optional      <else instructions>
+        #           fi
+        if [ "${LINE:0:3}" = "if " ]; then
+            IF_LABEL="IF_${IF_COUNT}"
+            IF_CONDITION="${LINE#if }"
+
+            if [ ! -z "$(echo "${IF_CONDITION}" | grep -o "==")" ]; then
+                CMP_TO_ELSE="CPU_NOT_EQUAL_CMD"
+                LEFT_SIDE="${IF_CONDITION%==*}"
+                RIGHT_SIDE="${IF_CONDITION#*==}"
+            fi
+            if [ ! -z "$(echo "${IF_CONDITION}" | grep -o "!=")" ]; then
+                CMP_TO_ELSE="CPU_EQUAL_CMD"
+                LEFT_SIDE="${IF_CONDITION%!=*}"
+                RIGHT_SIDE="${IF_CONDITION#*!=}"
+            fi
+
+            if [ "${RIGHT_SIDE:0:1}" = '"' ]; then
+                echo "write_to_address \${GLOBAL_IF_HELPER_ADDRESS} \"${RIGHT_SIDE:1:-1}\"" >> "${OBJ_FILE}"
+                RIGHT_SIDE="*GLOBAL_IF_HELPER_ADDRESS"
+            fi
+
+            echo "cpu_execute \"\${${CMP_TO_ELSE}}\" \${${LEFT_SIDE:1}} \${${RIGHT_SIDE:1}}" >> "${OBJ_FILE}"
+            echo "jump_if \${LABEL_${IF_LABEL}_else}" >> "${OBJ_FILE}"
+            continue
+        fi
+        if [ "${LINE}" = "else" ]; then
+            echo "jump_to \${LABEL_${IF_LABEL}_end}" >> "${OBJ_FILE}"
+            echo "LABEL:${IF_LABEL}_else" >> "${OBJ_FILE}"
+            ELSE_FOUND="1"
+            continue
+        fi
+        if [ "${LINE}" = "fi" ]; then
+            if [ -z "${ELSE_FOUND}" ]; then
+                echo "LABEL:${IF_LABEL}_else" >> "${OBJ_FILE}"
+            fi
+            echo "LABEL:${IF_LABEL}_end" >> "${OBJ_FILE}"
+            ELSE_FOUND=""
+            IF_LABEL=""
+            IF_COUNT=$(($IF_COUNT+1))
             continue
         fi
 
@@ -166,11 +250,6 @@ for FILE in ${SRC_FILES}; do
                 echo "write_to_address \${${LEFT_SIDE:1}} \"${RIGHT_SIDE:1:-1}\"" >> "${OBJ_FILE}"
                 continue
             fi
-            # TODO
-            #     1. Add support of short version for increment *ADDR_VAR++ should be converted to :
-            #           cpu_execute "${CPU_INCREMENT_CMD}" ${ADDR_VAR_NAME}
-            #           copy_from_to_address ${GLOBAL_OUTPUT_ADDRESS} ${ADDR_VAR_NAME}
-            #     2. Add support of short version for decrement *ADDR_VAR--.
         fi
 
         # Output result line to object file:

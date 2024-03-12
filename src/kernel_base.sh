@@ -62,31 +62,37 @@ cpu_execute "${CPU_GET_COLUMN_CMD}" ${VAR_original_input_ADDRESS} ${GLOBAL_ARG1_
 *VAR_original_input_arg2_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
 
 # check for exit command:
-*GLOBAL_ARG1_ADDRESS="exit"
-cpu_execute "${CPU_EQUAL_CMD}" ${VAR_original_input_cmd_ADDRESS} ${GLOBAL_ARG1_ADDRESS}
-jump_if ${LABEL_kernel_terminate}
+if *VAR_original_input_cmd_ADDRESS=="exit"
+    # Display goodbye message:
+    *GLOBAL_DISPLAY_ADDRESS="Goodbye!"
+    display_success
+    jump_to ${GLOBAL_TERMINATE_ADDRESS}
+fi
 
 # check for hi command:
-*GLOBAL_ARG1_ADDRESS="hi"
-cpu_execute "${CPU_EQUAL_CMD}" ${VAR_original_input_cmd_ADDRESS} ${GLOBAL_ARG1_ADDRESS}
-call_func_if print_hello
+if *VAR_original_input_cmd_ADDRESS=="hi"
+    call_func print_hello
+    jump_to ${LABEL_kernel_loop_start}
+fi
 
-*GLOBAL_ARG1_ADDRESS="cat"
-cpu_execute "${CPU_EQUAL_CMD}" ${VAR_original_input_cmd_ADDRESS} ${GLOBAL_ARG1_ADDRESS}
-call_func_if system_cat ${VAR_original_input_arg1_ADDRESS}
+# check for cat command:
+if *VAR_original_input_cmd_ADDRESS=="cat"
+    call_func system_cat ${VAR_original_input_arg1_ADDRESS}
+    jump_to ${LABEL_kernel_loop_start}
+fi
 
-*GLOBAL_ARG1_ADDRESS="touch"
-cpu_execute "${CPU_EQUAL_CMD}" ${VAR_original_input_cmd_ADDRESS} ${GLOBAL_ARG1_ADDRESS}
-call_func_if system_touch ${VAR_original_input_arg1_ADDRESS} ${VAR_original_input_arg2_ADDRESS}
+# check for touch command:
+if *VAR_original_input_cmd_ADDRESS=="touch"
+    call_func system_touch ${VAR_original_input_arg1_ADDRESS} ${VAR_original_input_arg2_ADDRESS}
+    jump_to ${LABEL_kernel_loop_start}
+fi
 
-*GLOBAL_ARG1_ADDRESS="pwd"
-cpu_execute "${CPU_EQUAL_CMD}" ${VAR_original_input_cmd_ADDRESS} ${GLOBAL_ARG1_ADDRESS}
-call_func_if system_pwd
+# check for pwd command:
+if *VAR_original_input_cmd_ADDRESS=="pwd"
+    call_func system_pwd
+    jump_to ${LABEL_kernel_loop_start}
+fi
 
-var main_loop_temp_var
-*VAR_main_loop_temp_var_ADDRESS="0"
-cpu_execute "${CPU_EQUAL_CMD}" ${GLOBAL_OUTPUT_ADDRESS} ${VAR_main_loop_temp_var_ADDRESS}
-jump_if ${LABEL_kernel_loop_start}
 
 *GLOBAL_DISPLAY_ADDRESS="Unknown command or bad args"
 display_warning
@@ -95,27 +101,17 @@ display_warning
 jump_to ${LABEL_kernel_loop_start}
 
 
-# termination code
-LABEL:kernel_terminate
-# Display goodbye message:
-*GLOBAL_DISPLAY_ADDRESS="Goodbye!"
-display_success
-jump_to ${GLOBAL_TERMINATE_ADDRESS}
-
 FUNC:print_hello
     *GLOBAL_DISPLAY_ADDRESS=generate_hello_string()
     display_success
-    *GLOBAL_OUTPUT_ADDRESS="0"
-    func_return
+    return "0"
 
 FUNC:generate_hello_string
-    *GLOBAL_OUTPUT_ADDRESS="Hello!!!"
-    func_return
+    return "Hello!!!"
 
 FUNC:system_pwd
     println(*GLOBAL_WORKING_DIR_ADDRESS)
-    *GLOBAL_OUTPUT_ADDRESS="0"
-    func_return
+    return "0"
 
 FUNC:system_cat
     var system_cat_temp_var
@@ -132,29 +128,28 @@ FUNC:system_cat
     call_func file_open ${GLOBAL_ARG1_ADDRESS}
     *VAR_system_cat_file_descriptor_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
 
-    *VAR_system_cat_temp_var_ADDRESS="-1"
-    cpu_execute "${CPU_EQUAL_CMD}" ${VAR_system_cat_file_descriptor_ADDRESS} "${VAR_system_cat_temp_var_ADDRESS}"
-    jump_if ${LABEL_system_cat_error}
+    if *VAR_system_cat_file_descriptor_ADDRESS=="-1"
+        jump_to ${LABEL_system_cat_error}
+    fi
 
   LABEL:system_cat_loop
     call_func file_read ${VAR_system_cat_file_descriptor_ADDRESS}
-    *VAR_system_cat_temp_var_ADDRESS="-1"
-    cpu_execute "${CPU_EQUAL_CMD}" ${GLOBAL_OUTPUT_ADDRESS} "${VAR_system_cat_temp_var_ADDRESS}"
-    jump_if ${LABEL_system_cat_end}
+    if *GLOBAL_OUTPUT_ADDRESS=="-1"
+        jump_to ${LABEL_system_cat_end}
+    fi
+
     *GLOBAL_DISPLAY_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
     display_println
     jump_to ${LABEL_system_cat_loop}
 
   LABEL:system_cat_end
     call_func file_close ${VAR_system_cat_file_descriptor_ADDRESS}
-    *GLOBAL_OUTPUT_ADDRESS="0"
-    func_return
+    return "0"
 
   LABEL:system_cat_error
     *GLOBAL_DISPLAY_ADDRESS="Error opening file"
     display_error
-    *GLOBAL_OUTPUT_ADDRESS="1"
-    func_return
+    return "1"
 
 FUNC:system_touch
     var system_touch_temp_var
@@ -162,11 +157,16 @@ FUNC:system_touch
     var system_touch_counter
 
     # if one of the arguments is empty, return error:
-    *VAR_system_touch_temp_var_ADDRESS=""
-    cpu_execute "${CPU_EQUAL_CMD}" ${GLOBAL_ARG1_ADDRESS} ${VAR_system_touch_temp_var_ADDRESS}
-    jump_if ${LABEL_system_touch_error}
-    cpu_execute "${CPU_EQUAL_CMD}" ${GLOBAL_ARG2_ADDRESS} ${VAR_system_touch_temp_var_ADDRESS}
-    jump_if ${LABEL_system_touch_error}
+    if *GLOBAL_ARG1_ADDRESS==""
+      jump_to ${LABEL_system_touch_error}
+    fi
+    if *GLOBAL_ARG2_ADDRESS==""
+      jump_to ${LABEL_system_touch_error}
+    fi
+
+    *VAR_system_touch_temp_var_ADDRESS="1"
+    cpu_execute "${CPU_LESS_THAN_CMD}" ${GLOBAL_ARG2_ADDRESS} ${VAR_system_touch_temp_var_ADDRESS}
+    jump_if ${LABEL_system_touch_error}  
 
     # check if path is not absolute then concat it with working dir:
     *VAR_system_touch_temp_var_ADDRESS="/"
@@ -178,9 +178,9 @@ FUNC:system_touch
   LABEL:system_touch_create_file
     # call function to create file and check the result:
     call_func file_create ${GLOBAL_ARG1_ADDRESS} ${GLOBAL_ARG2_ADDRESS}
-    *VAR_system_touch_temp_var_ADDRESS="-1"
-    cpu_execute "${CPU_EQUAL_CMD}" ${GLOBAL_OUTPUT_ADDRESS} ${VAR_system_touch_temp_var_ADDRESS}
-    jump_if ${LABEL_system_touch_error}
+    if *GLOBAL_OUTPUT_ADDRESS=="-1"
+        jump_to ${LABEL_system_touch_error}
+    fi
 
     # at this point file was created and we have a valid descriptor
     # now lets query user to fill all the lines in the new file:
@@ -198,14 +198,12 @@ FUNC:system_touch
     jump_if ${LABEL_system_touch_loop}
 
     call_func file_close ${VAR_system_touch_file_descriptor_ADDRESS}
-    *GLOBAL_OUTPUT_ADDRESS="0"
-    func_return
+    return "0"
 
   LABEL:system_touch_error
     *GLOBAL_DISPLAY_ADDRESS="Error creating file"
     display_error
-    *GLOBAL_OUTPUT_ADDRESS="1"
-    func_return
+    return "1"
 ##########################################
 # KERNEL_END                             #
 ##########################################

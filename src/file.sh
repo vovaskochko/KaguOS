@@ -21,9 +21,9 @@ FUNC:file_found_disk
         read_device_buffer ${GLOBAL_MOUNT_INFO_DISK_ADDRESS} ${VAR_file_found_disk_counter_ADDRESS}
         *VAR_file_found_disk_cur_line_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
 
-        *VAR_file_found_disk_temp_var_ADDRESS=""
-        cpu_execute "${CPU_EQUAL_CMD}" ${VAR_file_found_disk_cur_line_ADDRESS} ${VAR_file_found_disk_temp_var_ADDRESS}
-        jump_if ${LABEL_file_found_disk_error}
+        if *VAR_file_found_disk_cur_line_ADDRESS==""
+            jump_to ${LABEL_file_found_disk_error}
+        fi
 
         *VAR_file_found_disk_temp_var_ADDRESS="2"
         cpu_execute "${CPU_GET_COLUMN_CMD}" ${VAR_file_found_disk_cur_line_ADDRESS} ${VAR_file_found_disk_temp_var_ADDRESS}
@@ -43,21 +43,20 @@ FUNC:file_found_disk
         jump_to ${LABEL_file_found_disk_mount_loop}
 
     LABEL:file_found_disk_error
-        *GLOBAL_OUTPUT_ADDRESS="-1"
-        func_return
+        return "-1"
 
     LABEL:file_found_disk_found
         call_func file_found_disk_partition_line ${VAR_file_found_disk_name_ADDRESS} ${VAR_file_found_disk_partition_ADDRESS}
-        *VAR_file_found_disk_temp_var_ADDRESS="-1"
-        cpu_execute "${CPU_EQUAL_CMD}" ${GLOBAL_OUTPUT_ADDRESS} ${VAR_file_found_disk_temp_var_ADDRESS}
-        jump_if ${LABEL_file_found_disk_error}
+        if *GLOBAL_OUTPUT_ADDRESS=="-1"
+            jump_to ${LABEL_file_found_disk_error}
+        fi
         *VAR_file_found_disk_part_line_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
 
         *GLOBAL_OUTPUT_ADDRESS=*VAR_file_found_disk_name_ADDRESS
         cpu_execute "${CPU_CONCAT_SPACES_CMD}" ${GLOBAL_OUTPUT_ADDRESS} ${VAR_file_found_disk_partition_ADDRESS}
         cpu_execute "${CPU_CONCAT_SPACES_CMD}" ${GLOBAL_OUTPUT_ADDRESS} ${VAR_file_found_disk_part_line_ADDRESS}
         cpu_execute "${CPU_CONCAT_SPACES_CMD}" ${GLOBAL_OUTPUT_ADDRESS} ${VAR_file_found_disk_filename_ADDRESS}
-        func_return
+        return *GLOBAL_OUTPUT_ADDRESS
 
 # Check for partition to exist on disk
 # INPUT: disk name, partition name
@@ -71,9 +70,9 @@ FUNC:file_found_disk_partition_line
         # If the first line of the disk is not PARTITION_TABLE then partition table is broken and we should report an error
         *VAR_file_found_disk_partition_line_counter_ADDRESS="1"
         read_device_buffer ${GLOBAL_ARG1_ADDRESS} ${VAR_file_found_disk_partition_line_counter_ADDRESS}
-        *VAR_file_found_disk_partition_line_temp_var_ADDRESS="PARTITION_TABLE"
-        cpu_execute "${CPU_NOT_EQUAL_CMD}" ${GLOBAL_OUTPUT_ADDRESS} ${VAR_file_found_disk_partition_line_temp_var_ADDRESS}
-        jump_if ${LABEL_found_disk_partition_line_error}
+        if *GLOBAL_OUTPUT_ADDRESS!="PARTITION_TABLE"
+            jump_to ${LABEL_found_disk_partition_line_error}
+        fi
 
         # Start a loop to find the parition:
         *VAR_file_found_disk_partition_line_counter_ADDRESS++
@@ -82,26 +81,24 @@ FUNC:file_found_disk_partition_line
         *VAR_file_found_disk_partition_line_cur_line_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
 
         # check whether we reached end of partition table
-        *VAR_file_found_disk_partition_line_temp_var_ADDRESS="PARTITION_TABLE_END"
-        cpu_execute "${CPU_EQUAL_CMD}" ${VAR_file_found_disk_partition_line_cur_line_ADDRESS} ${VAR_file_found_disk_partition_line_temp_var_ADDRESS}
-        jump_if ${LABEL_found_disk_partition_line_error}
+        if *GLOBAL_OUTPUT_ADDRESS=="PARTITION_TABLE_END"
+            jump_to ${LABEL_found_disk_partition_line_error}
+        fi
 
         *VAR_file_found_disk_partition_line_temp_var_ADDRESS="1"
         cpu_execute "${CPU_GET_COLUMN_CMD}" ${VAR_file_found_disk_partition_line_cur_line_ADDRESS} ${VAR_file_found_disk_partition_line_temp_var_ADDRESS}
-
-        cpu_execute "${CPU_EQUAL_CMD}" ${GLOBAL_OUTPUT_ADDRESS} ${GLOBAL_ARG2_ADDRESS}
-        jump_if ${LABEL_found_disk_partition_line_ok}
+        if *GLOBAL_OUTPUT_ADDRESS==*GLOBAL_ARG2_ADDRESS
+            jump_to ${LABEL_found_disk_partition_line_ok}
+        fi
 
         *VAR_file_found_disk_partition_line_counter_ADDRESS++
         jump_to ${LABEL_file_found_disk_partition_line_loop}
 
     LABEL:found_disk_partition_line_error
-        *GLOBAL_OUTPUT_ADDRESS="-1"
-        func_return
+        return "-1"
 
     LABEL:found_disk_partition_line_ok
-        *GLOBAL_OUTPUT_ADDRESS=*VAR_file_found_disk_partition_line_counter_ADDRESS
-        func_return
+        return *VAR_file_found_disk_partition_line_counter_ADDRESS
 
 # function returns the address in RAM as file descriptor e.g. writes it to GLOBAL_OUTPUT_ADDRESS
 # or -1 if file doesn't exist
@@ -121,8 +118,9 @@ FUNC:file_open
         # Check for mount point and partition existence for a given filename
         call_func file_found_disk ${GLOBAL_ARG1_ADDRESS}
         *VAR_file_open_disk_info_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
-        cpu_execute "${CPU_EQUAL_CMD}" ${GLOBAL_OUTPUT_ADDRESS} "-1"
-        jump_if ${LABEL_file_open_file_not_found}
+        if *VAR_file_open_disk_info_ADDRESS=="-1"
+            jump_to ${LABEL_file_open_file_not_found}
+        fi
 
         # Parse disk info:
         *VAR_file_open_temp_var_ADDRESS="1"
@@ -154,9 +152,9 @@ FUNC:file_open
         *VAR_file_open_counter_ADDRESS=*VAR_file_open_partition_start_ADDRESS
         read_device_buffer ${VAR_file_open_disk_name_ADDRESS} ${VAR_file_open_counter_ADDRESS}
 
-        *VAR_file_open_temp_var_ADDRESS="DUMMY_FS"
-        cpu_execute "${CPU_NOT_EQUAL_CMD}" ${GLOBAL_OUTPUT_ADDRESS} ${VAR_file_open_temp_var_ADDRESS}
-        jump_if ${LABEL_file_open_file_not_found}
+        if *GLOBAL_OUTPUT_ADDRESS!="DUMMY_FS"
+            jump_to ${LABEL_file_open_file_not_found}
+        fi
 
         *VAR_file_open_counter_ADDRESS++
     LABEL:file_open_file_loop
@@ -164,14 +162,15 @@ FUNC:file_open
         *VAR_file_open_cur_line_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
 
         # check whether we reached end of partition table
-        *VAR_file_open_temp_var_ADDRESS="DUMMY_FS_END"
-        cpu_execute "${CPU_EQUAL_CMD}" ${GLOBAL_OUTPUT_ADDRESS} ${VAR_file_open_temp_var_ADDRESS}
-        jump_if ${LABEL_file_open_file_not_found}
+        if *GLOBAL_OUTPUT_ADDRESS=="DUMMY_FS_END"
+            jump_to ${LABEL_file_open_file_not_found}
+        fi
 
         *VAR_file_open_temp_var_ADDRESS="1"
         cpu_execute "${CPU_GET_COLUMN_CMD}" ${VAR_file_open_cur_line_ADDRESS} ${VAR_file_open_temp_var_ADDRESS}
-        cpu_execute "${CPU_EQUAL_CMD}" ${GLOBAL_OUTPUT_ADDRESS} ${VAR_file_open_filename_ADDRESS}
-        jump_if ${LABEL_file_open_file_found}
+        if *GLOBAL_OUTPUT_ADDRESS==*VAR_file_open_filename_ADDRESS
+            jump_to ${LABEL_file_open_file_found}
+        fi
 
         *VAR_file_open_counter_ADDRESS++
         jump_to ${LABEL_file_open_file_loop}
@@ -212,11 +211,12 @@ FUNC:file_open
         *VAR_file_open_file_end_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
         *VAR_file_open_counter_ADDRESS++
 
-        *VAR_file_open_temp_var_ADDRESS=""
-        cpu_execute "${CPU_EQUAL_CMD}" ${VAR_file_open_file_start_ADDRESS} ${VAR_file_open_temp_var_ADDRESS}
-        jump_if ${LABEL_file_open_chunks_loop_end}
-        cpu_execute "${CPU_EQUAL_CMD}" ${VAR_file_open_file_end_ADDRESS} ${VAR_file_open_temp_var_ADDRESS}
-        jump_if ${LABEL_file_open_chunks_loop_end}
+        if *VAR_file_open_file_start_ADDRESS==""
+            jump_to ${LABEL_file_open_chunks_loop_end}
+        fi
+        if *VAR_file_open_file_end_ADDRESS==""
+            jump_to ${LABEL_file_open_chunks_loop_end}
+        fi
 
         *VAR_file_open_temp_var_ADDRESS=*VAR_file_open_file_start_ADDRESS
         cpu_execute "${CPU_CONCAT_SPACES_CMD}" ${VAR_file_open_file_desc_ADDRESS} ${VAR_file_open_temp_var_ADDRESS}
@@ -246,8 +246,7 @@ FUNC:file_open
         func_return
 
     LABEL:file_open_file_not_found
-        *GLOBAL_OUTPUT_ADDRESS="-1"
-        func_return
+        return "-1"
 
 # Get file information based on provided file descriptor
 # INPUT: file descriptor
@@ -261,8 +260,7 @@ FUNC:file_info
 # OUTPUT: 0 on success, -1 otherwise
 FUNC:file_close
     write_to_address $(read_from_address ${GLOBAL_ARG1_ADDRESS}) "0"
-    *GLOBAL_OUTPUT_ADDRESS="0"
-    func_return
+    return "0"
 
 # function reads one line from the file with provided file descriptor
 # INPUT: file descriptor, address to write result line
@@ -280,18 +278,14 @@ FUNC:file_read
     *VAR_file_read_disk_name_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
 
     call_func file_cursor_to_line ${GLOBAL_ARG1_ADDRESS}
-    *VAR_file_read_temp_var_ADDRESS="-1"
-    cpu_execute "${CPU_EQUAL_CMD}" ${GLOBAL_OUTPUT_ADDRESS} ${VAR_file_read_temp_var_ADDRESS}
-    jump_if ${LABEL_file_read_not_found}
+    if *GLOBAL_OUTPUT_ADDRESS=="-1"
+        return "-1"
+    fi
 
     read_device_buffer ${VAR_file_read_disk_name_ADDRESS} ${GLOBAL_OUTPUT_ADDRESS}
     *VAR_file_read_temp_var_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
 
-    *GLOBAL_OUTPUT_ADDRESS=*VAR_file_read_temp_var_ADDRESS
-    func_return
-  LABEL:file_read_not_found
-    *GLOBAL_OUTPUT_ADDRESS="-1"
-    func_return
+    return *VAR_file_read_temp_var_ADDRESS
 
 # function writes one line to the file with provided file descriptor
 # INPUT: file descriptor, address with line that should be added to file
@@ -309,19 +303,14 @@ FUNC:file_write
     *VAR_file_write_disk_name_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
 
     call_func file_cursor_to_line ${GLOBAL_ARG1_ADDRESS}
-    *VAR_file_write_temp_var_ADDRESS="-1"
-    cpu_execute "${CPU_EQUAL_CMD}" ${GLOBAL_OUTPUT_ADDRESS} ${VAR_file_write_temp_var_ADDRESS}
-    jump_if ${LABEL_file_write_not_found}
+    if *GLOBAL_OUTPUT_ADDRESS=="-1"
+        return "-1"
+    fi
 
     write_device_buffer ${VAR_file_write_disk_name_ADDRESS} ${GLOBAL_OUTPUT_ADDRESS} ${GLOBAL_ARG2_ADDRESS}
     *VAR_file_write_temp_var_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
 
-    *GLOBAL_OUTPUT_ADDRESS=*VAR_file_write_temp_var_ADDRESS
-    func_return
-
-  LABEL:file_write_not_found
-    *GLOBAL_OUTPUT_ADDRESS="-1"
-    func_return
+    return *VAR_file_write_temp_var_ADDRESS
 
 # function sets cursor to file descriptor
 FUNC:file_set_cursor
@@ -332,8 +321,7 @@ FUNC:file_set_cursor
     *VAR_file_set_cursor_temp_var_ADDRESS="8"
     cpu_execute "${CPU_REPLACE_COLUMN_CMD}" ${VAR_file_set_cursor_current_ADDRESS} ${VAR_file_set_cursor_temp_var_ADDRESS} ${GLOBAL_ARG2_ADDRESS}
     copy_from_to_address ${GLOBAL_OUTPUT_ADDRESS} $(read_from_address ${GLOBAL_ARG1_ADDRESS})
-    *GLOBAL_OUTPUT_ADDRESS="0"
-    func_return
+    return "0"
 
 # function calculates the real line on the disk based on the file descriptor cursor
 FUNC:file_cursor_to_line
@@ -366,11 +354,14 @@ FUNC:file_cursor_to_line
     *VAR_file_cursor_to_line_counter_ADDRESS++
     cpu_execute "${CPU_GET_COLUMN_CMD}" ${VAR_file_cursor_to_line_info_ADDRESS} ${VAR_file_cursor_to_line_counter_ADDRESS}
     *VAR_file_cursor_to_line_chunk_end_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
-    *VAR_file_cursor_to_line_temp_var_ADDRESS=""
-    cpu_execute "${CPU_EQUAL_CMD}" ${VAR_file_cursor_to_line_chunk_start_ADDRESS} ${VAR_file_cursor_to_line_temp_var_ADDRESS}
-    jump_if ${LABEL_file_cursor_to_line_not_found}
-    cpu_execute "${CPU_EQUAL_CMD}" ${VAR_file_cursor_to_line_chunk_end_ADDRESS} ${VAR_file_cursor_to_line_temp_var_ADDRESS}
-    jump_if ${LABEL_file_cursor_to_line_not_found}
+
+    if *VAR_file_cursor_to_line_chunk_start_ADDRESS==""
+        return "-1"
+    fi
+
+    if *VAR_file_cursor_to_line_chunk_end_ADDRESS==""
+        return "-1"
+    fi
 
     cpu_execute "${CPU_SUBTRACT_CMD}" ${VAR_file_cursor_to_line_chunk_end_ADDRESS} ${VAR_file_cursor_to_line_chunk_start_ADDRESS}
     *VAR_file_cursor_to_line_chunk_size_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
@@ -390,9 +381,7 @@ FUNC:file_cursor_to_line
     cpu_execute "${CPU_ADD_CMD}" ${VAR_file_cursor_to_line_chunk_start_ADDRESS} ${VAR_file_cursor_to_line_chunk_adjusted_index_ADDRESS}
     *GLOBAL_OUTPUT_ADDRESS--
     func_return
-LABEL:file_cursor_to_line_not_found
-    *GLOBAL_OUTPUT_ADDRESS="-1"
-    func_return
+
 
 # Create a new file
 # INPUT: file name, line count
@@ -413,8 +402,9 @@ FUNC:file_create
         # Check for mount point and partition existence for a given file path to create
         call_func file_found_disk ${GLOBAL_ARG1_ADDRESS}
         *VAR_file_create_disk_info_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
-        cpu_execute "${CPU_EQUAL_CMD}" ${GLOBAL_OUTPUT_ADDRESS} "-1"
-        jump_if ${LABEL_file_create_error}
+        if *VAR_file_create_disk_info_ADDRESS=="-1"
+            jump_to ${LABEL_file_create_error}
+        fi
 
         # Parse disk info:
         *VAR_file_create_temp_var_ADDRESS="1"
@@ -447,9 +437,9 @@ FUNC:file_create
         *VAR_file_create_counter_ADDRESS=*VAR_file_create_partition_start_ADDRESS
         read_device_buffer ${VAR_file_create_disk_name_ADDRESS} ${VAR_file_create_counter_ADDRESS}
 
-        *VAR_file_create_temp_var_ADDRESS="DUMMY_FS"
-        cpu_execute "${CPU_NOT_EQUAL_CMD}" ${GLOBAL_OUTPUT_ADDRESS} ${VAR_file_create_temp_var_ADDRESS}
-        jump_if ${LABEL_file_create_file_error}
+        if *GLOBAL_OUTPUT_ADDRESS!="DUMMY_FS"
+            jump_to ${LABEL_file_create_file_error}
+        fi
 
         *VAR_file_create_counter_ADDRESS++
         *VAR_file_create_line_for_header_ADDRESS=""
@@ -457,25 +447,29 @@ FUNC:file_create
         read_device_buffer ${VAR_file_create_disk_name_ADDRESS} ${VAR_file_create_counter_ADDRESS}
         *VAR_file_create_cur_line_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
 
-        *VAR_file_create_temp_var_ADDRESS=""
-        cpu_execute "${CPU_NOT_EQUAL_CMD}" ${GLOBAL_OUTPUT_ADDRESS} ${VAR_file_create_temp_var_ADDRESS}
-        jump_if ${LABEL_file_create_non_empty_record}
-        # if the record in filesystem header is empty and we didn't find such line before then we can use it for file creation
-        cpu_execute "${CPU_NOT_EQUAL_CMD}" ${VAR_file_create_line_for_header_ADDRESS} ${VAR_file_create_temp_var_ADDRESS}
-        jump_if ${LABEL_file_create_non_empty_record}
-        *VAR_file_create_line_for_header_ADDRESS=*VAR_file_create_counter_ADDRESS
+        if *GLOBAL_OUTPUT_ADDRESS!=""
+            jump_to ${LABEL_file_create_non_empty_record}
+        fi
+        # if the record in filesystem header is empty
+        # and we didn't find such line before then we can use it for file creation
+        if *VAR_file_create_line_for_header_ADDRESS!=""
+            jump_to ${LABEL_file_create_non_empty_record}
+        else
+            *VAR_file_create_line_for_header_ADDRESS=*VAR_file_create_counter_ADDRESS
+        fi
 
       LABEL:file_create_non_empty_record
         # check whether we reached end of partition table
-        *VAR_file_create_temp_var_ADDRESS="DUMMY_FS_END"
-        cpu_execute "${CPU_EQUAL_CMD}" ${GLOBAL_OUTPUT_ADDRESS} ${VAR_file_create_temp_var_ADDRESS}
-        jump_if ${LABEL_file_create_file_not_found}
+        if *GLOBAL_OUTPUT_ADDRESS=="DUMMY_FS_END"
+            jump_to ${LABEL_file_create_file_not_found}
+        fi
 
         # if file already exists then we can not create it
         *VAR_file_create_temp_var_ADDRESS="1"
         cpu_execute "${CPU_GET_COLUMN_CMD}" ${VAR_file_create_cur_line_ADDRESS} ${VAR_file_create_temp_var_ADDRESS}
-        cpu_execute "${CPU_EQUAL_CMD}" ${GLOBAL_OUTPUT_ADDRESS} ${VAR_file_create_filename_ADDRESS}
-        jump_if ${LABEL_file_create_error}
+        if *GLOBAL_OUTPUT_ADDRESS==*VAR_file_create_filename_ADDRESS
+            jump_to ${LABEL_file_create_error}
+        fi
 
         *VAR_file_create_counter_ADDRESS++
         jump_to ${LABEL_file_create_file_loop}
@@ -483,8 +477,9 @@ FUNC:file_create
     LABEL:file_create_file_not_found
         *VAR_file_create_temp_var_ADDRESS=""
         # if no free record in header was found then we can not create new file
-        cpu_execute "${CPU_EQUAL_CMD}" ${VAR_file_create_line_for_header_ADDRESS} ${VAR_file_create_temp_var_ADDRESS}
-        jump_if ${LABEL_file_create_error}
+        if *VAR_file_create_line_for_header_ADDRESS==""
+            jump_to ${LABEL_file_create_error}
+        fi
 
         var file_create_start_index
         var file_create_end_index
@@ -531,5 +526,4 @@ FUNC:file_create
         func_return
 
     LABEL:file_create_error
-        *GLOBAL_OUTPUT_ADDRESS="-1"
-        func_return
+        return "-1"
