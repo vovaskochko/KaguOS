@@ -265,8 +265,9 @@ FUNC:file_close
     func_return
 
 # function reads one line from the file with provided file descriptor
+# and then decrypts it
 # INPUT: file descriptor, address to write result line
-# OUTPUT: next line from the file on success, -1 otherwise
+# OUTPUT: next line from the file on success, decrypted, -1 otherwise
 FUNC:file_read
     var file_read_disk_name
     var file_read_info
@@ -287,6 +288,10 @@ FUNC:file_read
     read_device_buffer ${VAR_file_read_disk_name_ADDRESS} ${GLOBAL_OUTPUT_ADDRESS}
     *VAR_file_read_temp_var_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
 
+    # Decrypt the line after reading from the disk
+    cpu_execute "${CPU_DECRYPT_CMD}" ${VAR_file_read_temp_var_ADDRESS}
+    *VAR_file_read_temp_var_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+
     *GLOBAL_OUTPUT_ADDRESS=*VAR_file_read_temp_var_ADDRESS
     func_return
   LABEL:file_read_not_found
@@ -294,8 +299,9 @@ FUNC:file_read
     func_return
 
 # function writes one line to the file with provided file descriptor
+# after encrypting it
 # INPUT: file descriptor, address with line that should be added to file
-# OUTPUT: 0 on success, -1 otherwise
+# OUTPUT: 0 on success, encrypted, -1 otherwise
 FUNC:file_write
     var file_write_disk_name
     var file_write_info
@@ -313,7 +319,12 @@ FUNC:file_write
     cpu_execute "${CPU_EQUAL_CMD}" ${GLOBAL_OUTPUT_ADDRESS} ${VAR_file_write_temp_var_ADDRESS}
     jump_if ${LABEL_file_write_not_found}
 
-    write_device_buffer ${VAR_file_write_disk_name_ADDRESS} ${GLOBAL_OUTPUT_ADDRESS} ${GLOBAL_ARG2_ADDRESS}
+    # Encrypt the line before writing to the disk
+    *VAR_file_write_temp_var_ADDRESS=*GLOBAL_ARG2_ADDRESS
+    cpu_execute "${CPU_ENCRYPT_CMD}" ${VAR_file_write_temp_var_ADDRESS}
+    *VAR_file_write_temp_var_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+
+    write_device_buffer ${VAR_file_write_disk_name_ADDRESS} ${GLOBAL_OUTPUT_ADDRESS} ${VAR_file_write_temp_var_ADDRESS}
     *VAR_file_write_temp_var_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
 
     *GLOBAL_OUTPUT_ADDRESS=*VAR_file_write_temp_var_ADDRESS
