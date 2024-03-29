@@ -290,9 +290,8 @@ FUNC:file_read
 
     # Decrypt the line after reading from the disk
     cpu_execute "${CPU_DECRYPT_CMD}" ${VAR_file_read_temp_var_ADDRESS}
-    *VAR_file_read_temp_var_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+    *GLOBAL_OUTPUT_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
 
-    *GLOBAL_OUTPUT_ADDRESS=*VAR_file_read_temp_var_ADDRESS
     func_return
   LABEL:file_read_not_found
     *GLOBAL_OUTPUT_ADDRESS="-1"
@@ -306,6 +305,7 @@ FUNC:file_write
     var file_write_disk_name
     var file_write_info
     var file_write_temp_var
+    var line_number
 
     call_func file_info ${GLOBAL_ARG1_ADDRESS}
     *VAR_file_write_info_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
@@ -319,12 +319,13 @@ FUNC:file_write
     cpu_execute "${CPU_EQUAL_CMD}" ${GLOBAL_OUTPUT_ADDRESS} ${VAR_file_write_temp_var_ADDRESS}
     jump_if ${LABEL_file_write_not_found}
 
-    # Encrypt the line before writing to the disk
+    *VAR_line_number_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+    echo "DEBUG: Line number value: ${VAR_line_number_ADDRESS}"
+
     *VAR_file_write_temp_var_ADDRESS=*GLOBAL_ARG2_ADDRESS
     cpu_execute "${CPU_ENCRYPT_CMD}" ${VAR_file_write_temp_var_ADDRESS}
-    *VAR_file_write_temp_var_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
 
-    write_device_buffer ${VAR_file_write_disk_name_ADDRESS} ${GLOBAL_OUTPUT_ADDRESS} ${VAR_file_write_temp_var_ADDRESS}
+    write_device_buffer ${VAR_file_write_disk_name_ADDRESS} ${VAR_line_number_ADDRESS} ${GLOBAL_OUTPUT_ADDRESS}
     *VAR_file_write_temp_var_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
 
     *GLOBAL_OUTPUT_ADDRESS=*VAR_file_write_temp_var_ADDRESS

@@ -1,6 +1,6 @@
 # This file contains basic CPU commands together with cpu_execute function
 
-# CPU COMMAND #
+# CPU COMMANDS #
 export CPU_EQUAL_CMD="is_equal"
 export CPU_NOT_EQUAL_CMD="is_not_equal"
 export CPU_ADD_CMD="add"
@@ -21,26 +21,26 @@ export CPU_DECRYPT_CMD="decrypt"
 
 # Pairwise Swap Function (a2)
 function pairwise_swap {
-    local input=$1
-    local swapped=""
-    local len=${#input}
+    local INPUT=$1
+    local SWAPPED=""
+    local LEN=${#INPUT}
 
     # Swap characters pairwise
-    for (( i=0; i < $len; i+=2 )); do
-        if (( i+1 < len )); then
-            swapped="${swapped}${input:i+1:1}"
+    for (( i=0; i < $LEN; i+=2 )); do
+        if (( i+1 < LEN )); then
+            SWAPPED="${SWAPPED}${INPUT:i+1:1}"
         fi
-        swapped="${swapped}${input:i:1}"
+        SWAPPED="${SWAPPED}${INPUT:i:1}"
     done
 
-    echo "$swapped"
+    echo "$SWAPPED"
 }
 
 # Letter Swap Function (b3)
 function letter_swap {
-    local input=$1
-    local swapped=$(echo "$input" | tr 'aouyeiAOUYEI' 'oayuieOAYUIE')
-    echo "$swapped"
+    local INPUT=$1
+    local SWAPPED=$(echo "$INPUT" | tr 'aouyeiAOUYEI' 'oayuieOAYUIE')
+    echo "$SWAPPED"
 }
 
 # CPU execution function
@@ -148,13 +148,13 @@ function cpu_execute {
             ;;
         "${CPU_ENCRYPT_CMD}")
             # Apply the transformations to encrypt
-            local pairwise_swapped=$(pairwise_swap "${CPU_REGISTER1}")
-            CPU_REGISTER_OUT=$(letter_swap "${pairwise_swapped}")
+            local PAIRWISE_SWAPPED=$(pairwise_swap "${CPU_REGISTER1}")
+            CPU_REGISTER_OUT=$(letter_swap "${PAIRWISE_SWAPPED}")
             ;;
         "${CPU_DECRYPT_CMD}")
             # Apply the transformations in reverse to decrypt
-            local reversed_letters=$(letter_swap "${CPU_REGISTER1}")
-            CPU_REGISTER_OUT=$(pairwise_swap "${reversed_letters}")
+            local REVERSED_LETTERS=$(letter_swap "${CPU_REGISTER1}")
+            CPU_REGISTER_OUT=$(pairwise_swap "${REVERSED_LETTERS}")
             ;;
         *)
             exit_fatal "Unknown cpu instruction: ${CPU_REGISTER_CMD}"
