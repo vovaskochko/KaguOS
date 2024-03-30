@@ -545,3 +545,255 @@ FUNC:file_create
     LABEL:file_create_error
         *GLOBAL_OUTPUT_ADDRESS="-1"
         func_return
+
+# Function to open a file and check if it exists
+FUNC:check_file_exists
+    var file_descriptor
+
+    # Open the file
+    call_func file_open ${GLOBAL_ARG1_ADDRESS}
+    *VAR_file_descriptor_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+
+    # Check if file descriptor is -1 (indicating failure)
+    cpu_execute "${CPU_EQUAL_CMD}" ${VAR_file_descriptor_ADDRESS} "-1"
+    jump_if ${LABEL_file_not_found}
+
+    # File exists, return the file descriptor
+    *GLOBAL_OUTPUT_ADDRESS=*VAR_file_descriptor_ADDRESS
+    func_return
+
+ LABEL:file_not_found
+    # File not found, return -1
+    *GLOBAL_OUTPUT_ADDRESS="-1"
+    func_return
+
+# Function to extract necessary information from the file descriptor for deletion
+FUNC:extract_file_info
+    var file_info
+
+    # Call function to get file information
+    call_func file_info ${VAR_file_descriptor_ADDRESS}
+    *VAR_file_info_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+
+    # Check if file information retrieval was successful
+    cpu_execute "${CPU_EQUAL_CMD}" ${VAR_file_info_ADDRESS} "-1"
+    jump_if ${LABEL_extraction_failed}
+
+    # File information extraction successful, return the file information
+    *GLOBAL_OUTPUT_ADDRESS=*VAR_file_info_ADDRESS
+    func_return
+
+ LABEL:extraction_failed
+    # File information extraction failed, return -1
+    *GLOBAL_OUTPUT_ADDRESS="-1"
+    func_return
+# Function to read partition header to get current free range
+FUNC:read_partition_header
+    var partition_info
+
+    # Read the partition header to get current free range
+    read_device_buffer ${GLOBAL_ARG1_ADDRESS} ${GLOBAL_ARG2_ADDRESS}
+    *VAR_partition_info_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+
+    # Check if reading partition header was successful
+    cpu_execute "${CPU_EQUAL_CMD}" ${VAR_partition_info_ADDRESS} "-1"
+    jump_if ${LABEL_reading_failed}
+
+    # Reading partition header successful, return the partition information
+    *GLOBAL_OUTPUT_ADDRESS=*VAR_partition_info_ADDRESS
+    func_return
+
+ LABEL:reading_failed
+    # Reading partition header failed, return -1
+    *GLOBAL_OUTPUT_ADDRESS="-1"
+    func_return
+
+
+# Remove a file
+# INPUT: file_path
+# OUTPUT: 0 on success, -1 otherwise
+FUNC:remove_file
+    # №1
+    # Call function to check if file exists
+    call_func check_file_exists ${GLOBAL_ARG1_ADDRESS}
+    # Handle error if file doesn't exist
+    cpu_execute "${CPU_EQUAL_CMD}" ${GLOBAL_OUTPUT_ADDRESS} "-1"
+    jump_if ${LABEL_remove_error}
+
+    # №2
+    # Call function to extract necessary information from the file descriptor
+    call_func extract_file_info ${VAR_file_descriptor_ADDRESS}
+    # Handle error if extraction fails
+    cpu_execute "${CPU_EQUAL_CMD}" ${GLOBAL_OUTPUT_ADDRESS} "-1"
+    jump_if ${LABEL_remove_error}
+
+    # №3
+    # Call function to find the disk where the file is located
+    call_func file_found_disk ${GLOBAL_ARG1_ADDRESS}
+    *VAR_disk_info_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+    *GLOBAL_DISPLAY_ADDRESS=*VAR_disk_info_ADDRESS
+    # Handle error if disk not found
+    cpu_execute "${CPU_EQUAL_CMD}" ${GLOBAL_OUTPUT_ADDRESS} "-1"
+    jump_if ${LABEL_remove_error}
+
+    # №4
+    # Get disk name
+    *VAR_temp_var_ADDRESS="2"
+    cpu_execute "${CPU_GET_COLUMN_CMD}" ${VAR_file_info_ADDRESS} ${VAR_temp_var_ADDRESS}
+    *VAR_disk_name_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+
+    # Get partition header line
+    *VAR_temp_var_ADDRESS="3"
+    cpu_execute "${CPU_GET_COLUMN_CMD}" ${VAR_disk_info_ADDRESS} ${VAR_temp_var_ADDRESS}
+    *VAR_partition_header_line_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+
+    # №5
+    # Call function to read partition header to get current free range
+    call_func read_partition_header ${VAR_disk_name_ADDRESS} ${VAR_partition_header_line_ADDRESS}
+    # Handle error if reading fails
+    cpu_execute "${CPU_EQUAL_CMD}" ${GLOBAL_OUTPUT_ADDRESS} "-1"
+    jump_if ${LABEL_remove_error}
+
+    # №6
+    # Get the address of the partition info and file info
+    *VAR_temp_var_ADDRESS="4"
+    cpu_execute "${CPU_GET_COLUMN_CMD}" ${VAR_partition_info_ADDRESS} ${VAR_temp_var_ADDRESS}
+    *VAR_file_partition_start_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+
+    # Get the address of the header counter
+    *VAR_temp_var_ADDRESS="6"
+    cpu_execute "${CPU_GET_COLUMN_CMD}" ${VAR_file_info_ADDRESS} ${VAR_temp_var_ADDRESS}
+    *VAR_header_counter_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+
+    # Parse chunks of the file
+    var chunk_starts
+    var chunk_ends
+    var chunks_count
+    var chunks_start
+    *VAR_chunks_count_ADDRESS="0"
+    *VAR_chunks_start_ADDRESS="10"
+    *VAR_end_line_ADDRESS=""
+
+    # Loop to parse chunks
+    LABEL:parse_chunks_loop
+        cpu_execute "${CPU_GET_COLUMN_CMD}" ${VAR_file_info_ADDRESS} ${VAR_chunks_start_ADDRESS}
+        *VAR_chunk_starts_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+
+        cpu_execute "${CPU_EQUAL_CMD}" ${VAR_chunk_starts_ADDRESS} ${VAR_end_line_ADDRESS}
+        jump_if ${LABEL_process_chunks}
+
+        *VAR_chunks_start_ADDRESS++
+        *GLOBAL_DISPLAY_ADDRESS=*VAR_chunks_start_ADDRESS
+        display_success
+
+        jump_to ${LABEL_parse_chunks_loop}
+
+    # Loop to process chunks
+    LABEL:process_chunks
+        var back_counter
+        *VAR_back_counter_ADDRESS=*VAR_chunks_start_ADDRESS
+        *VAR_back_counter_ADDRESS--
+        *GLOBAL_DISPLAY_ADDRESS=*VAR_back_counter_ADDRESS
+        display_success
+        var start_chunk
+
+    # Process chunks until done
+    LABEL:chunks_done
+        cpu_execute "${CPU_EQUAL_CMD}" ${VAR_back_counter_ADDRESS} ${VAR_chunks_start_ADDRESS}
+        jump_if ${LABEL_update_header_loop}
+
+        cpu_execute "${CPU_GET_COLUMN_CMD}" ${VAR_file_info_ADDRESS} ${VAR_back_counter_ADDRESS}
+        *VAR_chunk_ends_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+        *GLOBAL_DISPLAY_ADDRESS=*VAR_chunk_ends_ADDRESS
+        *VAR_back_counter_ADDRESS--
+
+        cpu_execute "${CPU_GET_COLUMN_CMD}" ${VAR_file_info_ADDRESS} ${VAR_back_counter_ADDRESS}
+        *VAR_chunk_starts_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+        *GLOBAL_DISPLAY_ADDRESS=*VAR_chunk_starts_ADDRESS
+        *GLOBAL_DISPLAY_ADDRESS=*VAR_back_counter_ADDRESS
+
+        jump_to ${LABEL_file_found}
+
+        # Jump back to the previous chunk
+        LABEL:jump_back
+        *VAR_back_counter_ADDRESS--
+        jump_to ${LABEL_chunks_done}
+
+    # Update the files' headers
+    LABEL:update_header_loop
+        *VAR_temp_var_ADDRESS=""
+        write_device_buffer ${VAR_disk_name_ADDRESS} ${VAR_header_counter_ADDRESS} ${VAR_temp_var_ADDRESS}
+        *VAR_header_counter_ADDRESS++
+
+        var header_cur_line
+
+    # Move header lines
+    LABEL:move_header
+        read_device_buffer ${VAR_disk_name_ADDRESS} ${VAR_header_counter_ADDRESS}
+        *VAR_header_cur_line_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+
+        *VAR_temp_var_ADDRESS=""
+        cpu_execute "${CPU_EQUAL_CMD}" ${VAR_header_cur_line_ADDRESS} ${VAR_temp_var_ADDRESS}
+        jump_if ${LABEL_end_of_header_processing}
+
+        var header_line_start
+        var header_line_end
+
+        *VAR_temp_var_ADDRESS="8"
+        cpu_execute "${CPU_GET_COLUMN_CMD}" ${VAR_header_cur_line_ADDRESS} ${VAR_temp_var_ADDRESS}
+        *VAR_header_line_start_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+
+        cpu_execute "${CPU_SUBTRACT_CMD}" ${VAR_header_line_start_ADDRESS} ${VAR_file_size_ADDRESS}
+        *VAR_header_line_start_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+        cpu_execute "${CPU_REPLACE_COLUMN_CMD}" ${VAR_header_cur_line_ADDRESS} ${VAR_temp_var_ADDRESS} ${VAR_header_line_start_ADDRESS}
+        *VAR_header_cur_line_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+
+        *VAR_temp_var_ADDRESS="9"
+        cpu_execute "${CPU_GET_COLUMN_CMD}" ${VAR_header_cur_line_ADDRESS} ${VAR_temp_var_ADDRESS}
+        *VAR_header_line_end_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+
+        cpu_execute "${CPU_SUBTRACT_CMD}" ${VAR_header_line_end_ADDRESS} ${VAR_file_size_ADDRESS}
+        *VAR_header_line_end_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+        cpu_execute "${CPU_REPLACE_COLUMN_CMD}" ${VAR_header_cur_line_ADDRESS} ${VAR_temp_var_ADDRESS} ${VAR_header_line_end_ADDRESS}
+        *VAR_header_cur_line_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+
+        *VAR_header_counter_ADDRESS--
+        write_device_buffer ${VAR_disk_name_ADDRESS} ${VAR_header_counter_ADDRESS} ${VAR_header_cur_line_ADDRESS}
+        *VAR_header_counter_ADDRESS++
+
+        *VAR_temp_var_ADDRESS=""
+        write_device_buffer ${VAR_disk_name_ADDRESS} ${VAR_header_counter_ADDRESS} ${VAR_temp_var_ADDRESS}
+
+        jump_to ${LABEL_move_header}
+
+        # End of header processing
+        LABEL:end_of_header_processing
+        *GLOBAL_OUTPUT_ADDRESS="0"
+        func_return
+
+    # Delete the file
+    LABEL:file_found
+      *VAR_counter_ADDRESS=*VAR_chunk_starts_ADDRESS
+      *VAR_GLOBAL_DISPLAY_ADDRESS=*VAR_counter_ADDRESS
+
+    LABEL:file_remove_loop
+        read_device_buffer ${VAR_disk_name_ADDRESS} ${VAR_counter_ADDRESS}
+        *VAR_current_line_ADDRESS=*GLOBAL_OUTPUT_ADDRESS
+
+        *VAR_temp_var_ADDRESS=""
+        write_device_buffer ${VAR_disk_name_ADDRESS} ${VAR_counter_ADDRESS} ${VAR_temp_var_ADDRESS}
+
+        *VAR_temp_var_ADDRESS=*VAR_chunk_ends_ADDRESS
+        *VAR_temp_var_ADDRESS++
+        cpu_execute "${CPU_EQUAL_CMD}" ${VAR_counter_ADDRESS} ${VAR_temp_var_ADDRESS}
+        jump_if ${LABEL_file_end_found}
+
+        *VAR_counter_ADDRESS++
+        jump_to ${LABEL_file_remove_loop}
+
+    # Error handling
+    LABEL:remove_error
+      echo "Error: Unable to locate the disk or partition."
+      display_error
+      *GLOBAL_OUTPUT_ADDRESS="-1"
+      func_return
