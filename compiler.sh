@@ -66,6 +66,7 @@ fi
 # Include system defines and cpu commands
 source include/defines.sh
 source include/hw/cpu.sh
+source include/process.sh
 
 # Remove build dir if exists
 rm -rf "${GLOBAL_BUILD_DIR}"
@@ -153,14 +154,8 @@ for FILE in ${SRC_FILES}; do
         fi
 
         # Let's handle if-else-fi statements
-        #           if *VAR=="value"
-        # or        if *VAR!="value"
-        # or        if *VAR==*VAR1
-        # or        if *VAR!=*VAR1
-        #               <if instructions>
-        # optional  else
-        # optional      <else instructions>
-        #           fi
+        #           if *VAR[operator]"value"
+        # where [operator] is ==, !=, <= or <
         if [ "${LINE:0:3}" = "if " ]; then
             IF_LABEL="IF_${IF_COUNT}"
             IF_CONDITION="${LINE#if }"
@@ -174,6 +169,16 @@ for FILE in ${SRC_FILES}; do
                 CMP_TO_ELSE="CPU_EQUAL_CMD"
                 LEFT_SIDE="${IF_CONDITION%!=*}"
                 RIGHT_SIDE="${IF_CONDITION#*!=}"
+            fi
+
+            if [ ! -z "$(echo "${IF_CONDITION}" | grep -o "<=")" ]; then
+                CMP_TO_ELSE="CPU_LESS_THAN_EQUAL_CMD"
+                LEFT_SIDE="${IF_CONDITION%<=*}"
+                RIGHT_SIDE="${IF_CONDITION#*<=}"            
+            elif [ ! -z "$(echo "${IF_CONDITION}" | grep -o "<")" ]; then
+                CMP_TO_ELSE="CPU_LESS_THAN_CMD"
+                LEFT_SIDE="${IF_CONDITION%<*}"
+                RIGHT_SIDE="${IF_CONDITION#*<}"
             fi
 
             if [ "${RIGHT_SIDE:0:1}" = '"' ]; then

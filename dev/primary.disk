@@ -1,13 +1,13 @@
 PARTITION_TABLE
-part1 dummyFS RANGE: 6 200 FREE_RANGE: 39 200
+part1 dummyFS RANGE: 6 200 FREE_RANGE: 67 200
 part2 dummyFS RANGE: 201 500 FREE_RANGE: 228 500
 part3 dummyFS RANGE: 501 1000 FREE_RANGE: 535 1000
 PARTITION_TABLE_END
 DUMMY_FS
-1.sh file 7 7 7 root root 23 26 37 38
-2.sh file 7 7 7 root root 27 30
-3.sh file 7 7 7 root root 31 34
-4.sh file 7 7 7 root root 35 36
+1.sh file 7 7 7 root root 23 33
+2.sh file 7 7 7 root root 34 44
+3.sh file 7 7 7 root root 45 55
+4.sh file 7 7 7 root root 56 66
 
 
 
@@ -20,46 +20,50 @@ DUMMY_FS
 
 
 DUMMY_FS_END
-#!/bin/bash
-
-display_info "Hello!"
-
-#!/bin/bash
-
-display_info "Hi!"
-
-#!/bin/bash
-
-display_info "Hola!"
-
-some text
-is here
-Extra text
-for the first file
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+########PROGRAM START##############
+v_write_to_address ${LOCAL_DISPLAY_ADDRESS} "Enter the value(1.sh):"
+v_display_println
+v_read_input
+v_copy_from_to_address ${LOCAL_INPUT_ADDRESS} ${LOCAL_VAR1_ADDRESS}
+v_copy_from_to_address ${LOCAL_VAR1_ADDRESS} ${LOCAL_DISPLAY_ADDRESS}
+v_display_println
+v_write_to_address ${LOCAL_VAR2_ADDRESS} "exit"
+v_cpu_execute ${CPU_NOT_EQUAL_CMD} ${LOCAL_VAR1_ADDRESS} ${LOCAL_VAR2_ADDRESS}
+v_jump_if ${LOCAL_TEXT_SEGMENT_START_ADDRESS}
+v_exit
+########PROGRAM START##############
+v_write_to_address ${LOCAL_DISPLAY_ADDRESS} "Enter the value(2.sh):"
+v_display_println
+v_read_input
+v_copy_from_to_address ${LOCAL_INPUT_ADDRESS} ${LOCAL_VAR1_ADDRESS}
+v_copy_from_to_address ${LOCAL_VAR1_ADDRESS} ${LOCAL_DISPLAY_ADDRESS}
+v_display_println
+v_write_to_address ${LOCAL_VAR2_ADDRESS} "exit"
+v_cpu_execute ${CPU_NOT_EQUAL_CMD} ${LOCAL_VAR1_ADDRESS} ${LOCAL_VAR2_ADDRESS}
+v_jump_if ${LOCAL_TEXT_SEGMENT_START_ADDRESS}
+v_exit
+########PROGRAM START##############
+v_write_to_address ${LOCAL_DISPLAY_ADDRESS} "Enter the value(3.sh):"
+v_display_println
+v_read_input
+v_copy_from_to_address ${LOCAL_INPUT_ADDRESS} ${LOCAL_VAR1_ADDRESS}
+v_copy_from_to_address ${LOCAL_VAR1_ADDRESS} ${LOCAL_DISPLAY_ADDRESS}
+v_display_println
+v_write_to_address ${LOCAL_VAR2_ADDRESS} "exit"
+v_cpu_execute ${CPU_NOT_EQUAL_CMD} ${LOCAL_VAR1_ADDRESS} ${LOCAL_VAR2_ADDRESS}
+v_jump_if ${LOCAL_TEXT_SEGMENT_START_ADDRESS}
+v_exit
+########PROGRAM START##############
+v_write_to_address ${LOCAL_DISPLAY_ADDRESS} "Enter the value(4.sh):"
+v_display_println
+v_read_input
+v_copy_from_to_address ${LOCAL_INPUT_ADDRESS} ${LOCAL_VAR1_ADDRESS}
+v_copy_from_to_address ${LOCAL_VAR1_ADDRESS} ${LOCAL_DISPLAY_ADDRESS}
+v_display_println
+v_write_to_address ${LOCAL_VAR2_ADDRESS} "exit"
+v_cpu_execute ${CPU_NOT_EQUAL_CMD} ${LOCAL_VAR1_ADDRESS} ${LOCAL_VAR2_ADDRESS}
+v_jump_if ${LOCAL_TEXT_SEGMENT_START_ADDRESS}
+v_exit
 
 
 

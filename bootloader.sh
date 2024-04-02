@@ -12,12 +12,17 @@ export -f exit_fatal
 # Parse bootloader arguments to handle debug options if needed:
 # Check input arguments for debug flags
 export DEBUG_JUMP="0"
+export DEBUG_VJUMP="0"
 export DEBUG_SLEEP="0"
 for IN_ARG in "$@"; do
     case "${IN_ARG}" in
         --debug-jump|-j)
             echo "Note: Debug jump enabled"
             export DEBUG_JUMP="1"
+            ;;
+        --debug-vjump|-vj)
+            echo "Note: Debug virtual jump enabled"
+            export DEBUG_VJUMP="1"
             ;;
         --debug-sleep=|-s=*)
             export DEBUG_SLEEP="${IN_ARG#*=}"
@@ -34,6 +39,7 @@ for IN_ARG in "$@"; do
             echo ""
             echo "Options:"
             echo "  --debug-jump, -j  Debug jump enabled"
+            echo "  --debug-vjump, -vj Debug virtual jump enabled"
             echo "  --debug-sleep=, -s= Debug sleep interval in seconds(e.g. use 0.5 for 500ms), default is 0 - no sleep between command execution"
             echo "  --help, -h        Print this help message"
             exit 0
@@ -97,6 +103,8 @@ done < "${GLOBAL_KERNEL_DISK}"
 
 # Write debug line to mark kernel end address
 write_to_address ${CUR_ADDRESS} "############ KERNEL END #############"
+CUR_ADDRESS=$((CUR_ADDRESS + 1))
+write_to_address ${GLOBAL_KERNEL_END_INFO_ADDRESS} "${CUR_ADDRESS}"
 ####### LOAD KERNEL END ###
 ###########################
 
@@ -109,7 +117,11 @@ write_to_address ${CUR_ADDRESS} "############ KERNEL END #############"
 source include/jump.sh
 source include/stack.sh
 source include/function.sh
+source include/process.sh
 
+# Reset scheduler variables to 0 so we will start in kernel mode
+write_to_address ${GLOBAL_SCHED_COUNTER_ADDRESS} "0"
+write_to_address ${GLOBAL_SCHED_PID_ADDRESS} "0"
 jump_to ${GLOBAL_KERNEL_START}
 
 # Run kernel main loop.
@@ -118,22 +130,39 @@ jump_to ${GLOBAL_KERNEL_START}
 # NOTE AI: Ask AI assistant about eval command and potential security issues of its usage for scripts.
 while [ 1 = 1 ]
 do
-    # Go to the next command:
-    jump_increment_counter
-    if [ "${DEBUG_JUMP}" = "1" ]; then
-        jump_print_debug_info
-    fi
+    SCHED_COUNTER=$(read_from_address ${GLOBAL_SCHED_COUNTER_ADDRESS})
+    SCHED_PID=$(read_from_address ${GLOBAL_SCHED_PID_ADDRESS})
+    if [ "${SCHED_PID}" = "0" ] || [ "${SCHED_COUNTER}" = "0" ]; then
+        # Go to the next command:
+        jump_increment_counter
+        if [ "${DEBUG_JUMP}" = "1" ]; then
+            jump_print_debug_info
+        fi
 
-    # Check whether next command points to termination
-    NEXT_CMD=$(read_from_address ${GLOBAL_NEXT_CMD_ADDRESS})
-    if [ "${NEXT_CMD}" = "${GLOBAL_TERMINATE_ADDRESS}" ]; then
-        write_to_address ${GLOBAL_DISPLAY_ADDRESS} "Kernel stopped"
-        display_success
-        break
-    fi
+        # Check whether next command points to termination
+        NEXT_CMD=$(read_from_address ${GLOBAL_NEXT_CMD_ADDRESS})
+        if [ "${NEXT_CMD}" = "${GLOBAL_TERMINATE_ADDRESS}" ]; then
+            write_to_address ${GLOBAL_DISPLAY_ADDRESS} "Kernel stopped"
+            display_success
+            break
+        fi
 
-    eval $(read_from_address ${NEXT_CMD}) || exit_fatal "Incorrect instruction"
-    dump_RAM_to_file
+        eval $(read_from_address ${NEXT_CMD}) || exit_fatal "Incorrect instruction"
+        dump_RAM_to_file
+    else
+        write_to_address ${GLOBAL_SCHED_COUNTER_ADDRESS} "$(($SCHED_COUNTER - 1))"
+        v_jump_increment_counter
+
+        OFFSET=$(get_process_mem_offset $(read_from_address ${GLOBAL_CURRENT_PID_INFO_ADDRESS}))
+        NEXT_CMD=$(v_read_from_address ${LOCAL_NEXT_CMD_ADDRESS} )
+        NEXT_CMD_VAL=$(v_read_from_address ${NEXT_CMD})
+        if [ "${DEBUG_VJUMP}" = "1" ]; then 
+            print_process_id
+            echo -e "\033[92m$(v_read_from_address ${NEXT_CMD})\033[0m"
+        fi
+        eval $(v_read_from_address ${NEXT_CMD}) || exit_fatal "Incorrect instruction"
+        dump_RAM_to_file
+    fi
     sleep ${DEBUG_SLEEP}
 done
 
