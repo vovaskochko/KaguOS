@@ -90,7 +90,7 @@ function cpu_execute {
             CPU_REGISTER_OUT="$((${CPU_REGISTER1}/${CPU_REGISTER2}))"
             ;;
         "${CPU_MULTIPLY_CMD}")
-            CPU_REGISTER_OUT="$((${CPU_REGISTER1}-${CPU_REGISTER2}))"
+            CPU_REGISTER_OUT="$((${CPU_REGISTER1}*${CPU_REGISTER2}))"
             ;;
         "${CPU_INCREMENT_CMD}")
             CPU_REGISTER_OUT="$((${CPU_REGISTER1}+1))"
