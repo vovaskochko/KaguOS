@@ -18,7 +18,7 @@ write "Stack pointer:" to REG_STACK_PTR_INFO
 write "Previous stack pointer:" to REG_STACK_PREV_PTR_INFO
 
 write "RAMFS init - done." to DISPLAY_BUFFER
-write "green" to DISPLAY_COLOR
+write COLOR_GREEN to DISPLAY_COLOR
 write OP_DISPLAY_LN to REG_OP
 cpu_exec
 
@@ -33,7 +33,7 @@ cpu_exec
 
 // # Display welcome message:
 write "Welcome to KaguOS" to DISPLAY_BUFFER
-write "green" to DISPLAY_COLOR
+write COLOR_GREEN to DISPLAY_COLOR
 write OP_DISPLAY_LN to REG_OP
 cpu_exec
 
@@ -44,14 +44,16 @@ write "" to DISPLAY_COLOR
 write OP_DISPLAY to REG_OP
 cpu_exec
 
+label:dummy
 // read cmd from keyboard
 write OP_READ_INPUT to REG_OP
 cpu_exec
 
 // split into command and arguments:
-write "1" to REG_A
-copy KEYBOARD_BUFFER to REG_B
-write "get_column" to REG_OP
+copy KEYBOARD_BUFFER to REG_A
+write "1" to REG_B
+write " " to REG_C
+write OP_GET_COLUMN to REG_OP
 cpu_exec
 
 // Display a message with the first component of input:
@@ -68,17 +70,19 @@ cpu_exec
 // otherwise we will go to the next instruction which is exit
 copy REG_RES to REG_A
 write "exit" to REG_B
-write "cmp_not_equal" to REG_OP
+write OP_CMP_NEQ to REG_OP
 cpu_exec
 jump_if label:kernel_start
 
 // Print bye message and exit:
 write "Good bye!" to DISPLAY_BUFFER
-write "green" to DISPLAY_COLOR
+write COLOR_GREEN to DISPLAY_COLOR
 write OP_DISPLAY_LN to REG_OP
 cpu_exec
 
-exit
+label:kernel_end
+write OP_HALT to REG_OP
+cpu_exec
 
 // ##########################################
 // # KERNEL_END                             #

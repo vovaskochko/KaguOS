@@ -88,7 +88,7 @@ function cpu_exec {
             write_to_address $REG_BOOL_RES "$CMP_RES"
             ;;
         ${OP_CMP_EQ})
-            if "$REG_A_VAL" == "$REG_B_VAL" ; then
+            if [ "$REG_A_VAL" == "$REG_B_VAL" ]; then
                 CMP_RES=1
             else
                 CMP_RES=0
@@ -96,7 +96,7 @@ function cpu_exec {
             write_to_address $REG_BOOL_RES "$CMP_RES"
             ;;
         ${OP_CMP_NEQ})
-            if "$REG_A_VAL" != "$REG_B_VAL" ; then
+            if [ "$REG_A_VAL" != "$REG_B_VAL" ]; then
                 CMP_RES=1
             else
                 CMP_RES=0
@@ -104,7 +104,7 @@ function cpu_exec {
             write_to_address $REG_BOOL_RES "$CMP_RES"
             ;;
         ${OP_CMP_LT})
-            if "$REG_A_VAL" -lt "$REG_B_VAL" ; then
+            if [ "$REG_A_VAL" -lt "$REG_B_VAL" ]; then
                 CMP_RES=1
             else
                 CMP_RES=0
@@ -112,7 +112,7 @@ function cpu_exec {
             write_to_address $REG_BOOL_RES "$CMP_RES"
             ;;
         ${OP_CMP_LE})
-            if "$REG_A_VAL" -le "$REG_B_VAL" ; then
+            if [ "$REG_A_VAL" -le "$REG_B_VAL" ]; then
                 CMP_RES=1
             else
                 CMP_RES=0
@@ -128,7 +128,8 @@ function cpu_exec {
             write_to_address $REG_BOOL_RES "$CMP_RES"
             ;;
         ${OP_GET_COLUMN})
-            CPU_REGISTER_OUT=$(echo "${REG_A_VAL}" | awk -F"${REG_C_VAL}" '{print $'${REG_B_VAL}'}')
+            COLUMN_VAL=$(echo "${REG_A_VAL}" | awk -F"${REG_C_VAL}" '{print $'"${REG_B_VAL}"'}')
+            write_to_address $REG_RES "$COLUMN_VAL"
             ;;
         ${OP_READ_INPUT})
             read -r INPUT_LINE
@@ -162,6 +163,14 @@ function cpu_exec {
                 echo -e -n "${START_COLOR}${TEXT_VAL}${END_COLOR}"
             fi
             ;;
+        ${OP_READ_BLOCK})
+            echo "Read block not implemented yet."
+            ;;
+        ${OP_WRITE_BLOCK})
+            echo "Write block not implemented yet."
+            ;;
+        ${OP_NOP})
+            ;;
         ${OP_UNKNOWN})
             echo "Unknown operation during cpu_exec. Terminated."
             exit 1
@@ -171,6 +180,7 @@ function cpu_exec {
             exit 0
             ;;
         *)
+            echo "Unknown operation ${REG_OP_VAL} during cpu_exec"
         ;;
         esac
 }
@@ -196,7 +206,7 @@ function jump {
 # INPUT: address to jump to
 function jump_if {
     if [ "$(read_from_address ${REG_BOOL_RES})" = "1" ]; then
-        jump_to ${1}
+        jump ${1}
     fi
 }
 
