@@ -62,7 +62,7 @@ for FILE in ${SRC_FILES}; do
     touch "${OBJ_FILE}"
     OBJ_FILES="${OBJ_FILES} ${OBJ_FILE}"
     if [ $FIRST_FILE = true ]; then
-        echo "======TEXT SEGMENT START. THIS LINE WILL HAVE ADDRESS ${KERNEL_START}======" > "${OBJ_FILE}"
+        echo "======TEXT SEGMENT START. THIS LINE WILL BE AT ADDRESS ${KERNEL_START} IN RAM======" > "${OBJ_FILE}"
         NEXT_INSTR_ADDRESS=$((NEXT_INSTR_ADDRESS + 1))
         FIRST_FILE=false
     fi
@@ -201,15 +201,33 @@ for OBJ_FILE in ${OBJ_FILES}; do
                 fi
             fi
         fi
-        if [[ "$LINE" == "$INSTR_COPY_FROM_TO_ADDRESS constant:"* ]]; then
+        if [[ "$LINE" == "$INSTR_COPY_FROM_TO_ADDRESS"* ]]; then
             LEX2=$(echo "$LINE" | awk '{print $2}')
             LEX3=$(echo "$LINE" | awk '{print $3}')
-            CUR_INDEX=${LEX2#constant:}
-            RES_LINE=$(echo "$LINE" | sed 's,constant:'$CUR_INDEX','${CONSTANT_ADDRESSES[$CUR_INDEX]}',1')
+            if [[ "$LEX2" == "constant:"* ]]; then
+                CUR_INDEX=${LEX2#constant:}
+                RES_LINE=$(echo "$LINE" | sed 's,constant:'$CUR_INDEX','${CONSTANT_ADDRESSES[$CUR_INDEX]}',1'| sed 's,'$LEX3','$(eval echo $LEX3)',1')
+            else
+                RES_LINE=$(echo "$LINE" | sed 's,'$LEX2','$(eval echo $LEX2)',1' | sed 's,'$LEX3','$(eval echo $LEX3)',1')
+            fi
         fi
         echo "${RES_LINE}" >> "${KERNEL_FILE}"
     done < "${OBJ_FILE}"
 done
+
+awk '{
+    # Find the position of the last number before #
+    pos = index($0, "#")
+    if (pos == 0) {
+        # No # found, print line as is
+        print
+    } else {
+        # Calculate spaces needed to align # to column 20
+        spaces = 15 - (pos - 1)
+        # Print the line up to # with calculated padding
+        printf "%s%*s%s\n", substr($0, 1, pos - 1), spaces, "", substr($0, pos)
+    }
+}' "${KERNEL_FILE}" > "${KERNEL_FILE}".tmp && mv "${KERNEL_FILE}".tmp "${KERNEL_FILE}"
 
 cat "${CONSTANTS_OBJ_FILE}" >> "${KERNEL_FILE}"
 
