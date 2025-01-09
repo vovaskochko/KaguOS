@@ -120,20 +120,20 @@ do
     # TODO change all to be used with copy_from_to
     CUR_INSTRUCTION=$(read_from_address ${NEXT_CMD})
     INSTR_CODE=$(echo "${CUR_INSTRUCTION}" | cut -d ' ' -f 1)
-    case ${INSTR_CODE:1} in
-        INSTR_CPU_EXEC)
+    case $INSTR_CODE in
+        $INSTR_CPU_EXEC)
             INSTR_FUNC=cpu_exec
             ;;
-        INSTR_COPY_FROM_TO_ADDRESS)
+        $INSTR_COPY_FROM_TO_ADDRESS)
             INSTR_FUNC=copy_from_to_address
             ;;
-        INSTR_READ_FROM_ADDRESS)
+        $INSTR_READ_FROM_ADDRESS)
             INSTR_FUNC=read_from_address
             ;;
-        INSTR_JUMP)
+        $INSTR_JUMP)
             INSTR_FUNC=jump
             ;;
-        INSTR_JUMP_IF)
+        $INSTR_JUMP_IF)
             INSTR_FUNC=jump_if
             ;;
         *)

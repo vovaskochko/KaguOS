@@ -107,7 +107,7 @@ for FILE in ${SRC_FILES}; do
                 ;;
             copy)
                 if [ "$LEX3" = to ] && [ -n "$LEX4" ] && [ $(empty_or_comment "$LEX5") = true ]; then
-                    RES_LINE="\$INSTR_COPY_FROM_TO_ADDRESS \$${LEX2} \$${LEX4}"
+                    RES_LINE="$INSTR_COPY_FROM_TO_ADDRESS \$${LEX2} \$${LEX4} # ${LEX2} => ${LEX4}"
                 else
                     compilation_error "$FILE" "$LINE_NO" "$LINE" "copy SOME_ADDRESS to OTHER_ADDRESS"
                 fi
@@ -130,7 +130,7 @@ for FILE in ${SRC_FILES}; do
                         fi
                     done
 
-                    RES_LINE="\$INSTR_COPY_FROM_TO_ADDRESS constant:$CUR_INDEX \$${LEX4}"
+                    RES_LINE="$INSTR_COPY_FROM_TO_ADDRESS constant:$CUR_INDEX \$${LEX4} # $CURRENT_CONSTANT => ${LEX4}"
                     if [ $CUR_INDEX -eq $CONSTANTS_COUNT ]; then
                         CONSTANTS[$CONSTANTS_COUNT]="$CURRENT_CONSTANT"
                         CONSTANTS_COUNT=$((CONSTANTS_COUNT + 1))
@@ -141,7 +141,7 @@ for FILE in ${SRC_FILES}; do
             ;;
             cpu_exec)
                 if [ $(empty_or_comment "$LEX2") = true ]; then
-                    RES_LINE="\$INSTR_CPU_EXEC"
+                    RES_LINE="$INSTR_CPU_EXEC # cpu_exec"
                 else
                     compilation_error "$FILE" "$LINE_NO" "$LINE" "cpu_exec"
                 fi
@@ -149,9 +149,9 @@ for FILE in ${SRC_FILES}; do
             jump|jump_if)
                 if [ -n "$LEX2" ] && [[ "$LEX2" =~ ^([0-9]+|label:.*)$ ]] && [ $(empty_or_comment "$LEX3") = true ]; then
                     if [ $LEX1 = jump_if ]; then
-                        RES_LINE="\$INSTR_JUMP_IF ${LEX2}"
+                        RES_LINE="$INSTR_JUMP_IF ${LEX2} # jump_if ${LEX2}"
                     else
-                        RES_LINE="\$INSTR_JUMP ${LEX2}"
+                        RES_LINE="$INSTR_JUMP ${LEX2} # jump $LEX2"
                     fi
                 else
                     compilation_error "$FILE" "$LINE_NO" "$LINE" "jump 50\njump label:some\njump_if 100\njump_if label:some"
@@ -189,8 +189,7 @@ rm -rf "${KERNEL_FILE}"
 for OBJ_FILE in ${OBJ_FILES}; do
     while read -r LINE; do
         RES_LINE="$LINE"
-        if [[ "$LINE" == "\$INSTR_JUMP"* ]]; then
-            LEX1=$(echo "$LINE" | awk '{print $1}')
+        if [[ "$LINE" == "$INSTR_JUMP "* ]] || [[ "$LINE" == "$INSTR_JUMP_IF "* ]]; then
             LEX2=$(echo "$LINE" | awk '{print $2}')
             if [[ "$LEX2" == "label:"* ]]; then
                 CUR_KEY="${LEX2#label:}"
@@ -198,15 +197,15 @@ for OBJ_FILE in ${OBJ_FILES}; do
                 if [ -z "$ADDRESS" ]; then
                     compilation_error "" "" "$LINE" "Label $CUR_KEY should be defined"
                 else
-                    RES_LINE="$LEX1 $ADDRESS"
+                    RES_LINE=$(echo "$LINE" | sed 's,label:'$CUR_KEY','$ADDRESS',1')
                 fi
             fi
         fi
-        if [[ "$LINE" == "\$INSTR_COPY_FROM_TO_ADDRESS constant:"* ]]; then
+        if [[ "$LINE" == "$INSTR_COPY_FROM_TO_ADDRESS constant:"* ]]; then
             LEX2=$(echo "$LINE" | awk '{print $2}')
             LEX3=$(echo "$LINE" | awk '{print $3}')
             CUR_INDEX=${LEX2#constant:}
-            RES_LINE="\$INSTR_COPY_FROM_TO_ADDRESS ${CONSTANT_ADDRESSES[$CUR_INDEX]} $LEX3"
+            RES_LINE=$(echo "$LINE" | sed 's,constant:'$CUR_INDEX','${CONSTANT_ADDRESSES[$CUR_INDEX]}',1')
         fi
         echo "${RES_LINE}" >> "${KERNEL_FILE}"
     done < "${OBJ_FILE}"
