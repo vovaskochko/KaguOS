@@ -1,0 +1,97 @@
+// KaguOS kernel main code
+
+// ##########################################
+// # INITRAMFS_START                        #
+// ##########################################
+write "Operation register:" to REG_OP_INFO
+write "A register:" to REG_A_INFO
+write "B register:" to REG_B_INFO
+write "C register:" to REG_C_INFO
+write "D register:" to REG_D_INFO
+write "Result register:" to REG_RES_INFO
+write "Comparison result register:" to REG_BOOL_RES_INFO
+write "Display buffer:" to DISPLAY_BUFFER_INFO
+write "Display color:" to DISPLAY_COLOR_INFO
+write "Keyboard buffer:" to KEYBOARD_BUFFER_INFO
+write "Program counter:" to PROGRAM_COUNTER_INFO
+write "Stack pointer:" to REG_STACK_PTR_INFO
+write "Previous stack pointer:" to REG_STACK_PREV_PTR_INFO
+
+write "RAMFS init - done." to DISPLAY_BUFFER
+write COLOR_GREEN to DISPLAY_COLOR
+write OP_DISPLAY_LN to REG_OP
+cpu_exec
+
+// ##########################################
+// # INITRAMFS_END                          #
+// ##########################################
+
+
+// ##########################################
+// # KERNEL_START                           #
+// ##########################################
+
+    // # Display welcome message:
+    write "Welcome to KaguOS" to DISPLAY_BUFFER
+    write COLOR_GREEN to DISPLAY_COLOR
+    write OP_DISPLAY_LN to REG_OP
+    cpu_exec
+
+label:kernel_start
+    // Display prompt to enter the value:
+    write " :) " to DISPLAY_BUFFER
+    write "" to DISPLAY_COLOR
+    write OP_DISPLAY to REG_OP
+    cpu_exec
+
+label:dummy
+    // read cmd from keyboard
+    write OP_READ_INPUT to REG_OP
+    cpu_exec
+
+    // split into command and arguments:
+    copy KEYBOARD_BUFFER to REG_A
+    write "1" to REG_B
+    write " " to REG_C
+    write OP_GET_COLUMN to REG_OP
+    cpu_exec
+
+    // Display a message with the first component of input:
+    write "Parsed command:" to DISPLAY_BUFFER
+    write "" to DISPLAY_COLOR
+    write OP_DISPLAY_LN to REG_OP
+    cpu_exec
+    copy REG_RES to DISPLAY_BUFFER
+    write "" to DISPLAY_COLOR
+    write OP_DISPLAY_LN to REG_OP
+    cpu_exec
+
+    // Check if command is exit if not then jump to the start of the loop
+    // otherwise we will go to the next instruction which is exit
+    copy REG_RES to REG_A
+    write "exit" to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec
+    jump_if label:kernel_end
+
+    //copy REG_RES to REG_A
+    write "kernel_ext" to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec
+    jump_if label:kernel_ext
+
+    jump label:kernel_start
+
+label:kernel_end //test
+    // Print bye message and exit:
+    write "Good bye!" to DISPLAY_BUFFER //${string#* }
+    write COLOR_GREEN to DISPLAY_COLOR
+    write OP_DISPLAY_LN to REG_OP
+    cpu_exec
+
+    write OP_HALT to REG_OP
+    cpu_exec
+
+// ##########################################
+// # KERNEL_END                             #
+// ##########################################

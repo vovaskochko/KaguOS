@@ -81,7 +81,7 @@ write_to_address ${KERNEL_START_INFO} "############ KERNEL START ###########"
 # NOTE: Real computer loads kernel from disk or disk partition
 #       so some basic disk driver should be present in bootloader.
 CUR_ADDRESS="${KERNEL_START}"
-while read -r LINE; do
+while IFS= read -r LINE; do
     write_to_address ${CUR_ADDRESS} "${LINE}"
     CUR_ADDRESS=$((CUR_ADDRESS + 1))
 done < "${GLOBAL_KERNEL_DISK}"
@@ -98,6 +98,8 @@ write_to_address ${CUR_ADDRESS} "############ KERNEL END #############"
 # Jump to the address in RAM
 # where the kernel was loaded:
 jump ${KERNEL_START}
+# Let's skip the first line of kernel which contains debug info:
+jump_next
 
 # Run kernel main loop.
 # NOTE: Real CPU has a control unit to handle switch between instructions
@@ -116,7 +118,29 @@ do
 
     # TODO check supported instructions
     # TODO change all to be used with copy_from_to
-    eval $(read_from_address ${NEXT_CMD}) || exit_fatal "Incorrect instruction"
+    CUR_INSTRUCTION=$(read_from_address ${NEXT_CMD})
+    INSTR_CODE=$(echo "${CUR_INSTRUCTION}" | cut -d ' ' -f 1)
+    case ${INSTR_CODE:1} in
+        INSTR_CPU_EXEC)
+            INSTR_FUNC=cpu_exec
+            ;;
+        INSTR_COPY_FROM_TO_ADDRESS)
+            INSTR_FUNC=copy_from_to_address
+            ;;
+        INSTR_READ_FROM_ADDRESS)
+            INSTR_FUNC=read_from_address
+            ;;
+        INSTR_JUMP)
+            INSTR_FUNC=jump
+            ;;
+        INSTR_JUMP_IF)
+            INSTR_FUNC=jump_if
+            ;;
+        *)
+            exit_fatal "Unknown instruction: ${CUR_INSTRUCTION}"
+        ;;
+    esac
+    eval $INSTR_FUNC ${CUR_INSTRUCTION#* }
     dump_RAM_to_file
     sleep ${DEBUG_SLEEP}
 done

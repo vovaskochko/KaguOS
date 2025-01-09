@@ -7,13 +7,13 @@ export GLOBAL_HW_DIR="tmp"
 
 # RAM constants:
 export GLOBAL_RAM_FILE="${GLOBAL_HW_DIR}/RAM.txt"
-export GLOBAL_RAM_SIZE="100"
+export GLOBAL_RAM_SIZE="200"
 
 # Kernel constants:
 export GLOBAL_BUILD_DIR="build"
 export GLOBAL_KERNEL_DISK="${GLOBAL_BUILD_DIR}/kernel.disk"
-export KERNEL_START_INFO=35
-export KERNEL_START=36
+export KERNEL_START_INFO=40
+export KERNEL_START=41
 
 export REG_OP_INFO=1
 export REG_OP=2
@@ -109,6 +109,14 @@ export OP_HALT=30
 
 # OP_UNKNOWN can be used for safe programming by resetting to it after any cpu_exec to ensure that REG_OP was set explicitely
 export OP_UNKNOWN=31
+
+# Instruction set constants:
+export INSTR_CPU_EXEC=0
+export INSTR_WRITE_TO_ADDRESS=1
+export INSTR_COPY_FROM_TO_ADDRESS=2
+export INSTR_READ_FROM_ADDRESS=3
+export INSTR_JUMP=4
+export INSTR_JUMP_IF=5
 
 # Color support constants for display functions
 export COLOR_NO=0

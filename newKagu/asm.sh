@@ -26,128 +26,193 @@ function empty_or_comment() {
 source include/defines.sh
 source include/hw.sh
 
-SRC_FILE="$1"
 KERNEL_FILE="$GLOBAL_KERNEL_DISK"
+SRC_FILES=""
+for ARG in "$@"; do
+    if [ -f "${ARG}" ]; then
+        SRC_FILES="${SRC_FILES} ${ARG}"
+    else
+        echo "${ARG} is not a valid source file"
+        exit 1
+    fi
+done
 
 if [ ! -f "$1" ]; then
     echo "File $1 does not exist"
     exit 1
 fi
 
+rm -rf "$GLOBAL_BUILD_DIR"
 mkdir -p "$GLOBAL_BUILD_DIR"
-OBJ_FILE="${GLOBAL_BUILD_DIR}"/"$(echo "${SRC_FILE}" | sed "s,/,___,g")".o
-rm -rf "${OBJ_FILE}"
-touch "${OBJ_FILE}"
 
 COMPILATION_ERROR_COUNT=0
-NEXT_INSTRUCTION_ADDRESS=$KERNEL_START
+NEXT_INSTR_ADDRESS=$KERNEL_START
 LABELS=()
 LABELS_COUNT=0
 CONSTANTS=()
 CONSTANTS_COUNT=0
+OBJ_FILES=""
+FIRST_FILE=true
 
-# TODO
-# for SRC_FILE in $FILES ...
-# LINE_NO=0
-while read -r LINE; do
-    LINE_NO=$((LINE_NO + 1))
-    # remove leading and trailing spaces
-    LINE=$(echo "${LINE}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
-    # Skip empty lines and comments:
-    if [ $(empty_or_comment "$LINE") = true ]; then
-        continue
+for FILE in ${SRC_FILES}; do
+    LINE_NO=0
+
+    OBJ_FILE="${GLOBAL_BUILD_DIR}"/"$(echo "$FILE" | sed "s,/,___,g")".o
+    rm -rf "${OBJ_FILE}"
+    touch "${OBJ_FILE}"
+    OBJ_FILES="${OBJ_FILES} ${OBJ_FILE}"
+    if [ $FIRST_FILE = true ]; then
+        echo "======TEXT SEGMENT START. THIS LINE WILL HAVE ADDRESS ${KERNEL_START}======" > "${OBJ_FILE}"
+        NEXT_INSTR_ADDRESS=$((NEXT_INSTR_ADDRESS + 1))
+        FIRST_FILE=false
     fi
 
-    # split LINE to lexer components with awk
-    eval set -- "$LINE"
-    LEX1="$1"
-    LEX2="$2"
-    LEX3="$3"
-    LEX4="$4"
-    LEX5="$5"
+    while read -r LINE; do
+        LINE_NO=$((LINE_NO + 1))
+        # remove leading and trailing spaces
+        LINE=$(echo "${LINE}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+        # Skip empty lines and comments:
+        if [ $(empty_or_comment "$LINE") = true ]; then
+            continue
+        fi
 
-    RES_LINE=
-    case "$LEX1" in
-        "label:"*)
-            if [ $(empty_or_comment "$LEX2") = true ]; then
-                CUR_KEY="${LINE#label:}"
-                if [[ "$CUR_KEY" =~ ^[a-zA-Z][a-zA-Z0-9_]*$ ]]; then
-                    GREP_KEY=$(printf "%s\n" "${LABELS[@]}" | grep "^$CUR_KEY ")
-                    if [ -z "${GREP_KEY}" ]; then
-                        LABELS[$LABELS_COUNT]="$CUR_KEY $NEXT_INSTRUCTION_ADDRESS"
-                        LABELS_COUNT=$((LABELS_COUNT + 1))
+        # split LINE to lexer components
+        eval set -- "$LINE"
+        LEX1="$1"
+        LEX2="$2"
+        LEX3="$3"
+        LEX4="$4"
+        LEX5="$5"
+
+        RES_LINE=
+        case "$LEX1" in
+            "label:"*)
+                if [ $(empty_or_comment "$LEX2") = true ]; then
+                    CUR_KEY="${LEX1#label:}"
+                    if [[ "$CUR_KEY" =~ ^[a-zA-Z][a-zA-Z0-9_]*$ ]]; then
+                        GREP_KEY=$(printf "%s\n" "${LABELS[@]}" | grep "^$CUR_KEY ")
+                        if [ -z "${GREP_KEY}" ]; then
+                            LABELS[$LABELS_COUNT]="$CUR_KEY $NEXT_INSTR_ADDRESS"
+                            LABELS_COUNT=$((LABELS_COUNT + 1))
+                        else
+                            compilation_error "$FILE" "$LINE_NO" "$LINE" "Each label should be defined only once"
+                        fi
                     else
-                        compilation_error "${SRC_FILE}" "$LINE_NO" "$LINE" "Each label should be defined only once"
+                        compilation_error "$FILE" "$LINE_NO" "$LINE" "label should start with letter and contain only letters, digit and _"
                     fi
                 else
-                    compilation_error "${SRC_FILE}" "$LINE_NO" "$LINE" "label should start with letter and contain only letters, digit and _"
+                    compilation_error "$FILE" "$LINE_NO" "$LINE" "label:some_value"
                 fi
-            else
-                compilation_error "${SRC_FILE}" "$LINE_NO" "$LINE" "label:some_value"
-            fi
-            continue
-            ;;
-        copy)
-            if [ "$LEX3" = to ] && [ -n "$LEX4" ] && [ $(empty_or_comment "$LEX5") = true ]; then
-                RES_LINE="copy_from_to_address \$${LEX2} \$${LEX4}"
-            else
-                compilation_error "${SRC_FILE}" "$LINE_NO" "$LINE" "copy SOME_ADDRESS to OTHER_ADDRESS"
-            fi
-        ;;
-        write)
-            if [ "$LEX3" = to ] && [ $(empty_or_comment "$LEX5") = true ]; then
-                HELP_STR=$(echo ${LINE#"$LEX1"} | sed -e 's/^[[:space:]]'$LEX1'*//' -e 's/[[:space:]]*$//')
-                if [ "${HELP_STR:0:1}" = '"' ]; then
-                    RES_LINE="write_to_address \$${LEX4} \"$LEX2\""
+                continue
+                ;;
+            copy)
+                if [ "$LEX3" = to ] && [ -n "$LEX4" ] && [ $(empty_or_comment "$LEX5") = true ]; then
+                    RES_LINE="\$INSTR_COPY_FROM_TO_ADDRESS \$${LEX2} \$${LEX4}"
                 else
-                    RES_LINE="write_to_address \$${LEX4} \$$LEX2"
+                    compilation_error "$FILE" "$LINE_NO" "$LINE" "copy SOME_ADDRESS to OTHER_ADDRESS"
                 fi
-            else
-                compilation_error "${SRC_FILE}" "$LINE_NO" "$LINE" "write SOME to ADDRESS"
-            fi
-        ;;
-        cpu_exec)
-            if [ $(empty_or_comment "$LEX2") = true ]; then
-                RES_LINE="cpu_exec"
-            else
-                compilation_error "${SRC_FILE}" "$LINE_NO" "$LINE" "cpu_exec"
-            fi
-        ;;
-        jump|jump_if)
-            if [ -n "$LEX2" ] && [[ "$LEX2" =~ ^([0-9]+|label:.*)$ ]] && [ $(empty_or_comment "$LEX3") = true ]; then
-                RES_LINE="$LEX1 $LEX2"
-            else
-                compilation_error "${SRC_FILE}" "$LINE_NO" "$LINE" "jump 50\njump label:some\njump_if 100\njump_if label:some"
-            fi
-        ;;
-        *)
-            compilation_error "${SRC_FILE}" "$LINE_NO" "$LINE" "write copy label cpu_exec jump jump_if"
-        ;;
-    esac
+            ;;
+            write)
+                if [ "$LEX3" = to ] && [ $(empty_or_comment "$LEX5") = true ]; then
+                    HELP_STR=$(echo ${LINE#"$LEX1"} | sed -e 's/^[[:space:]]'$LEX1'*//' -e 's/[[:space:]]*$//')
+                    if [ "${HELP_STR:0:1}" = '"' ]; then
+                        CURRENT_CONSTANT="\"$LEX2\""
+                    else
+                        CURRENT_CONSTANT="\$$LEX2"
+                    fi
+            
+                    # Check whether constant is already present in array
+                    CUR_INDEX=$CONSTANTS_COUNT
+                    for i in "${!CONSTANTS[@]}"; do
+                        if [ "${CONSTANTS[$i]}" = "${CURRENT_CONSTANT}" ]; then
+                            CUR_INDEX="$i"
+                            break
+                        fi
+                    done
 
-    echo "${RES_LINE}" >> "${OBJ_FILE}"
-    NEXT_INSTRUCTION_ADDRESS=$((NEXT_INSTRUCTION_ADDRESS + 1))
-done < "${SRC_FILE}"
+                    RES_LINE="\$INSTR_COPY_FROM_TO_ADDRESS constant:$CUR_INDEX \$${LEX4}"
+                    if [ $CUR_INDEX -eq $CONSTANTS_COUNT ]; then
+                        CONSTANTS[$CONSTANTS_COUNT]="$CURRENT_CONSTANT"
+                        CONSTANTS_COUNT=$((CONSTANTS_COUNT + 1))
+                    fi
+                else
+                    compilation_error "$FILE" "$LINE_NO" "$LINE" "write SOME to ADDRESS"
+                fi
+            ;;
+            cpu_exec)
+                if [ $(empty_or_comment "$LEX2") = true ]; then
+                    RES_LINE="\$INSTR_CPU_EXEC"
+                else
+                    compilation_error "$FILE" "$LINE_NO" "$LINE" "cpu_exec"
+                fi
+            ;;
+            jump|jump_if)
+                if [ -n "$LEX2" ] && [[ "$LEX2" =~ ^([0-9]+|label:.*)$ ]] && [ $(empty_or_comment "$LEX3") = true ]; then
+                    if [ $LEX1 = jump_if ]; then
+                        RES_LINE="\$INSTR_JUMP_IF ${LEX2}"
+                    else
+                        RES_LINE="\$INSTR_JUMP ${LEX2}"
+                    fi
+                else
+                    compilation_error "$FILE" "$LINE_NO" "$LINE" "jump 50\njump label:some\njump_if 100\njump_if label:some"
+                fi
+            ;;
+            *)
+                compilation_error "$FILE" "$LINE_NO" "$LINE" "write copy label cpu_exec jump jump_if"
+            ;;
+        esac
+
+        echo "${RES_LINE}" >> "${OBJ_FILE}"
+        NEXT_INSTR_ADDRESS=$((NEXT_INSTR_ADDRESS + 1))
+    done < "$FILE"
+done
+echo "======TEXT SEGMENT END======" >> "${OBJ_FILE}"
+NEXT_INSTR_ADDRESS=$((NEXT_INSTR_ADDRESS + 1))
+
+CONSTANTS_OBJ_FILE="${KERNEL_FILE}".constants.o
+CUR_COUNTER=0
+echo "======DATA SEGMENT CONSTANTS START======" > "${CONSTANTS_OBJ_FILE}"
+NEXT_INSTR_ADDRESS=$((NEXT_INSTR_ADDRESS + 1))
+for CONSTANT in "${CONSTANTS[@]}"; do
+    if [ ${CONSTANT:0:1} = '"' ]; then
+        echo "${CONSTANT:1:-1}" >> "${CONSTANTS_OBJ_FILE}"
+    else
+        eval echo "${CONSTANT}" >> "${CONSTANTS_OBJ_FILE}"
+    fi
+    CONSTANT_ADDRESSES[CUR_COUNTER]="${NEXT_INSTR_ADDRESS}"
+    CUR_COUNTER=$((CUR_COUNTER + 1))
+    NEXT_INSTR_ADDRESS=$((NEXT_INSTR_ADDRESS + 1))
+done
+echo "======DATA SEGMENT CONSTANTS END======" >> "${CONSTANTS_OBJ_FILE}"
 
 rm -rf "${KERNEL_FILE}"
-while read -r LINE; do
-    RES_LINE="$LINE"
-    if [[ "$LINE" == jump* ]]; then
-        LEX1=$(echo "$LINE" | awk '{print $1}')
-        LEX2=$(echo "$LINE" | awk '{print $2}')
-        if [[ "$LEX2" == "label:"* ]]; then
-            CUR_KEY="${LEX2#label:}"
-            ADDRESS=$(printf "%s\n" "${LABELS[@]}" | grep "^$CUR_KEY " | awk '{print $2}')
-            if [ -z "$ADDRESS" ]; then
-                compilation_error "" "" "$LINE" "Label $CUR_KEY should be defined"
-            else
-                RES_LINE="$LEX1 $ADDRESS"
+for OBJ_FILE in ${OBJ_FILES}; do
+    while read -r LINE; do
+        RES_LINE="$LINE"
+        if [[ "$LINE" == "\$INSTR_JUMP"* ]]; then
+            LEX1=$(echo "$LINE" | awk '{print $1}')
+            LEX2=$(echo "$LINE" | awk '{print $2}')
+            if [[ "$LEX2" == "label:"* ]]; then
+                CUR_KEY="${LEX2#label:}"
+                ADDRESS=$(printf "%s\n" "${LABELS[@]}" | grep "^$CUR_KEY " | awk '{print $2}')
+                if [ -z "$ADDRESS" ]; then
+                    compilation_error "" "" "$LINE" "Label $CUR_KEY should be defined"
+                else
+                    RES_LINE="$LEX1 $ADDRESS"
+                fi
             fi
         fi
-    fi
+        if [[ "$LINE" == "\$INSTR_COPY_FROM_TO_ADDRESS constant:"* ]]; then
+            LEX2=$(echo "$LINE" | awk '{print $2}')
+            LEX3=$(echo "$LINE" | awk '{print $3}')
+            CUR_INDEX=${LEX2#constant:}
+            RES_LINE="\$INSTR_COPY_FROM_TO_ADDRESS ${CONSTANT_ADDRESSES[$CUR_INDEX]} $LEX3"
+        fi
+        echo "${RES_LINE}" >> "${KERNEL_FILE}"
+    done < "${OBJ_FILE}"
+done
 
-    echo "${RES_LINE}" >> "${KERNEL_FILE}"
-done < "${OBJ_FILE}"
+cat "${CONSTANTS_OBJ_FILE}" >> "${KERNEL_FILE}"
 
 if [ $COMPILATION_ERROR_COUNT -ne 0 ]; then
     echo -e "\033[91mCompilation failed: $COMPILATION_ERROR_COUNT error(s).\033[0m"

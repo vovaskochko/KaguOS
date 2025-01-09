@@ -132,7 +132,7 @@ function cpu_exec {
             write_to_address $REG_RES "$COLUMN_VAL"
             ;;
         ${OP_READ_INPUT})
-            read -r INPUT_LINE
+            IFS= read -r INPUT_LINE
             write_to_address $KEYBOARD_BUFFER "${INPUT_LINE}"
             ;;
         ${OP_DISPLAY}|${OP_DISPLAY_LN})
@@ -192,10 +192,10 @@ function jump_next {
 
 
 # jump to the provided address.
-# INPUT: address to jump to
+# INPUT: address to jump
 function jump {
     if [ "$#"  -ne 1 ]; then
-        echo "FATAL_ERROR: no address provided for jump_to"
+        echo "FATAL_ERROR: no address provided for jump"
         exit 1
     fi
     write_to_address ${PROGRAM_COUNTER} "$((${1}-1))"
