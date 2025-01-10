@@ -49,6 +49,10 @@ label:dummy
     write OP_READ_INPUT to REG_OP
     cpu_exec
 
+    var test_var1
+    var test_var2
+    var test_var3
+
     // split into command and arguments:
     copy KEYBOARD_BUFFER to REG_A
     write "1" to REG_B
