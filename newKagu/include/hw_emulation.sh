@@ -79,6 +79,15 @@ function cpu_exec {
         ${OP_DECR})
             write_to_address $REG_RES "$((REG_A_VAL - 1))"
             ;;
+        ${OP_DIV})
+            write_to_address $REG_RES "$((REG_A_VAL / REG_B_VAL))"
+            ;;
+        ${OP_MOD})
+            write_to_address $REG_RES "$((REG_A_VAL % REG_B_VAL))"
+            ;;
+        ${OP_MUL})
+            write_to_address $REG_RES "$((REG_A_VAL * REG_B_VAL))"
+            ;;
         ${OP_IS_NUM})
             if (( $REG_A_VAL + 0 )); then
                 CMP_RES=1
@@ -130,6 +139,9 @@ function cpu_exec {
         ${OP_GET_COLUMN})
             COLUMN_VAL=$(echo "${REG_A_VAL}" | awk -F"${REG_C_VAL}" '{print $'"${REG_B_VAL}"'}')
             write_to_address $REG_RES "$COLUMN_VAL"
+            ;;
+        ${OP_CONCAT_WITH})
+            write_to_address $REG_RES "${REG_A_VAL}${REG_C_VAL}${REG_B_VAL}"
             ;;
         ${OP_READ_INPUT})
             IFS= read -r INPUT_LINE

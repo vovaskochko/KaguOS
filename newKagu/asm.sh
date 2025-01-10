@@ -2,10 +2,7 @@
 # this script allows to convert .kgasm files to the machine code
 
 function compilation_error() {
-    local CUR_FILE="$1"
-    local CUR_LINE_NO="$2"
-    local CUR_LINE="$3"
-    local EXPECTED_SYNTAX="$4"
+    local EXPECTED_SYNTAX="$1"
     echo -e "\033[93mCompilation error\033[0m at ${CUR_FILE}:${CUR_LINE_NO}"
     echo -e "\033[91m$CUR_LINE\033[0m"
     echo -e "Expected syntax:\n\033[92m$EXPECTED_SYNTAX\033[0m"
@@ -23,24 +20,125 @@ function empty_or_comment() {
     fi
 }
 
-source include/defines.sh
-source include/hw.sh
+function handle_cpu_exec() {
+    local LEX2=$(echo "$LINE" | awk '{print $2}')
+    if [ $(empty_or_comment "$LEX2") = false ]; then
+        compilation_error "cpu_exec"
+        return 1
+    fi
 
+    RES_LINE="$INSTR_CPU_EXEC # cpu_exec"
+}
+
+function handle_label() {
+    local LEX1=$(echo "$LINE" | awk '{print $1}')
+    local LEX2=$(echo "$LINE" | awk '{print $2}')
+
+    if [ $(empty_or_comment "$LEX2") = false ]; then
+        compilation_error "label:some_value"
+        return 1
+    fi
+
+    CUR_KEY="${LEX1#label:}"
+    if [[ ! "$CUR_KEY" =~ ^[a-zA-Z][a-zA-Z0-9_]*$ ]]; then
+        compilation_error "label should start with letter and contain only letters, digits and _"
+        return 1
+    fi
+
+    GREP_KEY=$(printf "%s\n" "${LABELS[@]}" | grep "^$CUR_KEY ")
+    if [ -n "${GREP_KEY}" ]; then
+        compilation_error "Each label should be defined only once"
+        return 1
+    fi
+
+    LABELS[$LABELS_COUNT]="$CUR_KEY $NEXT_INSTR_ADDRESS"
+    LABELS_COUNT=$((LABELS_COUNT + 1))
+}
+
+function handle_copy() {
+    eval set -- "$LINE"
+    local LEX1="$1"
+    local LEX2="$2"
+    local LEX3="$3"
+    local LEX4="$4"
+    local LEX5="$5"
+    if [ "$LEX3" != to ] || [ -z "$LEX4" ] || [ $(empty_or_comment "$LEX5") = false ]; then
+        compilation_error "copy SOME_ADDRESS to OTHER_ADDRESS"
+        return 1
+    fi
+
+    RES_LINE="$INSTR_COPY_FROM_TO_ADDRESS \$${LEX2} \$${LEX4} # ${LEX2} => ${LEX4}"
+}
+
+function handle_write() {
+    eval set -- "$LINE"
+    local LEX1="$1"
+    local LEX2="$2"
+    local LEX3="$3"
+    local LEX4="$4"
+    local LEX5="$5"
+
+    if [ "$LEX3" != to ] || [ -z "$LEX4" ] || [ $(empty_or_comment "$LEX5") = false ]; then
+        compilation_error "write SOME to ADDRESS"
+        return 1
+    fi
+
+    HELP_STR=$(echo ${LINE#"$LEX1"} | sed -e 's/^[[:space:]]'$LEX1'*//' -e 's/[[:space:]]*$//')
+    if [ "${HELP_STR:0:1}" = '"' ]; then
+        CURRENT_CONSTANT="\"$LEX2\""
+    else
+        CURRENT_CONSTANT="\$$LEX2"
+    fi
+
+    # Lets perform some optimisation: if constant was already added, we can reuse it: 
+    CUR_INDEX=$CONSTANTS_COUNT
+    for i in "${!CONSTANTS[@]}"; do
+        if [ "${CONSTANTS[$i]}" = "${CURRENT_CONSTANT}" ]; then
+            CUR_INDEX="$i"
+            break
+        fi
+    done
+
+    # if constant is not present in array, we will need to copy it to the memory
+    if [ $CUR_INDEX -eq $CONSTANTS_COUNT ]; then
+        CONSTANTS[$CONSTANTS_COUNT]="$CURRENT_CONSTANT"
+        CONSTANTS_COUNT=$((CONSTANTS_COUNT + 1))
+    fi
+
+    RES_LINE="$INSTR_COPY_FROM_TO_ADDRESS constant:$CUR_INDEX \$${LEX4} # $CURRENT_CONSTANT => ${LEX4}"
+}
+
+function handle_jumps() {
+    local LEX1=$(echo "$LINE" | awk '{print $1}')
+    local LEX2=$(echo "$LINE" | awk '{print $2}')
+    local LEX3=$(echo "$LINE" | awk '{print $3}')
+    if [ -z "$LEX2" ] || [[ ! "$LEX2" =~ ^([0-9]+|label:.*)$ ]] || [ $(empty_or_comment "$LEX3") = false ]; then
+        compilation_error "jump 50\njump label:some\njump_if 100\njump_if label:some"
+        return 1
+    fi
+
+    if [ $LEX1 = jump_if ]; then
+        RES_LINE="$INSTR_JUMP_IF ${LEX2} # jump_if ${LEX2}"
+    else
+        RES_LINE="$INSTR_JUMP ${LEX2} # jump $LEX2"
+    fi
+} 
+
+source include/operations.sh
+source include/other.sh
+source include/registers.sh
+source include/system.sh
+
+# TODO More careful checks of errors - no files, permissions and so on
 KERNEL_FILE="$GLOBAL_KERNEL_DISK"
 SRC_FILES=""
 for ARG in "$@"; do
-    if [ -f "${ARG}" ]; then
-        SRC_FILES="${SRC_FILES} ${ARG}"
-    else
+    if [ ! -f "${ARG}" ]; then
         echo "${ARG} is not a valid source file"
         exit 1
     fi
+    SRC_FILES="${SRC_FILES} ${ARG}"
 done
-
-if [ ! -f "$1" ]; then
-    echo "File $1 does not exist"
-    exit 1
-fi
 
 rm -rf "$GLOBAL_BUILD_DIR"
 mkdir -p "$GLOBAL_BUILD_DIR"
@@ -52,7 +150,6 @@ LABELS_COUNT=0
 CONSTANTS=()
 CONSTANTS_COUNT=0
 OBJ_FILES=""
-FIRST_FILE=true
 
 for FILE in ${SRC_FILES}; do
     LINE_NO=0
@@ -61,11 +158,6 @@ for FILE in ${SRC_FILES}; do
     rm -rf "${OBJ_FILE}"
     touch "${OBJ_FILE}"
     OBJ_FILES="${OBJ_FILES} ${OBJ_FILE}"
-    if [ $FIRST_FILE = true ]; then
-        echo "======TEXT SEGMENT START. THIS LINE WILL BE AT ADDRESS ${KERNEL_START} IN RAM======" > "${OBJ_FILE}"
-        NEXT_INSTR_ADDRESS=$((NEXT_INSTR_ADDRESS + 1))
-        FIRST_FILE=false
-    fi
 
     while read -r LINE; do
         LINE_NO=$((LINE_NO + 1))
@@ -76,89 +168,29 @@ for FILE in ${SRC_FILES}; do
             continue
         fi
 
-        # split LINE to lexer components
-        eval set -- "$LINE"
-        LEX1="$1"
-        LEX2="$2"
-        LEX3="$3"
-        LEX4="$4"
-        LEX5="$5"
+        # let's get the first lexical component of the LINE and analyze whether it matches one of the expected commands
+        LEX1=$(echo "$LINE" | awk '{print $1}')
 
         RES_LINE=
         case "$LEX1" in
+            cpu_exec)
+                handle_cpu_exec
+            ;;
             "label:"*)
-                if [ $(empty_or_comment "$LEX2") = true ]; then
-                    CUR_KEY="${LEX1#label:}"
-                    if [[ "$CUR_KEY" =~ ^[a-zA-Z][a-zA-Z0-9_]*$ ]]; then
-                        GREP_KEY=$(printf "%s\n" "${LABELS[@]}" | grep "^$CUR_KEY ")
-                        if [ -z "${GREP_KEY}" ]; then
-                            LABELS[$LABELS_COUNT]="$CUR_KEY $NEXT_INSTR_ADDRESS"
-                            LABELS_COUNT=$((LABELS_COUNT + 1))
-                        else
-                            compilation_error "$FILE" "$LINE_NO" "$LINE" "Each label should be defined only once"
-                        fi
-                    else
-                        compilation_error "$FILE" "$LINE_NO" "$LINE" "label should start with letter and contain only letters, digit and _"
-                    fi
-                else
-                    compilation_error "$FILE" "$LINE_NO" "$LINE" "label:some_value"
-                fi
+                handle_label
                 continue
                 ;;
             copy)
-                if [ "$LEX3" = to ] && [ -n "$LEX4" ] && [ $(empty_or_comment "$LEX5") = true ]; then
-                    RES_LINE="$INSTR_COPY_FROM_TO_ADDRESS \$${LEX2} \$${LEX4} # ${LEX2} => ${LEX4}"
-                else
-                    compilation_error "$FILE" "$LINE_NO" "$LINE" "copy SOME_ADDRESS to OTHER_ADDRESS"
-                fi
+                handle_copy
             ;;
             write)
-                if [ "$LEX3" = to ] && [ $(empty_or_comment "$LEX5") = true ]; then
-                    HELP_STR=$(echo ${LINE#"$LEX1"} | sed -e 's/^[[:space:]]'$LEX1'*//' -e 's/[[:space:]]*$//')
-                    if [ "${HELP_STR:0:1}" = '"' ]; then
-                        CURRENT_CONSTANT="\"$LEX2\""
-                    else
-                        CURRENT_CONSTANT="\$$LEX2"
-                    fi
-            
-                    # Check whether constant is already present in array
-                    CUR_INDEX=$CONSTANTS_COUNT
-                    for i in "${!CONSTANTS[@]}"; do
-                        if [ "${CONSTANTS[$i]}" = "${CURRENT_CONSTANT}" ]; then
-                            CUR_INDEX="$i"
-                            break
-                        fi
-                    done
-
-                    RES_LINE="$INSTR_COPY_FROM_TO_ADDRESS constant:$CUR_INDEX \$${LEX4} # $CURRENT_CONSTANT => ${LEX4}"
-                    if [ $CUR_INDEX -eq $CONSTANTS_COUNT ]; then
-                        CONSTANTS[$CONSTANTS_COUNT]="$CURRENT_CONSTANT"
-                        CONSTANTS_COUNT=$((CONSTANTS_COUNT + 1))
-                    fi
-                else
-                    compilation_error "$FILE" "$LINE_NO" "$LINE" "write SOME to ADDRESS"
-                fi
-            ;;
-            cpu_exec)
-                if [ $(empty_or_comment "$LEX2") = true ]; then
-                    RES_LINE="$INSTR_CPU_EXEC # cpu_exec"
-                else
-                    compilation_error "$FILE" "$LINE_NO" "$LINE" "cpu_exec"
-                fi
+                handle_write
             ;;
             jump|jump_if)
-                if [ -n "$LEX2" ] && [[ "$LEX2" =~ ^([0-9]+|label:.*)$ ]] && [ $(empty_or_comment "$LEX3") = true ]; then
-                    if [ $LEX1 = jump_if ]; then
-                        RES_LINE="$INSTR_JUMP_IF ${LEX2} # jump_if ${LEX2}"
-                    else
-                        RES_LINE="$INSTR_JUMP ${LEX2} # jump $LEX2"
-                    fi
-                else
-                    compilation_error "$FILE" "$LINE_NO" "$LINE" "jump 50\njump label:some\njump_if 100\njump_if label:some"
-                fi
+                handle_jumps
             ;;
             *)
-                compilation_error "$FILE" "$LINE_NO" "$LINE" "write copy label cpu_exec jump jump_if"
+                compilation_error "write copy label cpu_exec jump jump_if"
             ;;
         esac
 
@@ -169,6 +201,7 @@ done
 echo "======TEXT SEGMENT END======" >> "${OBJ_FILE}"
 NEXT_INSTR_ADDRESS=$((NEXT_INSTR_ADDRESS + 1))
 
+# Let's generate object file from constants. Later it will be appended to the end of the kernel.
 CONSTANTS_OBJ_FILE="${KERNEL_FILE}".constants.o
 CUR_COUNTER=0
 echo "======DATA SEGMENT CONSTANTS START======" > "${CONSTANTS_OBJ_FILE}"
@@ -185,10 +218,14 @@ for CONSTANT in "${CONSTANTS[@]}"; do
 done
 echo "======DATA SEGMENT CONSTANTS END======" >> "${CONSTANTS_OBJ_FILE}"
 
+
+# Let's concat generated object files and write them to the kernel file: 
 rm -rf "${KERNEL_FILE}"
 for OBJ_FILE in ${OBJ_FILES}; do
     while read -r LINE; do
         RES_LINE="$LINE"
+
+        # We should replace all the labels in jump/jump_if commands with corresponding addresses
         if [[ "$LINE" == "$INSTR_JUMP "* ]] || [[ "$LINE" == "$INSTR_JUMP_IF "* ]]; then
             LEX2=$(echo "$LINE" | awk '{print $2}')
             if [[ "$LEX2" == "label:"* ]]; then
@@ -201,6 +238,9 @@ for OBJ_FILE in ${OBJ_FILES}; do
                 fi
             fi
         fi
+
+        # We should replace all the constant:N inside copy instructions with corresponding addresses;
+        # otherwise variables like $REG_OP should be evaluated to get addresses as well.
         if [[ "$LINE" == "$INSTR_COPY_FROM_TO_ADDRESS"* ]]; then
             LEX2=$(echo "$LINE" | awk '{print $2}')
             LEX3=$(echo "$LINE" | awk '{print $3}')
@@ -215,6 +255,7 @@ for OBJ_FILE in ${OBJ_FILES}; do
     done < "${OBJ_FILE}"
 done
 
+# Let's align all the # comments to the right:
 awk '{
     # Find the position of the last number before #
     pos = index($0, "#")
@@ -229,8 +270,10 @@ awk '{
     }
 }' "${KERNEL_FILE}" > "${KERNEL_FILE}".tmp && mv "${KERNEL_FILE}".tmp "${KERNEL_FILE}"
 
+# Let's append constants to the end of the kernel file
 cat "${CONSTANTS_OBJ_FILE}" >> "${KERNEL_FILE}"
 
+# That's it - compilation finished. Let's report status to the user:
 if [ $COMPILATION_ERROR_COUNT -ne 0 ]; then
     echo -e "\033[91mCompilation failed: $COMPILATION_ERROR_COUNT error(s).\033[0m"
     exit 1

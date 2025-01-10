@@ -54,8 +54,11 @@ done
 
 # Lets include some human readable names for addresses to simplify reading and writing the code
 # and also implementation of instruction set
-source include/defines.sh
-source include/hw.sh
+source include/hw_emulation.sh
+source include/operations.sh
+source include/other.sh
+source include/registers.sh
+source include/system.sh
 
 # We use text files to emulate HW and simplify debug
 # so lets remove files from previous boot:
@@ -75,7 +78,7 @@ done
 ###########################
 ####### LOAD KERNEL #######
 # Write debug line to mark kernel start address
-write_to_address ${KERNEL_START_INFO} "############ KERNEL START ###########"
+write_to_address ${INFO_KERNEL_START} "############ KERNEL START ###########"
 
 # Load data from disk to RAM:
 # NOTE: Real computer loads kernel from disk or disk partition
@@ -98,13 +101,10 @@ write_to_address ${CUR_ADDRESS} "############ KERNEL END #############"
 # Jump to the address in RAM
 # where the kernel was loaded:
 jump ${KERNEL_START}
-# Let's skip the first line of kernel which contains debug info:
-jump_next
 
-# Run kernel main loop.
+# Run CPU main loop.
 # NOTE: Real CPU has a control unit to handle switch between instructions
 #      while our emulation uses eval function of bash to achieve similar behavior.
-# NOTE AI: Ask AI assistant about eval command and potential security issues of its usage for scripts.
 while [ 1 = 1 ]
 do
     # Go to the next command:
@@ -116,7 +116,6 @@ do
     # Check whether next command points to termination
     NEXT_CMD=$(read_from_address ${PROGRAM_COUNTER})
 
-    # TODO check supported instructions
     # TODO change all to be used with copy_from_to
     CUR_INSTRUCTION=$(read_from_address ${NEXT_CMD})
     INSTR_CODE=$(echo "${CUR_INSTRUCTION}" | cut -d ' ' -f 1)

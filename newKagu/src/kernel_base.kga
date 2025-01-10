@@ -3,19 +3,19 @@
 // ##########################################
 // # INITRAMFS_START                        #
 // ##########################################
-write "Operation register:" to REG_OP_INFO
-write "A register:" to REG_A_INFO
-write "B register:" to REG_B_INFO
-write "C register:" to REG_C_INFO
-write "D register:" to REG_D_INFO
-write "Result register:" to REG_RES_INFO
-write "Comparison result register:" to REG_BOOL_RES_INFO
-write "Display buffer:" to DISPLAY_BUFFER_INFO
-write "Display color:" to DISPLAY_COLOR_INFO
-write "Keyboard buffer:" to KEYBOARD_BUFFER_INFO
-write "Program counter:" to PROGRAM_COUNTER_INFO
-write "Stack pointer:" to REG_STACK_PTR_INFO
-write "Previous stack pointer:" to REG_STACK_PREV_PTR_INFO
+write "Operation register:" to INFO_REG_OP
+write "A register:" to INFO_REG_A
+write "B register:" to INFO_REG_B
+write "C register:" to INFO_REG_C
+write "D register:" to INFO_REG_D
+write "Result register:" to INFO_REG_RES
+write "Comparison result register:" to INFO_REG_BOOL_RES
+write "Display buffer:" to INFO_DISPLAY_BUFFER
+write "Display color:" to INFO_DISPLAY_COLOR
+write "Keyboard buffer:" to INFO_KEYBOARD_BUFFER
+write "Program counter:" to INFO_PROGRAM_COUNTER
+write "Stack pointer:" to INFO_REG_STACK_PTR
+write "Previous stack pointer:" to INFO_REG_STACK_PREV_PTR
 
 write "RAMFS init - done." to DISPLAY_BUFFER
 write COLOR_GREEN to DISPLAY_COLOR
@@ -82,9 +82,9 @@ label:dummy
 
     jump label:kernel_start
 
-label:kernel_end //test
+label:kernel_end
     // Print bye message and exit:
-    write "Good bye!" to DISPLAY_BUFFER //${string#* }
+    write "Good bye!" to DISPLAY_BUFFER
     write COLOR_GREEN to DISPLAY_COLOR
     write OP_DISPLAY_LN to REG_OP
     cpu_exec
@@ -95,3 +95,11 @@ label:kernel_end //test
 // ##########################################
 // # KERNEL_END                             #
 // ##########################################
+
+// func:some_name => label:func__some_name
+
+// label:test => label:func__some_name__test
+//     return
+// func_end:some_name
+
+// call some_name REG_A REG_B "Test string"
