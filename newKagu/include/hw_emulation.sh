@@ -226,10 +226,7 @@ function jump_if {
 function jump_print_debug_info {
     local NEXT_CMD_ADDRESS=$(read_from_address ${PROGRAM_COUNTER})
     local NEXT_CMD=$(read_from_address $((${NEXT_CMD_ADDRESS})))
-    echo -e "[DEBUG] Command ${NEXT_CMD_ADDRESS}:\033[34m ${NEXT_CMD}\033[0m"
-    # if [ "${FULL_KERNEL_COMPILATION}" != "1" ]; then
-    #     echo -e "[DEBUG] Command ${NEXT_CMD_ADDRESS}:\033[35m $(echo "${NEXT_CMD}" | envsubst)\033[0m"
-    # fi
+    echo -e "\033[34m[DEBUG] Command ${NEXT_CMD_ADDRESS}:\033[35m ${NEXT_CMD}\033[0m"
 }
 
 

@@ -13,6 +13,7 @@ export -f exit_fatal
 # Check input arguments for debug flags
 export DEBUG_JUMP="0"
 export DEBUG_SLEEP="0"
+INPUT_KERNEL_FILE=""
 for IN_ARG in "$@"; do
     case "${IN_ARG}" in
         --debug-jump|-j)
@@ -30,7 +31,7 @@ for IN_ARG in "$@"; do
         --help|-h)
             echo "KaguOS bootloader"
             echo "KaguOS bootloader"
-            echo "Usage: bootloader.sh [OPTIONS]"
+            echo "Usage: bootloader.sh [OPTIONS] build/kernel.disk"
             echo ""
             echo "Options:"
             echo "  --debug-jump, -j  Debug jump enabled"
@@ -39,10 +40,18 @@ for IN_ARG in "$@"; do
             exit 0
             ;;
         *)
-            exit_fatal "Unknown argument: ${IN_ARG}."
+            if [ -z "${INPUT_KERNEL_FILE}" ] && [ -f "${IN_ARG}" ]; then
+                INPUT_KERNEL_FILE="${IN_ARG}"
+            else
+                echo "Too many arguments. Unknown argument or multiple files provided. Only one kernel file is supported."
+            fi
             ;;
     esac
 done
+
+if [ -z "$INPUT_KERNEL_FILE" ]; then
+    exit_fatal "No kernel file provided"
+fi
 
 #################################
 # BOOTLOADER:                   #
@@ -65,7 +74,7 @@ source include/system.sh
 rm -rf "${GLOBAL_HW_DIR}"
 mkdir -p "${GLOBAL_HW_DIR}"
 
-# Init RAM with zero:
+# Init RAM with zeros:
 # NOTE: Real computer has a memory with some size which is reset to some default values on power off.
 for ((i=1;i<=${GLOBAL_RAM_SIZE};i++)); do
     write_to_address $i "0"
@@ -87,7 +96,7 @@ CUR_ADDRESS="${KERNEL_START}"
 while IFS= read -r LINE; do
     write_to_address ${CUR_ADDRESS} "${LINE}"
     CUR_ADDRESS=$((CUR_ADDRESS + 1))
-done < "${GLOBAL_KERNEL_DISK}"
+done < "${INPUT_KERNEL_FILE}"
 
 # Write debug line to mark kernel end address
 write_to_address ${CUR_ADDRESS} "############ KERNEL END #############"
@@ -100,7 +109,13 @@ write_to_address ${CUR_ADDRESS} "############ KERNEL END #############"
 ####### JUMP TO KERNEL ####
 # Jump to the address in RAM
 # where the kernel was loaded:
+dump_RAM_to_file
+sleep ${DEBUG_SLEEP}
+
 jump ${KERNEL_START}
+
+dump_RAM_to_file
+sleep ${DEBUG_SLEEP}
 
 # Run CPU main loop.
 # NOTE: Real CPU has a control unit to handle switch between instructions
