@@ -78,17 +78,17 @@ Let's open `tmp/RAM.txt` in VSCode editor. You can find the kernel code starting
 Therefore review `tmp/RAM.txt` while running kernel with 0.5 second delay e.g. `./bootloader.sh kernels/simple -s=0.5`. There are only to changes in RAM - address 2(REG_OP) and address 24 which corresponds to `PROGRAM_COUNTER`(see *include/registers.sh*). Note that in our implementation program counter contains value of line with instruction but this value is decremented by 1. Therefore PROGRAM_COUNTER register value 40 means execution of instruction at address 41 and so on.
 
 ## Display message
-Now let's extend our kernel with some useful actions. Let's print some message before halt. To do that we will use DISPLAY_BUFFER(address 18), DISPLAY_COLOR(address 20) and OP_DISPLAY_LN(code 17). Supported colors are specified in the file `include/others.sh`. We will use COLOR_GREEN(code 1).
+Now let's extend our kernel with some useful actions. Let's print some message before halt. To do that we will use DISPLAY_BUFFER(address 18), DISPLAY_COLOR(address 20) and OP_DISPLAY_LN(code 19). Supported colors are specified in the file `include/others.sh`. We will use COLOR_GREEN(code 1).
 ```bash
 1 ? 18          # copy string with text from ? address to DISPLAY_BUFFER(18)
 1 ? 20          # copy COLOR_GREEN(1) constant from ? address to DISPLAY_COLOR(20)
-1 ? 2           # copy OP_DISPLAY_LN(17) constant from ? address to REG_OP(2)
+1 ? 2           # copy OP_DISPLAY_LN(19) constant from ? address to REG_OP(2)
 0               # cpu_exec
 1 ? 2           # copy OP_HALT(30) constant from ? address to REG_OP(2)
 0               # cpu_exec
 Green hello!    # Text to be printed
 1               # COLOR_GREEN constant
-17              # OP_DISPLAY_LN constant
+19              # OP_DISPLAY_LN constant
 30              # OP_HALT constant
 ```
 
@@ -102,7 +102,7 @@ Now we can replace ? with the addresses were constants will be present in RAM. T
 0
 Green hello!
 1
-17
+19
 30
 ```
 Create file `kernels/hello`, add the code and run it with `bootloader.sh`.
@@ -121,10 +121,10 @@ Let's extend our kernel with another message displayed in COLOR_RED(3):
 0
 Green hello!
 1
-17
+19
 Red hello!
 3
-17
+19
 30
 ```
 Save it as `kernels/helloRed` and run it.
@@ -132,7 +132,7 @@ Save it as `kernels/helloRed` and run it.
 **TASK**: What could be improved to reduce memory usage in this case?
 
 ## Read input
-Now we can try to use `OP_READ_INPUT`(15) to get some text from the keyboard and write it instead of *Green hello!* message. Note, that in this case input will be stored at `KEYBOARD_BUFFER`(address 22).
+Now we can try to use `OP_READ_INPUT`(17) to get some text from the keyboard and write it instead of *Green hello!* message. Note, that in this case input will be stored at `KEYBOARD_BUFFER`(address 22).
 ```bash
 1 ? 2           # write OP_READ_INPUT from ? address to REG_OP
 0               # cpu_exec
@@ -146,12 +146,12 @@ Now we can try to use `OP_READ_INPUT`(15) to get some text from the keyboard and
 0               # cpu_exec
 1 ? 2           # copy OP_HALT from ? address to REG_OP(2)
 0               # cpu_exec
-15              # OP_READ_INPUT
+17              # OP_READ_INPUT
 1               # COLOR_GREEN
-17              # OP_DISPLAY_LN
+19              # OP_DISPLAY_LN
 Red hello!      # Text to be printed in red
 3               # COLOR_RED
-17              # OP_DISPLAY_LN
+19              # OP_DISPLAY_LN
 30              # OP_HALT
 ```
 Now we can calculate addresses of the constants and replace ?. The first ? should be replaced with 53 and so on:
@@ -168,12 +168,12 @@ Now we can calculate addresses of the constants and replace ?. The first ? shoul
 0
 1 59 2
 0
-15
-1
 17
+1
+19
 Red hello!
 3
-17
+19
 30
 ```
 Save the code to *kernels/readInput* and run it.
@@ -203,14 +203,14 @@ Let's use conditional jump to check user input and print user input only if it i
 0               # cpu_exec
 1 ? 2           # copy OP_HALT from ? address to REG_OP(2)
 0               # cpu_exec
-15              # OP_READ_INPUT
+17              # OP_READ_INPUT
 red             # text that will be used for the comparison
 8               # OP_CMP_EQ
 1               # COLOR_GREEN
-17              # OP_DISPLAY_LN
+19              # OP_DISPLAY_LN
 Red hello!      # Text to be printed in red
 3               # COLOR_RED
-17              # OP_DISPLAY_LN
+19              # OP_DISPLAY_LN
 30              # OP_HALT
 ```
 After calculations we can substitute ? with the real addresses. First line with data OP_READ_INPUT is at line 18 therefore we should start from 58 while filling missed addresses. Also ?? will be 52. As a result:
@@ -232,14 +232,14 @@ After calculations we can substitute ? with the real addresses. First line with 
 0  
 1 66 2 
 0
-15
+17
 red
 8
 1
-17
+19
 Red hello!
 3
-17
+19
 30
 ```
 Save it to `kernel/condition` and run it. Enter text *red* and ensure that it will not be printed with green color. Restart kernel and enter any other text and ensure that logic is working fine.

@@ -117,6 +117,10 @@ jump ${KERNEL_START}
 dump_RAM_to_file
 sleep ${DEBUG_SLEEP}
 
+# Let's use this flag to define whether we should use debug functionality:
+# dump RAM to file, delay between instructions, printing of instructions
+DEBUG_ON=true
+
 # Run CPU main loop.
 # NOTE: Real CPU has a control unit to handle switch between instructions
 #      while our emulation uses eval function of bash to achieve similar behavior.
@@ -124,7 +128,7 @@ while [ 1 = 1 ]
 do
     # Go to the next command:
     jump_next
-    if [ "${DEBUG_JUMP}" = "1" ]; then
+    if [ "$DEBUG_ON" = "true" ] && [ "${DEBUG_JUMP}" = "1" ]; then
         jump_print_debug_info
     fi
 
@@ -150,13 +154,28 @@ do
         $INSTR_JUMP_IF)
             INSTR_FUNC=jump_if
             ;;
+        DEBUG_ON)
+            echo "Enable debug"
+            DEBUG_ON=true
+            continue
+            ;;
+        DEBUG_OFF)
+            echo "Disable debug"
+            DEBUG_ON=false
+            continue
+            ;;
         *)
             exit_fatal "Unknown instruction: ${CUR_INSTRUCTION}"
         ;;
     esac
     eval $INSTR_FUNC ${CUR_INSTRUCTION#* }
-    dump_RAM_to_file
-    sleep ${DEBUG_SLEEP}
+
+    if [ "$DEBUG_ON" = "true" ]; then
+        dump_RAM_to_file
+        sleep ${DEBUG_SLEEP}
+    fi
+
+
 done
 
 ###### END JUMP TO KERNEL #

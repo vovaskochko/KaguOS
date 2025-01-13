@@ -37,6 +37,19 @@ function empty_or_comment() {
     fi
 }
 
+# We are using DEBUG_ON/DEBUG_OFF to improve execution speed for the stable parts of code
+# At the same time we can enclose parts of code with that instruction to simplify debug process
+function handle_debug() {
+    local LEX1=$(echo "$LINE" | awk '{print $1}')
+    local LEX2=$(echo "$LINE" | awk '{print $2}')
+    if [ $(empty_or_comment "$LEX2") = false ]; then
+        compilation_error "DEBUG_ON/DEBUG_OFF"
+        return 1
+    fi
+
+    RES_LINE="$LEX1 # debug"
+}
+
 function handle_cpu_exec() {
     local LEX2=$(echo "$LINE" | awk '{print $2}')
     if [ $(empty_or_comment "$LEX2") = false ]; then
@@ -211,6 +224,9 @@ for CUR_FILE in ${SRC_FILES}; do
 
         RES_LINE=
         case "$LEX1" in
+            DEBUG_ON|DEBUG_OFF)
+                handle_debug
+                ;;
             cpu_exec)
                 handle_cpu_exec
                 ;;

@@ -86,37 +86,42 @@ export OP_CMP_LE=11
 # After execution, the result (true or false) will be present in REG_BOOL_RES.
 export OP_CONTAINS=12
 
+# TODO comments
+export OP_GET_LENGTH=13
+export OP_STARTS_WITH=14
+
 # To extract a specific column from a string, place the string in REG_A, the column number in REG_B, and the delimiter in REG_C.
 # Set REG_OP to OP_GET_COLUMN and call INSTR_CPU_EXEC.
 # After execution, the extracted column will be present in REG_RES.
-export OP_GET_COLUMN=13
+export OP_GET_COLUMN=15
 
 # TODO CONCAT_WITH
-export OP_CONCAT_WITH=14
+export OP_CONCAT_WITH=16
 
 # To read input from the keyboard, call OP_READ_INPUT.
 # After execution, the input will be stored in the KEYBOARD_BUFFER.
-export OP_READ_INPUT=15
+export OP_READ_INPUT=17
 
 # To display a string without a newline, place the string in DISPLAY_BUFFER and set the color in DISPLAY_COLOR.
 # Call OP_DISPLAY to output the string.
-export OP_DISPLAY=16
+export OP_DISPLAY=18
 
 # To display a string with a newline, place the string in DISPLAY_BUFFER and set the color in DISPLAY_COLOR.
 # Call OP_DISPLAY_LN to output the string followed by a newline.
-export OP_DISPLAY_LN=17
+export OP_DISPLAY_LN=19
 
 # To read a block of data from a disk, set the disk name in REG_A and the block number in REG_B.
 # Call OP_READ_BLOCK and the data will be stored in REG_RES.
-export OP_READ_BLOCK=18
+export OP_READ_BLOCK=20
 
 # To write a string to a disk block, set the disk name in REG_A, the block number in REG_B, and the string in REG_C.
 # Call OP_WRITE_BLOCK to perform the write operation.
 # The result (success or failure) will be present in REG_BOOL_RES, and any error message will be stored in REG_ERROR if needed.
-export OP_WRITE_BLOCK=19
+export OP_WRITE_BLOCK=21
+
 
 #####
-# OP codes from 20 to 28 are reserved for future use.
+# OP codes from 22 to 28 are reserved for future use.
 #####
 
 # To perform no operation, set REG_OP to OP_NOP and call INSTR_CPU_EXEC.

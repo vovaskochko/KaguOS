@@ -129,7 +129,18 @@ function cpu_exec {
             write_to_address $REG_BOOL_RES "$CMP_RES"
             ;;
         ${OP_CONTAINS})
-            if [[ "$REG_A" == *"$REG_B"* ]]; then
+            if [[ "$REG_A_VAL" == *"$REG_B_VAL"* ]]; then
+                CMP_RES=1
+            else
+                CMP_RES=0
+            fi
+            write_to_address $REG_BOOL_RES "$CMP_RES"
+            ;;
+        ${OP_GET_LENGTH})
+            write_to_address $REG_RES "${#REG_A_VAL}"
+            ;;
+        ${OP_STARTS_WITH})
+            if [[ "$REG_A_VAL" == "$REG_B_VAL"* ]]; then
                 CMP_RES=1
             else
                 CMP_RES=0
