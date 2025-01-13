@@ -3,6 +3,7 @@
 // ##########################################
 // # INITRAMFS_START                        #
 // ##########################################
+DEBUG_OFF
 write "Operation register:" to INFO_REG_OP
 write "A register:" to INFO_REG_A
 write "B register:" to INFO_REG_B
@@ -30,12 +31,18 @@ cpu_exec
 // ##########################################
 // # KERNEL_START                           #
 // ##########################################
-
+DEBUG_ON
     // # Display welcome message:
     write "Welcome to KaguOS" to DISPLAY_BUFFER
     write COLOR_GREEN to DISPLAY_COLOR
     write OP_DISPLAY_LN to REG_OP
     cpu_exec
+DEBUG_OFF
+
+    var exitStr
+    write "exit" to var:exitStr
+    var kernelExtStr
+    write "kernel_ext" to var:kernelExtStr
 
 label:kernel_start
     // Display prompt to enter the value:
@@ -49,37 +56,37 @@ label:dummy
     write OP_READ_INPUT to REG_OP
     cpu_exec
 
-    var test_var1
-    var test_var2
-    var test_var3
-
     // split into command and arguments:
     copy KEYBOARD_BUFFER to REG_A
     write "1" to REG_B
     write " " to REG_C
     write OP_GET_COLUMN to REG_OP
     cpu_exec
+    var parsedStr
+    copy REG_RES to var:parsedStr
 
     // Display a message with the first component of input:
     write "Parsed command:" to DISPLAY_BUFFER
     write "" to DISPLAY_COLOR
     write OP_DISPLAY_LN to REG_OP
     cpu_exec
-    copy REG_RES to DISPLAY_BUFFER
+    copy var:parsedStr to DISPLAY_BUFFER
     write "" to DISPLAY_COLOR
     write OP_DISPLAY_LN to REG_OP
     cpu_exec
 
     // Check if command is exit if not then jump to the start of the loop
     // otherwise we will go to the next instruction which is exit
-    copy REG_RES to REG_A
-    write "exit" to REG_B
+    copy var:parsedStr to REG_A
+    copy var:exitStr to REG_B
     write OP_CMP_EQ to REG_OP
+
     cpu_exec
+
     jump_if label:kernel_end
 
-    //copy REG_RES to REG_A
-    write "kernel_ext" to REG_B
+    copy var:parsedStr to REG_A
+    copy var:kernelExtStr to REG_B
     write OP_CMP_EQ to REG_OP
     cpu_exec
     jump_if label:kernel_ext

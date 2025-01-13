@@ -20,10 +20,10 @@ LINE=
 
 function compilation_error() {
     local EXPECTED_SYNTAX="$1"
-    echo -e "\033[93mCompilation error\033[0m at ${CUR_FILE}:${CUR_LINE_NO}"
-    echo -e "\033[91m$LINE\033[0m"
-    echo -e "Expected syntax:\n\033[92m$EXPECTED_SYNTAX\033[0m"
-    echo
+    echo -e "\033[93mCompilation error\033[0m at ${CUR_FILE}:${CUR_LINE_NO}" 1>&2
+    echo -e "\033[91m$LINE\033[0m" 1>&2
+    echo -e "Expected syntax:\n\033[92m$EXPECTED_SYNTAX\033[0m" 1>&2
+    echo 1>&2
 
     COMPILATION_ERROR_COUNT=$((COMPILATION_ERROR_COUNT + 1))
 }
@@ -34,6 +34,37 @@ function empty_or_comment() {
         echo true
     else
         echo false
+    fi
+}
+
+function eval_address() {
+    CUR_ARG="$1"
+    if [[ "$CUR_ARG" == "constant:"* ]]; then
+        CUR_INDEX=${CUR_ARG#constant:}
+        echo "${CONSTANT_ADDRESSES[$CUR_INDEX]}"
+    elif [[ "$CUR_ARG" = "var:"* ]]; then
+        CUR_INDEX=${CUR_ARG#var:}
+        echo "${VARIABLES_ADDRESSES[$CUR_INDEX]}"
+    else
+        echo $(eval echo $CUR_ARG)
+    fi
+}
+
+function find_var_index() {
+    local VAR_NAME="$1"
+    local CUR_INDEX=$VARIABLES_COUNT
+    for i in "${!VARIABLES[@]}"; do
+        if [ "${VARIABLES[$i]}" = "${VAR_NAME}" ]; then
+            CUR_INDEX="$i"
+            break
+        fi
+    done
+
+    if [ $CUR_INDEX -eq $VARIABLES_COUNT ]; then
+        compilation_error "Variable $VAR_NAME should be declared before the first use"
+        echo ""
+    else
+        echo "$CUR_INDEX"
     fi
 }
 
@@ -123,7 +154,20 @@ function handle_copy() {
         return 1
     fi
 
-    RES_LINE="$INSTR_COPY_FROM_TO_ADDRESS \$${LEX2} \$${LEX4} # ${LEX2} => ${LEX4}"
+    if [[ "$LEX2" == "var:"* ]]; then
+        VAR_NAME=${LEX2#var:}
+        SRC_ADDRESS="var:"$(find_var_index "$VAR_NAME")
+    else
+        SRC_ADDRESS="\$${LEX2}"
+    fi
+
+    if [[ "$LEX4" == "var:"* ]]; then
+        VAR_NAME=${LEX4#var:}
+        DEST_ADDRESS="var:"$(find_var_index "$VAR_NAME")
+    else
+        DEST_ADDRESS="\$${LEX4}"
+    fi
+    RES_LINE="$INSTR_COPY_FROM_TO_ADDRESS ${SRC_ADDRESS} ${DEST_ADDRESS} # ${LEX2} => ${LEX4}"
 }
 
 function handle_write() {
@@ -161,7 +205,13 @@ function handle_write() {
         CONSTANTS_COUNT=$((CONSTANTS_COUNT + 1))
     fi
 
-    RES_LINE="$INSTR_COPY_FROM_TO_ADDRESS constant:$CUR_INDEX \$${LEX4} # $CURRENT_CONSTANT => ${LEX4}"
+    if [[ "$LEX4" == "var:"* ]]; then
+        VAR_NAME=${LEX4#var:}
+        CUR_ADDRESS="var:"$(find_var_index "$VAR_NAME")
+    else
+        CUR_ADDRESS="\$${LEX4}"
+    fi
+    RES_LINE="$INSTR_COPY_FROM_TO_ADDRESS constant:$CUR_INDEX $CUR_ADDRESS # $CURRENT_CONSTANT => ${LEX4}"
 }
 
 function handle_jumps() {
@@ -282,7 +332,7 @@ CUR_COUNTER=0
 echo "======DATA SEGMENT GLOBAL VARIABLES START======" > "${VARIABLES_OBJ_FILE}"
 NEXT_INSTR_ADDRESS=$((NEXT_INSTR_ADDRESS + 1))
 for VAR in "${VARIABLES[@]}"; do
-    echo "$VAR" >> "${VARIABLES_OBJ_FILE}"
+    echo "$VAR ${NEXT_INSTR_ADDRESS}" >> "${VARIABLES_OBJ_FILE}"
     VARIABLES_ADDRESSES[CUR_COUNTER]="${NEXT_INSTR_ADDRESS}"
     CUR_COUNTER=$((CUR_COUNTER + 1))
     NEXT_INSTR_ADDRESS=$((NEXT_INSTR_ADDRESS + 1))
@@ -314,12 +364,7 @@ for OBJ_FILE in ${OBJ_FILES}; do
         if [[ "$LINE" == "$INSTR_COPY_FROM_TO_ADDRESS"* ]]; then
             LEX2=$(echo "$LINE" | awk '{print $2}')
             LEX3=$(echo "$LINE" | awk '{print $3}')
-            if [[ "$LEX2" == "constant:"* ]]; then
-                CUR_INDEX=${LEX2#constant:}
-                RES_LINE=$(echo "$LINE" | sed 's,constant:'$CUR_INDEX','${CONSTANT_ADDRESSES[$CUR_INDEX]}',1'| sed 's,'$LEX3','$(eval echo $LEX3)',1')
-            else
-                RES_LINE=$(echo "$LINE" | sed 's,'$LEX2','$(eval echo $LEX2)',1' | sed 's,'$LEX3','$(eval echo $LEX3)',1')
-            fi
+            RES_LINE=$(echo "$LINE" | sed 's,'$LEX2','$(eval_address $LEX2)',1' | sed 's,'$LEX3','$(eval_address $LEX3)',1')
         fi
         echo "${RES_LINE}" >> "${KERNEL_FILE}"
     done < "${OBJ_FILE}"
