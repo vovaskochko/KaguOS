@@ -28,6 +28,15 @@ function compilation_error() {
     COMPILATION_ERROR_COUNT=$((COMPILATION_ERROR_COUNT + 1))
 }
 
+function is_number() {
+    local CUR_ARG="$1"
+    if [[ "$CUR_ARG" =~ ^[0-9]+$ ]]; then
+        echo true
+    else
+        echo false
+    fi
+}
+
 function empty_or_comment() {
     local CUR_ARG="$1"
     if [ -z "$CUR_ARG" ] || [ "${CUR_ARG:0:2}" = "//" ]; then
@@ -39,14 +48,25 @@ function empty_or_comment() {
 
 function eval_address() {
     CUR_ARG="$1"
+
+    IS_PTR=""
+    if [ "${CUR_ARG:0:1}" = "*" ]; then
+        IS_PTR="*"
+        CUR_ARG=${CUR_ARG:1}
+    fi
+
     if [[ "$CUR_ARG" == "constant:"* ]]; then
         CUR_INDEX=${CUR_ARG#constant:}
         echo "${CONSTANT_ADDRESSES[$CUR_INDEX]}"
     elif [[ "$CUR_ARG" = "var:"* ]]; then
         CUR_INDEX=${CUR_ARG#var:}
-        echo "${VARIABLES_ADDRESSES[$CUR_INDEX]}"
+        echo "${IS_PTR}${VARIABLES_ADDRESSES[$CUR_INDEX]}"
     else
-        echo $(eval echo $CUR_ARG)
+        if [ $(is_number "$CUR_ARG") = true ]; then
+            echo "${IS_PTR}${CUR_ARG}"
+        else
+            echo "${IS_PTR}"$(eval echo $CUR_ARG)
+        fi
     fi
 }
 
@@ -154,20 +174,42 @@ function handle_copy() {
         return 1
     fi
 
+    IS_PTR2=""
+    if [ "${LEX2:0:1}" = "*" ]; then
+        IS_PTR2="*"
+        LEX2="${LEX2:1}"
+    fi
     if [[ "$LEX2" == "var:"* ]]; then
         VAR_NAME=${LEX2#var:}
         SRC_ADDRESS="var:"$(find_var_index "$VAR_NAME")
     else
-        SRC_ADDRESS="\$${LEX2}"
+        if [[ "$LEX2" == "OP_"* ]]; then
+            compilation_error "copy cannot be used with OP_* constants. Use write OP_* to REG_OP instead."
+            return 1
+        fi
+        if [ $(is_number "${LEX2}") = true ]; then
+            SRC_ADDRESS="${LEX2}"
+        else
+            SRC_ADDRESS="\$${LEX2}"
+        fi
     fi
 
+    IS_PTR4=""
+    if [ "${LEX4:0:1}" = "*" ]; then
+        IS_PTR4="*"
+        LEX4="${LEX4:1}"
+    fi
     if [[ "$LEX4" == "var:"* ]]; then
         VAR_NAME=${LEX4#var:}
-        DEST_ADDRESS="var:"$(find_var_index "$VAR_NAME")
+        DST_ADDRESS="var:"$(find_var_index "$VAR_NAME")
     else
-        DEST_ADDRESS="\$${LEX4}"
+        if [ $(is_number "${LEX4}") = true ]; then
+            DST_ADDRESS="${LEX4}"
+        else
+            DST_ADDRESS="\$${LEX4}"
+        fi
     fi
-    RES_LINE="$INSTR_COPY_FROM_TO_ADDRESS ${SRC_ADDRESS} ${DEST_ADDRESS} # ${LEX2} => ${LEX4}"
+    RES_LINE="$INSTR_COPY_FROM_TO_ADDRESS ${IS_PTR2}${SRC_ADDRESS} ${IS_PTR4}${DST_ADDRESS} # ${IS_PTR2}${LEX2} => ${IS_PTR4}${LEX4}"
 }
 
 function handle_write() {
@@ -205,13 +247,19 @@ function handle_write() {
         CONSTANTS_COUNT=$((CONSTANTS_COUNT + 1))
     fi
 
+    IS_PTR=""
+    if [ "${LEX4:0:1}" = "*" ]; then
+        IS_PTR="*"
+        LEX4="${LEX4:1}"
+    fi
+
     if [[ "$LEX4" == "var:"* ]]; then
         VAR_NAME=${LEX4#var:}
         CUR_ADDRESS="var:"$(find_var_index "$VAR_NAME")
     else
         CUR_ADDRESS="\$${LEX4}"
     fi
-    RES_LINE="$INSTR_COPY_FROM_TO_ADDRESS constant:$CUR_INDEX $CUR_ADDRESS # $CURRENT_CONSTANT => ${LEX4}"
+    RES_LINE="$INSTR_COPY_FROM_TO_ADDRESS constant:$CUR_INDEX ${IS_PTR}$CUR_ADDRESS # $CURRENT_CONSTANT => ${IS_PTR}${LEX4}"
 }
 
 function handle_jumps() {

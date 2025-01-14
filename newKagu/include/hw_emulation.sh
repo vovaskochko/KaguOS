@@ -40,7 +40,15 @@ function write_to_address {
 # Copy value from one address to another in RAM
 # INPUT: source address, destination address
 function copy_from_to_address {
-    write_to_address $2 "$(read_from_address ${1})"
+    SRC_ADDRESS=$1
+    DST_ADDRESS=$2
+    if [ "${SRC_ADDRESS:0:1}" = "*" ]; then
+        SRC_ADDRESS=$(read_from_address ${SRC_ADDRESS:1})
+    fi
+    if [ "${DST_ADDRESS:0:1}" = "*" ]; then
+        DST_ADDRESS=$(read_from_address ${DST_ADDRESS:1})
+    fi
+    write_to_address $DST_ADDRESS "$(read_from_address ${SRC_ADDRESS})"
 }
 
 # Copy value from one address to another in RAM
