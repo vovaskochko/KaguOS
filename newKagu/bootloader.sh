@@ -100,6 +100,9 @@ done < "${INPUT_KERNEL_FILE}"
 
 # Write debug line to mark kernel end address
 write_to_address ${CUR_ADDRESS} "############ KERNEL END #############"
+CUR_ADDRESS=$((CUR_ADDRESS + 1))
+write_to_address ${FREE_MEMORY_START} "${CUR_ADDRESS}"
+write_to_address ${FREE_MEMORY_END} "${GLOBAL_RAM_SIZE}"
 ####### LOAD KERNEL END ###
 ###########################
 

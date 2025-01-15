@@ -50,8 +50,8 @@ function eval_address() {
     CUR_ARG="$1"
 
     IS_PTR=""
-    if [ "${CUR_ARG:0:1}" = "*" ]; then
-        IS_PTR="*"
+    if [ "${CUR_ARG:0:1}" = "*" ] || [ "${CUR_ARG:0:1}" = "@" ]; then
+        IS_PTR="${CUR_ARG:0:1}"
         CUR_ARG=${CUR_ARG:1}
     fi
 
@@ -61,6 +61,14 @@ function eval_address() {
     elif [[ "$CUR_ARG" = "var:"* ]]; then
         CUR_INDEX=${CUR_ARG#var:}
         echo "${IS_PTR}${VARIABLES_ADDRESSES[$CUR_INDEX]}"
+    elif [[ "$CUR_ARG" == "label:"* ]]; then
+        CUR_KEY="${CUR_ARG#label:}"
+        ADDRESS=$(printf "%s\n" "${LABELS[@]}" | grep "^$CUR_KEY " | awk '{print $2}')
+        if [ -z "$ADDRESS" ]; then
+            compilation_error "" "" "$LINE" "Label $CUR_KEY should be defined"
+        else
+            echo "${IS_PTR}"${ADDRESS}
+        fi
     else
         if [ $(is_number "$CUR_ARG") = true ]; then
             echo "${IS_PTR}${CUR_ARG}"
@@ -175,8 +183,8 @@ function handle_copy() {
     fi
 
     IS_PTR2=""
-    if [ "${LEX2:0:1}" = "*" ]; then
-        IS_PTR2="*"
+    if [ "${LEX2:0:1}" = "*" ] || [ "${LEX2:0:1}" = "@" ]; then
+        IS_PTR2="${LEX2:0:1}"
         LEX2="${LEX2:1}"
     fi
     if [[ "$LEX2" == "var:"* ]]; then
@@ -257,7 +265,11 @@ function handle_write() {
         VAR_NAME=${LEX4#var:}
         CUR_ADDRESS="var:"$(find_var_index "$VAR_NAME")
     else
-        CUR_ADDRESS="\$${LEX4}"
+        if [ $(is_number "${LEX4}") = true ]; then
+            CUR_ADDRESS="${LEX4}"
+        else
+            CUR_ADDRESS="\$${LEX4}"
+        fi
     fi
     RES_LINE="$INSTR_COPY_FROM_TO_ADDRESS constant:$CUR_INDEX ${IS_PTR}$CUR_ADDRESS # $CURRENT_CONSTANT => ${IS_PTR}${LEX4}"
 }
@@ -266,15 +278,24 @@ function handle_jumps() {
     local LEX1=$(echo "$LINE" | awk '{print $1}')
     local LEX2=$(echo "$LINE" | awk '{print $2}')
     local LEX3=$(echo "$LINE" | awk '{print $3}')
-    if [ -z "$LEX2" ] || [[ ! "$LEX2" =~ ^([0-9]+|label:.*)$ ]] || [ $(empty_or_comment "$LEX3") = false ]; then
+    if [ -z "$LEX2" ] || [[ ! "$LEX2" =~ ^([0-9]+|label:.*|\*.*)$ ]] || [ $(empty_or_comment "$LEX3") = false ]; then
         compilation_error "jump 50\njump label:some\njump_if 100\njump_if label:some"
         return 1
     fi
 
+    IS_PTR=""
+    if [ "${LEX2:0:1}" = "*" ]; then
+        IS_PTR="*"
+        LEX2="${LEX2:1}"
+        if [ $(is_number "${LEX2}") = false ]; then
+            LEX2="\$$LEX2"
+        fi
+    fi
+
     if [ $LEX1 = jump_if ]; then
-        RES_LINE="$INSTR_JUMP_IF ${LEX2} # jump_if ${LEX2}"
+        RES_LINE="$INSTR_JUMP_IF ${IS_PTR}${LEX2} # jump_if ${IS_PTR}${LEX2}"
     else
-        RES_LINE="$INSTR_JUMP ${LEX2} # jump $LEX2"
+        RES_LINE="$INSTR_JUMP ${IS_PTR}${LEX2} # jump ${IS_PTR}$LEX2"
     fi
 } 
 
@@ -394,17 +415,9 @@ for OBJ_FILE in ${OBJ_FILES}; do
         RES_LINE="$LINE"
 
         # We should replace all the labels in jump/jump_if commands with corresponding addresses
-        if [[ "$LINE" == "$INSTR_JUMP "* ]] || [[ "$LINE" == "$INSTR_JUMP_IF "* ]]; then
+        if [[ "$LINE" == "$INSTR_JUMP "* ]] || [[ "$LINE" == "$INSTR_JUMP_IF "* ]]; then     
             LEX2=$(echo "$LINE" | awk '{print $2}')
-            if [[ "$LEX2" == "label:"* ]]; then
-                CUR_KEY="${LEX2#label:}"
-                ADDRESS=$(printf "%s\n" "${LABELS[@]}" | grep "^$CUR_KEY " | awk '{print $2}')
-                if [ -z "$ADDRESS" ]; then
-                    compilation_error "" "" "$LINE" "Label $CUR_KEY should be defined"
-                else
-                    RES_LINE=$(echo "$LINE" | sed 's,label:'$CUR_KEY','$ADDRESS',1')
-                fi
-            fi
+            RES_LINE=$(echo "$LINE" | sed 's,'${LEX2}','$(eval_address ${LEX2})',1')
         fi
 
         # We should replace all the constant:N inside copy instructions with corresponding addresses;

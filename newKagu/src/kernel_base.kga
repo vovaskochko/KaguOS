@@ -4,6 +4,7 @@
 // # INITRAMFS_START                        #
 // ##########################################
 DEBUG_OFF
+
 write "Operation register:" to INFO_REG_OP
 write "A register:" to INFO_REG_A
 write "B register:" to INFO_REG_B
@@ -17,7 +18,10 @@ write "Keyboard buffer:" to INFO_KEYBOARD_BUFFER
 write "Program counter:" to INFO_PROGRAM_COUNTER
 write "Stack pointer:" to INFO_REG_STACK_PTR
 write "Previous stack pointer:" to INFO_REG_STACK_PREV_PTR
-
+write "Free memory start:" to INFO_FREE_MEMORY_START
+write "Free memory end:" to INFO_FREE_MEMORY_END
+write "Free chunks:" to INFO_FREE_CHUNKS
+write "" to FREE_CHUNKS
 write "RAMFS init - done." to DISPLAY_BUFFER
 write COLOR_GREEN to DISPLAY_COLOR
 write OP_DISPLAY_LN to REG_OP
@@ -31,13 +35,11 @@ cpu_exec
 // ##########################################
 // # KERNEL_START                           #
 // ##########################################
-DEBUG_ON
     // # Display welcome message:
     write "Welcome to KaguOS" to DISPLAY_BUFFER
     write COLOR_GREEN to DISPLAY_COLOR
     write OP_DISPLAY_LN to REG_OP
     cpu_exec
-DEBUG_OFF
 
     var exitStr
     write "exit" to var:exitStr
@@ -75,6 +77,27 @@ label:dummy
     write OP_DISPLAY_LN to REG_OP
     cpu_exec
 
+// Dynamic memory allocation example:
+    // var myPtr
+    // copy @var:myPtr to REG_A
+    // copy PROGRAM_COUNTER to REG_B
+    // jump label:alloc
+    // write "Some test" to *var:myPtr
+
+    // var myPtr2
+    // copy @var:myPtr2 to REG_A
+    // copy PROGRAM_COUNTER to REG_B
+    // jump label:alloc
+    // write "Some text" to *var:myPtr2
+
+    // copy var:myPtr to REG_A
+    // copy PROGRAM_COUNTER to REG_B
+    // jump label:free
+
+    // copy var:myPtr2 to REG_A
+    // copy PROGRAM_COUNTER to REG_B
+    // jump label:free
+
     // Check if command is exit if not then jump to the start of the loop
     // otherwise we will go to the next instruction which is exit
     copy var:parsedStr to REG_A
@@ -103,6 +126,104 @@ label:kernel_end
     write OP_HALT to REG_OP
     cpu_exec
 
+// REG_A should contain address of pointer variable
+// REG_B should contain PROGRAM_COUNTER before alloc call so we can jump back
+label:alloc
+    var ptrVar
+    var jumpBackAddress
+    copy REG_A to var:ptrVar
+    copy REG_B to var:jumpBackAddress
+
+    //Check free chunks to reuse memory that was allocated and freed
+    copy FREE_CHUNKS to REG_A
+    write "1" to REG_B
+    write " " to REG_C
+    write OP_GET_COLUMN to REG_OP
+    cpu_exec
+
+    copy REG_RES to *var:ptrVar
+    copy REG_RES to REG_A
+    write OP_IS_NUM to REG_OP
+    cpu_exec
+    jump_if label:alloc_pop_free_chunk
+
+    // Otherwise let's get the first address from the free memory range
+    copy FREE_MEMORY_START to *var:ptrVar
+    copy FREE_MEMORY_START to REG_A
+    write OP_INCR to REG_OP
+    cpu_exec
+    copy REG_RES to FREE_MEMORY_START
+
+  label:alloc_success
+    copy var:jumpBackAddress to REG_A
+    write "2" to REG_B
+    write OP_ADD to REG_OP
+    cpu_exec
+
+    jump *REG_RES
+
+  label:alloc_pop_free_chunk
+    // we need to remove first chunk as it was reallocated
+    var alloc_pop_counter
+    var alloc_pop_result
+    write "1" to var:alloc_pop_counter
+    write "" to var:alloc_pop_result
+
+    label:alloc_pop_loop
+        // increment counter
+        copy var:alloc_pop_counter to REG_A
+        write OP_INCR to REG_OP
+        cpu_exec
+        copy REG_RES to var:alloc_pop_counter
+
+        // get column that corresponds to counter
+        copy FREE_CHUNKS to REG_A
+        copy var:alloc_pop_counter to REG_B
+        write " " to REG_C
+        write OP_GET_COLUMN to REG_OP
+        cpu_exec
+
+        // check whether column is empty if so we are done
+        write "" to REG_A
+        copy REG_RES to REG_B
+        write OP_CMP_EQ to REG_OP
+        cpu_exec
+
+    jump_if label:alloc_pop_done
+        // append column value to result. Column value is already in REG_B so there is no need to have extra copies
+        copy var:alloc_pop_result to REG_A
+        write " " to REG_C
+        cpu_exec
+        copy REG_RES to var:alloc_pop_result
+    jump label:alloc_pop_loop
+
+label:alloc_pop_done
+    copy var:alloc_pop_result to FREE_CHUNKS
+    jump label:alloc_success
+
+// REG_A should contain address that should be freed
+// REG_B should contain PROGRAM_COUNTER before free call so we can jump back
+label:free
+    var ptrAddress
+    var jumpBackAddressFree
+    copy REG_A to var:ptrAddress
+    copy REG_B to var:jumpBackAddressFree
+
+    //Check free chunks to reuse memory that was allocated and freed
+    copy FREE_CHUNKS to REG_A
+    copy var:ptrAddress to REG_B
+    write " " to REG_C
+    write OP_CONCAT_WITH to REG_OP
+    cpu_exec
+    copy REG_RES to FREE_CHUNKS
+
+    // Jump back to the previous location
+    copy var:jumpBackAddressFree to REG_A
+    write "2" to REG_B
+    write OP_ADD to REG_OP
+    cpu_exec
+
+    jump *REG_RES
 // ##########################################
 // # KERNEL_END                             #
 // ##########################################

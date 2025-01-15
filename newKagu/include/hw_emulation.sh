@@ -40,15 +40,20 @@ function write_to_address {
 # Copy value from one address to another in RAM
 # INPUT: source address, destination address
 function copy_from_to_address {
-    SRC_ADDRESS=$1
-    DST_ADDRESS=$2
+    local SRC_ADDRESS=$1
+    local DST_ADDRESS=$2
     if [ "${SRC_ADDRESS:0:1}" = "*" ]; then
         SRC_ADDRESS=$(read_from_address ${SRC_ADDRESS:1})
     fi
     if [ "${DST_ADDRESS:0:1}" = "*" ]; then
         DST_ADDRESS=$(read_from_address ${DST_ADDRESS:1})
     fi
-    write_to_address $DST_ADDRESS "$(read_from_address ${SRC_ADDRESS})"
+
+    if [ "${SRC_ADDRESS:0:1}" = "@" ]; then
+        write_to_address $DST_ADDRESS "${SRC_ADDRESS:1}"
+    else
+        write_to_address $DST_ADDRESS "$(read_from_address ${SRC_ADDRESS})"
+    fi
 }
 
 # Copy value from one address to another in RAM
@@ -229,7 +234,12 @@ function jump {
         echo "FATAL_ERROR: no address provided for jump"
         exit 1
     fi
-    write_to_address ${PROGRAM_COUNTER} "$((${1}-1))"
+
+    local ADDRESS=$1
+    if [ "${ADDRESS:0:1}" = '*' ]; then
+        ADDRESS=$(read_from_address "${ADDRESS:1}")
+    fi
+    write_to_address ${PROGRAM_COUNTER} "$((${ADDRESS}-1))"
 }
 
 
