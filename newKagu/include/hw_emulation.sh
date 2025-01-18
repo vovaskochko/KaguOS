@@ -164,6 +164,10 @@ function cpu_exec {
             COLUMN_VAL=$(echo "${REG_A_VAL}" | awk -F"${REG_C_VAL}" '{print $'"${REG_B_VAL}"'}')
             write_to_address $REG_RES "$COLUMN_VAL"
             ;;
+        ${OP_REPLACE_COLUMN})
+            REPLACED_STR=$(echo "${REG_A_VAL}" | awk -F"${REG_B_VAL}" '{$'${REG_C_VAL}'="'${REG_D_VAL}'"}1' )
+            write_to_address $REG_RES "$REPLACED_STR"
+            ;;
         ${OP_CONCAT_WITH})
             write_to_address $REG_RES "${REG_A_VAL}${REG_C_VAL}${REG_B_VAL}"
             ;;

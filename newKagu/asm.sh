@@ -455,5 +455,10 @@ if [ $COMPILATION_ERROR_COUNT -ne 0 ]; then
     echo -e "\033[91mCompilation failed: $COMPILATION_ERROR_COUNT error(s).\033[0m"
     exit 1
 else
-    echo -e "\033[92mCompilation succeeded\033[0m"
+    echo -e "\033[92mCompilation succeeded. Kernel image: ${KERNEL_FILE}\033[0m"
+fi
+
+if [ "$NEXT_INSTR_ADDRESS" -ge "$GLOBAL_RAM_SIZE" ]; then
+    echo -e "\033[93mNot enough RAM to store all the instructions. RAM size is $GLOBAL_RAM_SIZE, last address of the disk is $NEXT_INSTR_ADDRESS"
+    echo -e "Either increase RAM size or decrease the size of the program to run the kernel properly.\033[0m"
 fi
