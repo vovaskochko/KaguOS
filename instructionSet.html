@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Instructions Summary</title>
+  <style>
+    table {
+      border-collapse: collapse;
+      width: 100%;
+    }
+    th, td {
+      border: 1px solid black;
+      padding: 8px;
+      text-align: left;
+    }
+    th {
+      background-color: #f2f2f2;
+    }
+    td {
+      word-wrap: break-word;
+    }
+  </style>
+</head>
+<body>
+
+  <h2>INSTR_* Instructions</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Instruction</th>
+        <th>Operation Code (Value)</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>CPU Execute</td>
+        <td>INSTR_CPU_EXEC (0)</td>
+        <td>Executes the operation specified in REG_OP using the provided registers and stores the result.</td>
+      </tr>
+      <tr>
+        <td>Copy</td>
+        <td>INSTR_COPY_FROM_TO_ADDRESS (1)</td>
+        <td>Copies data from a source address to a destination address.</td>
+      </tr>
+      <tr>
+        <td>Read Memory</td>
+        <td>INSTR_READ_FROM_ADDRESS (2)</td>
+        <td>Reads data from a specified memory address and stores it in REG_RES.</td>
+      </tr>
+      <tr>
+        <td>Jump</td>
+        <td>INSTR_JUMP (3)</td>
+        <td>Jumps unconditionally to the address specified in REG_A.</td>
+      </tr>
+      <tr>
+        <td>Conditional Jump</td>
+        <td>INSTR_JUMP_IF (4)</td>
+        <td>Jumps to the address in REG_A if the condition in REG_B is true.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>OP_* Instructions</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Instruction</th>
+        <th>Operation Code (Value)</th>
+        <th>Registers</th>
+        <th>Description</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Add</td>
+        <td>OP_ADD (0)</td>
+        <td>REG_A, REG_B, REG_RES</td>
+        <td>Adds values in REG_A and REG_B, stores the result in REG_RES.</td>
+      </tr>
+      <tr>
+        <td>Subtract</td>
+        <td>OP_SUB (1)</td>
+        <td>REG_A, REG_B, REG_RES</td>
+        <td>Subtracts REG_B from REG_A, stores the result in REG_RES.</td>
+      </tr>
+      <tr>
+        <td>Increment</td>
+        <td>OP_INCR (2)</td>
+        <td>REG_A, REG_RES</td>
+        <td>Increments the value in REG_A, stores the result in REG_RES.</td>
+      </tr>
+      <tr>
+        <td>Decrement</td>
+        <td>OP_DECR (3)</td>
+        <td>REG_A, REG_RES</td>
+        <td>Decrements the value in REG_A, stores the result in REG_RES.</td>
+      </tr>
+      <tr>
+        <td>Divide</td>
+        <td>OP_DIV (4)</td>
+        <td>REG_A, REG_B, REG_RES</td>
+        <td>Divides REG_A by REG_B, stores the result in REG_RES.</td>
+      </tr>
+      <tr>
+        <td>Modulus</td>
+        <td>OP_MOD (5)</td>
+        <td>REG_A, REG_B, REG_RES</td>
+        <td>Computes the modulus of REG_A by REG_B, stores the result in REG_RES.</td>
+      </tr>
+      <tr>
+        <td>Multiply</td>
+        <td>OP_MUL (6)</td>
+        <td>REG_A, REG_B, REG_RES</td>
+        <td>Multiplies REG_A by REG_B, stores the result in REG_RES.</td>
+      </tr>
+      <tr>
+        <td>Is Number</td>
+        <td>OP_IS_NUM (7)</td>
+        <td>REG_A, REG_BOOL_RES</td>
+        <td>Checks if REG_A is a number, stores the result in REG_BOOL_RES.</td>
+      </tr>
+      <tr>
+        <td>Equal</td>
+        <td>OP_CMP_EQ (8)</td>
+        <td>REG_A, REG_B, REG_BOOL_RES</td>
+        <td>Compares if REG_A equals REG_B, stores the result in REG_BOOL_RES.</td>
+      </tr>
+      <tr>
+        <td>Not Equal</td>
+        <td>OP_CMP_NEQ (9)</td>
+        <td>REG_A, REG_B, REG_BOOL_RES</td>
+        <td>Compares if REG_A is not equal to REG_B, stores the result in REG_BOOL_RES.</td>
+      </tr>
+      <tr>
+        <td>Less Than</td>
+        <td>OP_CMP_LT (10)</td>
+        <td>REG_A, REG_B, REG_BOOL_RES</td>
+        <td>Checks if REG_A is less than REG_B, stores the result in REG_BOOL_RES.</td>
+      </tr>
+      <tr>
+        <td>Less Than or Equal</td>
+        <td>OP_CMP_LE (11)</td>
+        <td>REG_A, REG_B, REG_BOOL_RES</td>
+        <td>Checks if REG_A is less than or equal to REG_B, stores the result in REG_BOOL_RES.</td>
+      </tr>
+      <tr>
+        <td>Contains</td>
+        <td>OP_CONTAINS (12)</td>
+        <td>REG_A, REG_B, REG_BOOL_RES</td>
+        <td>Checks if REG_A contains REG_B, stores the result in REG_BOOL_RES.</td>
+      </tr>
+      <tr>
+        <td>Get Length</td>
+        <td>OP_GET_LENGTH (13)</td>
+        <td>REG_A, REG_RES</td>
+        <td>Gets the length of the value in REG_A, stores the result in REG_RES.</td>
+      </tr>
+      <tr>
+        <td>Starts With</td>
+        <td>OP_STARTS_WITH (14)</td>
+        <td>REG_A, REG_B, REG_BOOL_RES</td>
+        <td>Checks if REG_A starts with REG_B, stores the result in REG_BOOL_RES.</td>
+      </tr>
+      <tr>
+        <td>Get Column</td>
+        <td>OP_GET_COLUMN (15)</td>
+        <td>REG_A, REG_B, REG_C, REG_RES</td>
+        <td>Extracts a column from a string, specified by the delimiter in REG_B and the column number in REG_C.</td>
+      </tr>
+      <tr>
+        <td>Replace Column</td>
+        <td>OP_REPLACE_COLUMN (16)</td>
+        <td>REG_A, REG_B, REG_C, REG_D</td>
+        <td>Replaces a specific column in a string with a new value in REG_D.</td>
+      </tr>
+      <tr>
+        <td>Concat with</td>
+        <td>OP_CONCAT_WITH (17)</td>
+        <td>REG_A, REG_B, REG_C, REG_RES</td>
+        <td>Concatenates two strings with a delimiter, stores the result in REG_RES.</td>
+      </tr>
+      <tr>
+        <td>Read Input</td>
+        <td>OP_READ_INPUT (18)</td>
+        <td>KEYBOARD_BUFFER</td>
+        <td>Reads input from the keyboard, stores it in KEYBOARD_BUFFER.</td>
+      </tr>
+      <tr>
+        <td>Display</td>
+        <td>OP_DISPLAY (19)</td>
+        <td>DISPLAY_BUFFER, DISPLAY_COLOR</td>
+        <td>Displays a string without a newline, using the color specified.</td>
+      </tr>
+      <tr>
+        <td>Display with Newline</td>
+        <td>OP_DISPLAY_LN (20)</td>
+        <td>DISPLAY_BUFFER, DISPLAY_COLOR</td>
+        <td>Displays a string followed by a newline, using the color specified.</td>
+      </tr>
+      <tr>
+        <td>Read Block</td>
+        <td>OP_READ_BLOCK (21)</td>
+        <td>REG_A, REG_B, REG_RES</td>
+        <td>Reads a block of data from a disk, specified by the disk name in REG_A and block number in REG_B.</td>
+      </tr>
+      <tr>
+        <td>Write Block</td>
+        <td>OP_WRITE_BLOCK (22)</td>
+        <td>REG_A, REG_B, REG_C, REG_BOOL_RES, REG_ERROR</td>
+        <td>Writes a string to a disk block, checks the result in REG_BOOL_RES.</td>
+      </tr>
+      <tr>
+        <td>No Operation</td>
+        <td>OP_NOP (29)</td>
+        <td>None</td>
+        <td>Performs no operation, used for delays or placeholders.</td>
+      </tr>
+      <tr>
+        <td>Halt</td>
+        <td>OP_HALT (30)</td>
+        <td>None</td>
+        <td>Halts the CPU and stops the system.</td>
+      </tr>
+      <tr>
+        <td>Unknown</td>
+        <td>OP_UNKNOWN (31)</td>
+        <td>None</td>
+        <td>Resets the operation code for safety after execution.</td>
+      </tr>
+    </tbody>
+  </table>
+
+</body>
+</html>
