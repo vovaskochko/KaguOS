@@ -1,0 +1,91 @@
+var x=a+b;
+x = a - b;
+++x;
+--x;
+x = a / b;
+x = a % b;
+x = a * b;
+var y = isNum(x);
+x == y;
+if ( x==y )
+// if ( x==y && y==z) Task to support && and ||
+if ( x!=y )
+z=x<y;
+z=x>y;
+if ( x<=y )
+if ( x >= y)
+res=x.contains(y);
+res=x.startsWith(y);
+str=x.getColumn(1, " ");
+str=x.append(y, " ");
+str=read();
+print(str, COLOR_GREEN);
+print(str);
+println("Text", COLOR_NONE);
+str=read_block(diskName, blockNo);
+write_block(diskName, blockNo, str);
+exit(); // OP_HALT
+someFunc();
+someFunc(x);
+var y=someFunc(x, y);
+y=someFunc(x, "some string");
+var ptr=new();
+delete(*ptr);
+x=*ptr;
+*ptr="value"
+*ptr=x
+
+Supported token types:
+* string literals "Some text"
+* Variables
+* pointer to variables
+* pointer to numeric constant
+* operators(+ - / * % = == != < <= > >=)
+* function names
+* operator .
+* operator , to list parameters
+
+
+
+
+
+
+
+var x=read();
+println(x, COLOR_GREEN);
+if ( x=="exit") {
+    println("Program will exit");
+    exit
+} else {
+    print("Input is: ");
+    print(x)
+}
+
+while (x != "empty") {
+    var y=""
+    if (x.startsWith(y)) {
+        println("Some text", COLOR_RED);
+    }
+}
+
+func someName(in1, in2) {
+    var result = "Test";
+    return result;
+}
+
+asm {
+    var num1
+    var num2
+    write "1" to var:num1
+    write "15" to var:num2
+
+    copy var:num1 to REG_A
+    copy var:num2 to REG_B
+    write OP_ADD to REG_OP
+    cpu_exec
+
+    copy REG_RES to REG_A
+    write "16" to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec 
+}

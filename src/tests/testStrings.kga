@@ -1,0 +1,25 @@
+var string1
+var string2
+var string3
+
+write "Some Test string" to var:string1
+write "some " to var:string2
+
+copy var:string1 to REG_A
+write OP_GET_LENGTH to REG_OP
+cpu_exec
+
+copy REG_RES to DISPLAY_BUFFER
+write OP_DISPLAY_LN to REG_OP
+cpu_exec
+
+copy var:string2 to REG_B
+write OP_STARTS_WITH to REG_OP
+cpu_exec
+
+copy REG_BOOL_RES to DISPLAY_BUFFER
+write OP_DISPLAY_LN to REG_OP
+cpu_exec
+
+write OP_HALT to REG_OP
+cpu_exec

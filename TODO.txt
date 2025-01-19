@@ -1,0 +1,8 @@
+1. Function support and call stack implementation
+2. Variables support - local on stack:
+3. var someName "Some value"
+4. High Level Language basic implementation
+5. Unit tests for asm.sh compiler
+6. Refactoring and documentation
+7. Add highlight of all the constants
+8. support include of files

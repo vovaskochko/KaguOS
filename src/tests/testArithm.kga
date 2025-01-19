@@ -1,0 +1,29 @@
+var num1
+var num2
+write "1" to var:num1
+write "15" to var:num2
+
+copy var:num1 to REG_A
+copy var:num2 to REG_B
+write OP_ADD to REG_OP
+cpu_exec
+
+copy REG_RES to REG_A
+write "16" to REG_B
+write OP_CMP_EQ to REG_OP
+cpu_exec
+
+jump_if label:ok
+write "15+1 must be 16. Got the result:" to DISPLAY_BUFFER
+write COLOR_RED to DISPLAY_COLOR
+write OP_DISPLAY_LN to REG_OP
+cpu_exec
+copy REG_RES to DISPLAY_BUFFER
+write COLOR_RED to DISPLAY_COLOR
+write OP_DISPLAY_LN to REG_OP
+cpu_exec
+
+
+label:ok
+    write OP_HALT to REG_OP
+    cpu_exec
