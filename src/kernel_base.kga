@@ -3,7 +3,7 @@
 // ##########################################
 // # INITRAMFS_START                        #
 // ##########################################
-DEBUG_OFF
+//DEBUG_OFF
 
 write "Operation register:" to INFO_REG_OP
 write "A register:" to INFO_REG_A
@@ -44,14 +44,14 @@ cpu_exec
     var kernelExtStr
     write "kernel_ext" to var:kernelExtStr
 
-label:kernel_start
+label kernel_start
     // Display prompt to enter the value:
     write " :) " to DISPLAY_BUFFER
     write "" to DISPLAY_COLOR
     write OP_DISPLAY to REG_OP
     cpu_exec
 
-label:dummy
+label dummy
     // read cmd from keyboard
     write OP_READ_INPUT to REG_OP
     cpu_exec
@@ -114,7 +114,7 @@ label:dummy
 
     jump label:kernel_start
 
-label:kernel_end
+label kernel_end
     // Print bye message and exit:
     write "Good bye!" to DISPLAY_BUFFER
     write COLOR_GREEN to DISPLAY_COLOR
@@ -126,7 +126,7 @@ label:kernel_end
 
 // REG_A should contain address of pointer variable
 // REG_B should contain PROGRAM_COUNTER before alloc call so we can jump back
-label:alloc
+label alloc
     var ptrVar
     var jumpBackAddress
     copy REG_A to var:ptrVar
@@ -152,7 +152,7 @@ label:alloc
     cpu_exec
     copy REG_RES to FREE_MEMORY_START
 
-  label:alloc_success
+  label alloc_success
     copy var:jumpBackAddress to REG_A
     write "2" to REG_B
     write OP_ADD to REG_OP
@@ -160,14 +160,14 @@ label:alloc
 
     jump *REG_RES
 
-  label:alloc_pop_free_chunk
+  label alloc_pop_free_chunk
     // we need to remove first chunk as it was reallocated
     var alloc_pop_counter
     var alloc_pop_result
-    write "1" to var:alloc_pop_counter
+    write 1 to var:alloc_pop_counter
     write "" to var:alloc_pop_result
 
-    label:alloc_pop_loop
+    label alloc_pop_loop
         // increment counter
         copy var:alloc_pop_counter to REG_A
         write OP_INCR to REG_OP
@@ -195,13 +195,13 @@ label:alloc
         copy REG_RES to var:alloc_pop_result
     jump label:alloc_pop_loop
 
-label:alloc_pop_done
+label alloc_pop_done
     copy var:alloc_pop_result to FREE_CHUNKS
     jump label:alloc_success
 
 // REG_A should contain address that should be freed
 // REG_B should contain PROGRAM_COUNTER before free call so we can jump back
-label:free
+label free
     var ptrAddress
     var jumpBackAddressFree
     copy REG_A to var:ptrAddress

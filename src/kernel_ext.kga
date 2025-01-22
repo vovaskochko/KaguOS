@@ -1,4 +1,4 @@
-label:kernel_ext
+label kernel_ext
     // Print bye message from extension and jump to kernel_end:
     write "Extension: Good bye!" to DISPLAY_BUFFER
     write COLOR_GREEN to DISPLAY_COLOR
