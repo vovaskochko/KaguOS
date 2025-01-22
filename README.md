@@ -68,7 +68,7 @@ The kernel disk itself contains a list of lines with machine codes and some cons
 
 To write a single instruction we should know the proper format and machine codes. Basic instructions and cpu operations are listed in files *instructionSet.html* and *include/operations.sh*. The list of addresses of different registers can be found in `include/registers.sh`. For simplicity we map all the registers to the start of the RAM.
 
-As a result our kernel will be loaded at some higher address which is defined by ao constant `KERNEL_START` in *ioonclude/system.sh*. It is 41 by default which means that you should add 40 to the line number of the kernel disk to find its address in RAM after load.
+As a result our kernel will be loaded at some higher address which is defined by ao constant `KERNEL_START` in *include/system.sh*. It is 41 by default which means that you should add 40 to the line number of the kernel disk to find its address in RAM after load.
 
 ## Simple kernel
 Let's write a simple kernel which will stops execution immediately after start.

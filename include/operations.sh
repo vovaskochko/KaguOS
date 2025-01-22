@@ -17,12 +17,14 @@ export INSTR_COPY_FROM_TO_ADDRESS=1
 # Call INSTR_READ_FROM_ADDRESS and the data will be stored in REG_RES.
 export INSTR_READ_FROM_ADDRESS=2
 
-# To jump unconditionally to a specific address, set the target address in REG_A.
+# To jump unconditionally to a specific address specify target address a an argument of the instruction.
 # Call INSTR_JUMP to transfer control to the target address.
+# Example: jump 100 will jump to address 100 and will use 100 as a PROGRAM_COUNTER so all further instruction will be executed started from address 100
 export INSTR_JUMP=3
 
-# To jump conditionally, set the target address in REG_A and the condition in REG_B.
-# Call INSTR_JUMP_IF to transfer control only if the condition is true.
+# To jump conditionally, perform conditional check to ensuset the target address in REG_A and the condition in REG_B.
+# Call INSTR_JUMP_IF to transfer control only if the condition is true e.g. REG_BOOL_RES is 1.
+# Example: jump_if 100 will jump to address 100 if REG_BOOL_RES is equal to 1 otherwise jump_if instruction will be ignored and the next instruction will be run.
 export INSTR_JUMP_IF=4
 
 #############################################
