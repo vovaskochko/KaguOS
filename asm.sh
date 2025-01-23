@@ -2,14 +2,17 @@
 # this script allows to convert .kgasm files to the machine code
 
 LABELS=()
+LABELS_ADDRESSES=()
 LABELS_COUNT=0
 
 CONSTANTS=()
+CONSTANTS_EVALUATED=()
 CONSTANTS_ADDRESSES=()
 CONSTANTS_COUNT=0
 
 VARIABLES=()
 VARIABLES_ADDRESSES=()
+VARIABLES_DECL_ADDRESSES=()
 VARIABLES_COUNT=0
 
 COMPILATION_ERROR_COUNT=0
@@ -20,284 +23,57 @@ LINE=
 
 function compilation_error() {
     local EXPECTED_SYNTAX="$1"
+    local ERROR_INFO="$2"
     echo -e "\033[93mCompilation error\033[0m at ${CUR_FILE}:${CUR_LINE_NO}" 1>&2
     echo -e "\033[91m$LINE\033[0m" 1>&2
+    if [ -n "$ERROR_INFO" ]; then
+        echo -e "\033[91m$ERROR_INFO\033[0m" 1>&2
+    fi
     echo -e "Expected syntax:\n\033[92m$EXPECTED_SYNTAX\033[0m" 1>&2
     echo 1>&2
 
     COMPILATION_ERROR_COUNT=$((COMPILATION_ERROR_COUNT + 1))
 }
 
-function is_number() {
-    local CUR_ARG="$1"
-    if [[ "$CUR_ARG" =~ ^[0-9]+$ ]]; then
-        echo true
-    else
-        echo false
-    fi
-}
+function contains_element() {
+    local value="$1"  # Value to search for
+    shift             # Shift to access array arguments
+    local array=("$@") # Remaining arguments are the array
 
-function empty_or_comment() {
-    local CUR_ARG="$1"
-    if [ -z "$CUR_ARG" ] || [ "${CUR_ARG:0:2}" = "//" ]; then
-        echo true
-    else
-        echo false
-    fi
-}
-
-function eval_address() {
-    CUR_ARG="$1"
-
-    IS_PTR=""
-    if [ "${CUR_ARG:0:1}" = "*" ] || [ "${CUR_ARG:0:1}" = "@" ]; then
-        IS_PTR="${CUR_ARG:0:1}"
-        CUR_ARG=${CUR_ARG:1}
-    fi
-
-    if [[ "$CUR_ARG" == "constant:"* ]]; then
-        CUR_INDEX=${CUR_ARG#constant:}
-        echo "${CONSTANT_ADDRESSES[$CUR_INDEX]}"
-    elif [[ "$CUR_ARG" = "var:"* ]]; then
-        CUR_INDEX=${CUR_ARG#var:}
-        echo "${IS_PTR}${VARIABLES_ADDRESSES[$CUR_INDEX]}"
-    elif [[ "$CUR_ARG" == "label:"* ]]; then
-        CUR_KEY="${CUR_ARG#label:}"
-        ADDRESS=$(printf "%s\n" "${LABELS[@]}" | grep "^$CUR_KEY " | awk '{print $2}')
-        if [ -z "$ADDRESS" ]; then
-            compilation_error "" "" "$LINE" "Label $CUR_KEY should be defined"
-        else
-            echo "${IS_PTR}"${ADDRESS}
+    for element in "${array[@]}"; do
+        if [[ "$element" == "$value" ]]; then
+            return 0 # Found the value
         fi
-    else
-        if [ $(is_number "$CUR_ARG") = true ]; then
-            echo "${IS_PTR}${CUR_ARG}"
-        else
-            echo "${IS_PTR}"$(eval echo $CUR_ARG)
-        fi
-    fi
+    done
+    return 1 # Value not found
 }
 
-function find_var_index() {
-    local VAR_NAME="$1"
-    local CUR_INDEX=$VARIABLES_COUNT
-    for i in "${!VARIABLES[@]}"; do
-        if [ "${VARIABLES[$i]}" = "${VAR_NAME}" ]; then
-            CUR_INDEX="$i"
-            break
+function find_index() {
+    local element="$1"  # The element to search for
+    shift               # Remove the first argument
+    local array=("$@")  # The rest are the array elements
+
+    for i in "${!array[@]}"; do
+        if [[ "${array[i]}" == "$element" ]]; then
+            echo "$i"
+            return 0
         fi
     done
 
-    if [ $CUR_INDEX -eq $VARIABLES_COUNT ]; then
-        compilation_error "Variable $VAR_NAME should be declared before the first use"
-        echo ""
-    else
-        echo "$CUR_INDEX"
-    fi
+    echo "-1"
+    return 1
 }
 
-# We are using DEBUG_ON/DEBUG_OFF to improve execution speed for the stable parts of code
-# At the same time we can enclose parts of code with that instruction to simplify debug process
-function handle_debug() {
-    local LEX1=$(echo "$LINE" | awk '{print $1}')
-    local LEX2=$(echo "$LINE" | awk '{print $2}')
-    if [ $(empty_or_comment "$LEX2") = false ]; then
-        compilation_error "DEBUG_ON/DEBUG_OFF"
-        return 1
-    fi
-
-    RES_LINE="$LEX1 # debug"
+function eval_constant_lexeme() {
+    local LEX="$1"
+    local TYPE="${LEX:2:3}"
+    local VALUE="${LEX:6}"
+    case $TYPE in
+    clr|reg|opr)    eval echo "\$$VALUE";;
+    num|str)        echo "$VALUE";;
+    *)              ;;
+    esac
 }
-
-function handle_cpu_exec() {
-    local LEX2=$(echo "$LINE" | awk '{print $2}')
-    if [ $(empty_or_comment "$LEX2") = false ]; then
-        compilation_error "cpu_exec"
-        return 1
-    fi
-
-    RES_LINE="$INSTR_CPU_EXEC # cpu_exec"
-}
-
-# Expected format:
-# var some1_name // comment if needed
-function handle_variable() {
-    local LEX1=$(echo "$LINE" | awk '{print $1}')
-    local LEX2=$(echo "$LINE" | awk '{print $2}')
-    local LEX3=$(echo "$LINE" | awk '{print $3}')
-    if [ $(empty_or_comment "$LEX3") = false ]; then
-        compilation_error "var SOME_NAME"
-        return 1
-    fi
-
-    if [[ ! "$LEX2" =~ ^[a-zA-Z][a-zA-Z0-9_]*$ ]]; then
-        compilation_error "variable should start with letter and contain only letters, digits and _"
-        return 1
-    fi
-
-    GREP_KEY=$(printf "%s\n" "${VARIABLES[@]}" | grep "^$LEX2")
-    if [ -n "${GREP_KEY}" ]; then
-        compilation_error "Each variable should be defined only once"
-        return 1
-    fi
-
-    VARIABLES[$VARIABLES_COUNT]="$LEX2"
-    VARIABLES_COUNT=$((VARIABLES_COUNT + 1))
-}
-
-function handle_label() {
-    local LEX1=$(echo "$LINE" | awk '{print $1}')
-    local LEX2=$(echo "$LINE" | awk '{print $2}')
-
-    if [ $(empty_or_comment "$LEX2") = false ]; then
-        compilation_error "label:some_value"
-        return 1
-    fi
-
-    CUR_KEY="${LEX1#label:}"
-    if [[ ! "$CUR_KEY" =~ ^[a-zA-Z][a-zA-Z0-9_]*$ ]]; then
-        compilation_error "label should start with letter and contain only letters, digits and _"
-        return 1
-    fi
-
-    GREP_KEY=$(printf "%s\n" "${LABELS[@]}" | grep "^$CUR_KEY ")
-    if [ -n "${GREP_KEY}" ]; then
-        compilation_error "Each label should be defined only once"
-        return 1
-    fi
-
-    LABELS[$LABELS_COUNT]="$CUR_KEY $NEXT_INSTR_ADDRESS"
-    LABELS_COUNT=$((LABELS_COUNT + 1))
-}
-
-function handle_copy() {
-    eval set -- "$LINE"
-    local LEX1="$1"
-    local LEX2="$2"
-    local LEX3="$3"
-    local LEX4="$4"
-    local LEX5="$5"
-    if [ "$LEX3" != to ] || [ -z "$LEX4" ] || [ $(empty_or_comment "$LEX5") = false ]; then
-        compilation_error "copy SOME_ADDRESS to OTHER_ADDRESS"
-        return 1
-    fi
-
-    IS_PTR2=""
-    if [ "${LEX2:0:1}" = "*" ] || [ "${LEX2:0:1}" = "@" ]; then
-        IS_PTR2="${LEX2:0:1}"
-        LEX2="${LEX2:1}"
-    fi
-    if [[ "$LEX2" == "var:"* ]]; then
-        VAR_NAME=${LEX2#var:}
-        SRC_ADDRESS="var:"$(find_var_index "$VAR_NAME")
-    else
-        if [[ "$LEX2" == "OP_"* ]]; then
-            compilation_error "copy cannot be used with OP_* constants. Use write OP_* to REG_OP instead."
-            return 1
-        fi
-        if [ $(is_number "${LEX2}") = true ]; then
-            SRC_ADDRESS="${LEX2}"
-        else
-            SRC_ADDRESS="\$${LEX2}"
-        fi
-    fi
-
-    IS_PTR4=""
-    if [ "${LEX4:0:1}" = "*" ]; then
-        IS_PTR4="*"
-        LEX4="${LEX4:1}"
-    fi
-    if [[ "$LEX4" == "var:"* ]]; then
-        VAR_NAME=${LEX4#var:}
-        DST_ADDRESS="var:"$(find_var_index "$VAR_NAME")
-    else
-        if [ $(is_number "${LEX4}") = true ]; then
-            DST_ADDRESS="${LEX4}"
-        else
-            DST_ADDRESS="\$${LEX4}"
-        fi
-    fi
-    RES_LINE="$INSTR_COPY_FROM_TO_ADDRESS ${IS_PTR2}${SRC_ADDRESS} ${IS_PTR4}${DST_ADDRESS} # ${IS_PTR2}${LEX2} => ${IS_PTR4}${LEX4}"
-}
-
-function handle_write() {
-    eval set -- "$LINE"
-    local LEX1="$1"
-    local LEX2="$2"
-    local LEX3="$3"
-    local LEX4="$4"
-    local LEX5="$5"
-
-    if [ "$LEX3" != to ] || [ -z "$LEX4" ] || [ $(empty_or_comment "$LEX5") = false ]; then
-        compilation_error "write SOME to ADDRESS"
-        return 1
-    fi
-
-    HELP_STR=$(echo ${LINE#"$LEX1"} | sed -e 's/^[[:space:]]'$LEX1'*//' -e 's/[[:space:]]*$//')
-    if [ "${HELP_STR:0:1}" = '"' ]; then
-        CURRENT_CONSTANT="\"$LEX2\""
-    else
-        CURRENT_CONSTANT="\$$LEX2"
-    fi
-
-    # Lets perform some optimisation: if constant was already added, we can reuse it: 
-    CUR_INDEX=$CONSTANTS_COUNT
-    for i in "${!CONSTANTS[@]}"; do
-        if [ "${CONSTANTS[$i]}" = "${CURRENT_CONSTANT}" ]; then
-            CUR_INDEX="$i"
-            break
-        fi
-    done
-
-    # if constant is not present in array, we will need to copy it to the memory
-    if [ $CUR_INDEX -eq $CONSTANTS_COUNT ]; then
-        CONSTANTS[$CONSTANTS_COUNT]="$CURRENT_CONSTANT"
-        CONSTANTS_COUNT=$((CONSTANTS_COUNT + 1))
-    fi
-
-    IS_PTR=""
-    if [ "${LEX4:0:1}" = "*" ]; then
-        IS_PTR="*"
-        LEX4="${LEX4:1}"
-    fi
-
-    if [[ "$LEX4" == "var:"* ]]; then
-        VAR_NAME=${LEX4#var:}
-        CUR_ADDRESS="var:"$(find_var_index "$VAR_NAME")
-    else
-        if [ $(is_number "${LEX4}") = true ]; then
-            CUR_ADDRESS="${LEX4}"
-        else
-            CUR_ADDRESS="\$${LEX4}"
-        fi
-    fi
-    RES_LINE="$INSTR_COPY_FROM_TO_ADDRESS constant:$CUR_INDEX ${IS_PTR}$CUR_ADDRESS # $CURRENT_CONSTANT => ${IS_PTR}${LEX4}"
-}
-
-function handle_jumps() {
-    local LEX1=$(echo "$LINE" | awk '{print $1}')
-    local LEX2=$(echo "$LINE" | awk '{print $2}')
-    local LEX3=$(echo "$LINE" | awk '{print $3}')
-    if [ -z "$LEX2" ] || [[ ! "$LEX2" =~ ^([0-9]+|label:.*|\*.*)$ ]] || [ $(empty_or_comment "$LEX3") = false ]; then
-        compilation_error "jump 50\njump label:some\njump_if 100\njump_if label:some"
-        return 1
-    fi
-
-    IS_PTR=""
-    if [ "${LEX2:0:1}" = "*" ]; then
-        IS_PTR="*"
-        LEX2="${LEX2:1}"
-        if [ $(is_number "${LEX2}") = false ]; then
-            LEX2="\$$LEX2"
-        fi
-    fi
-
-    if [ $LEX1 = jump_if ]; then
-        RES_LINE="$INSTR_JUMP_IF ${IS_PTR}${LEX2} # jump_if ${IS_PTR}${LEX2}"
-    else
-        RES_LINE="$INSTR_JUMP ${IS_PTR}${LEX2} # jump ${IS_PTR}$LEX2"
-    fi
-} 
 
 source include/operations.sh
 source include/other.sh
@@ -321,114 +97,321 @@ mkdir -p "$GLOBAL_BUILD_DIR"
 NEXT_INSTR_ADDRESS=$KERNEL_START
 OBJ_FILES=""
 
-for CUR_FILE in ${SRC_FILES}; do
+CMDS_ARRAY=("write" "copy" "label" "jump" "jump_if" "cpu_exec" "var" "DEBUG_ON" "DEBUG_OFF")
+function is_command() {
+    for item in "${CMDS_ARRAY[@]}"; do
+        if [[ "$item" == "$1" ]]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+function is_constant_lexeme() {
+    if [ "$1" != "_" ]; then
+        return 1;
+    fi
+    case $2 in
+    num|str|opr|clr)
+        return 0;;
+    *)
+        return 1;;
+    esac
+}
+
+function parse_lexeme() {
+    local CUR_LEXEME="$1"
+    if [ -z "$CUR_LEXEME" ] || [ "${CUR_LEXEME:0:2}" = "//" ]; then
+        echo "comment"
+        return
+    fi
+
+    PREFIX="${CUR_LEXEME:0:1}"
+    if [ "$PREFIX" = "@" ] || [ "$PREFIX" = "*" ]; then
+        CUR_LEXEME="${CUR_LEXEME:1}"
+    else
+        PREFIX="_"
+    fi
+
+    if [ "${CUR_LEXEME:0:1}" = '"' ] && [ "${CUR_LEXEME: -1}" = '"' ]; then
+        echo "$PREFIX str ${CUR_LEXEME:1:-1}"
+    elif [[ "$CUR_LEXEME" =~ ^[0-9]+$ ]]; then
+        echo "$PREFIX num"
+    elif [ "$CUR_LEXEME" = "to" ]; then
+        echo "$PREFIX key to"
+    elif [ "${CUR_LEXEME:0:4}" = "var:" ]; then
+        local CUR_NAME="${CUR_LEXEME#var:}"
+        if [[ "${CUR_NAME}" =~ ^[a-zA-Z][a-zA-Z0-9_]*$ ]]; then
+            echo "$PREFIX var $CUR_NAME"
+        else
+            echo "error name_format $CUR_LEXEME"
+        fi
+    elif [ "${CUR_LEXEME:0:6}" = "label:" ]; then
+        local CUR_NAME="${CUR_LEXEME#label:}"
+        if [[ "${CUR_NAME}" =~ ^[a-zA-Z][a-zA-Z0-9_]*$ ]]; then
+            echo "$PREFIX lbl $CUR_NAME"
+        else
+            echo "error name_format $CUR_LEXEME"
+        fi
+    elif [ "${CUR_LEXEME:0:3}" = "OP_" ]; then
+        echo "$PREFIX opr $CUR_LEXEME"
+    elif [ "${CUR_LEXEME:0:4}" = "REG_" ] || [ "${CUR_LEXEME:0:5}" = "INFO_" ] || [ "$CUR_LEXEME" = "DISPLAY_BUFFER" ] || [ "$CUR_LEXEME" = "DISPLAY_COLOR" ] || [ "$CUR_LEXEME" = "KEYBOARD_BUFFER" ] || [ "${CUR_LEXEME:0:5}" = "FREE_" ]; then
+        echo "$PREFIX reg $CUR_LEXEME"
+    elif [ "${CUR_LEXEME:0:6}" = "COLOR_" ]; then
+        echo "$PREFIX clr $CUR_LEXEME"
+    elif is_command "${CUR_LEXEME}"; then
+        echo "$PREFIX cmd ${CUR_LEXEME}"
+    elif [[ "${CUR_LEXEME}" =~ ^[a-zA-Z][a-zA-Z0-9_]*$ ]]; then
+        echo "$PREFIX nam $CUR_LEXEME"
+    else
+        echo "error other $CUR_LEXEME"
+    fi
+}
+
+NEXT_INSTR_ADDRESS=$KERNEL_START
+PARSED_LEXEMES=()
+for CUR_FILE in $SRC_FILES; do
+    PARSED_LEXEMES+=( "$(echo file ${CUR_FILE})" )
     CUR_LINE_NO=0
-
-    OBJ_FILE="${GLOBAL_BUILD_DIR}"/"$(echo "$CUR_FILE" | sed "s,/,___,g")".o
-    rm -rf "${OBJ_FILE}"
-    touch "${OBJ_FILE}"
-    OBJ_FILES="${OBJ_FILES} ${OBJ_FILE}"
-
     while read -r LINE; do
         CUR_LINE_NO=$((CUR_LINE_NO + 1))
         # remove leading and trailing spaces
         LINE=$(echo "${LINE}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
-        # Skip empty lines and comments:
-        if [ $(empty_or_comment "$LINE") = true ]; then
+        if [ -z "$LINE" ] || [ "${LINE:0:2}" = "//" ]; then
             continue
         fi
 
-        # let's get the first lexical component of the LINE and analyze whether it matches one of the expected commands
-        LEX1=$(echo "$LINE" | awk '{print $1}')
+        # Parse line to components:
+        eval set -- "$LINE"
 
-        RES_LINE=
-        case "$LEX1" in
-            DEBUG_ON|DEBUG_OFF)
-                handle_debug
-                ;;
-            cpu_exec)
-                handle_cpu_exec
-                ;;
-            "var")
-                handle_variable
-                continue
-                ;;
-            "label:"*)
-                handle_label
-                continue
-                ;;
-            copy)
-                handle_copy
-                ;;
-            write)
-                handle_write
-                ;;
-            jump|jump_if)
-                handle_jumps
-                ;;
-            *)
-                compilation_error "write copy label cpu_exec jump jump_if"
-                ;;
+        # Let's set expected lexemes count depending on the command
+        CUR_CMD="$1"
+        case $CUR_CMD in
+        write|copy)                     LEXEMES_COUNT=4;;
+        label|var|jump|jump_if)         LEXEMES_COUNT=2;;
+        cpu_exec|DEBUG_ON|DEBUG_OFF)    LEXEMES_COUNT=1;;
+        *)                              LEXEMES_COUNT=0;;
         esac
 
-        echo "${RES_LINE}" >> "${OBJ_FILE}"
+        CUR_LEXEMES=()
+        CUR_ERROR=""
+        # parse corresponding count of lexemes:
+        for ((i=0;i<=LEXEMES_COUNT;i++)); do
+            ARG_IND=$((i+1))
+            CUR_LEXEME="${!ARG_IND}"
+            # eval command eliminates double quotes from string literals. Let's move them back for the valid case:
+            if [ "$i" -eq 1 ] && [[ $(echo "$LINE" | awk '{print $1" "$2}') == 'write "'* ]]; then
+                CUR_LEXEME="\"$CUR_LEXEME\""
+            fi
+
+            LEX=$(parse_lexeme "$CUR_LEXEME")
+            if [ "${LEX:0:5}" = "error" ]; then
+                CUR_ERROR="${LEX}"
+                break
+            fi
+            if ([ "${LEX:0:7}" = "comment" ] && [ $i -lt $LEXEMES_COUNT ]) || ( [ "${LEX:0:7}" != "comment" ] && [ $i -eq $LEXEMES_COUNT ]); then
+                CUR_ERROR="Too few arguments. Unrecognized command, comment or empty line is not allowed at position ${i}: $CUR_LEXEME"
+                break
+            fi
+            if [ $i -lt $LEXEMES_COUNT ]; then
+                CUR_LEXEMES[$i]=$LEX
+            fi
+        done
+
+        # Report error if something went wrong during analysis of the line
+        if [ -n "$CUR_ERROR" ] || [ $LEXEMES_COUNT -eq 0 ]; then
+            compilation_error "" "$CUR_ERROR"
+            continue
+        fi
+
+        # In case of variables and label declaration we just need to check that they were not defined yet and remember their addresses for further substitution
+        if [ "${CUR_CMD}" = "var" ] || [ "${CUR_CMD}" = "label" ]; then
+            LEX_TYPE="${CUR_LEXEMES[1]:2:3}"
+            CUR_NAME="${CUR_LEXEMES[1]:6}"
+            if [ "$LEX_TYPE" != "nam" ]; then
+                compilation_error "" "${CUR_CMD} expects a name as a parameter"
+                continue
+            fi
+
+            if [ "${CUR_CMD}" = "var" ]; then
+                if contains_element "$CUR_NAME" "${VARIABLES[@]}"; then
+                    compilation_error "Variable should be defined only once" "Variable $CUR_NAME already exists"
+                    continue
+                fi
+                VARIABLES+=("${CUR_NAME}")
+                VARIABLES_DECL_ADDRESSES+=("$NEXT_INSTR_ADDRESS")
+            else
+                if contains_element "$CUR_NAME" "${LABELS[@]}"; then
+                    compilation_error "Label should be defined only once" "Label $CUR_NAME already exists"
+                    continue
+                fi
+                LABELS+=("${CUR_NAME}")
+                LABELS_ADDRESSES+=("$NEXT_INSTR_ADDRESS")
+            fi
+            # We don't need to add var and label declarations to PARSED_LEXEMES list as they are not real instructions
+            continue
+        fi
+
+        # In case of write command we should store constant to the list of constants if such constant was not present there yet
+        if [ "$CUR_CMD" = write ]; then
+            PREFIX="${CUR_LEXEMES[1]:0:1}"
+            LEX_TYPE="${CUR_LEXEMES[1]:2:3}"
+            CUR_VALUE="${CUR_LEXEMES[1]:6}"
+            if [ "$LEX_TYPE" = str ]; then
+                CUR_VALUE="\"${CUR_VALUE}\"" 
+            fi
+            if ! is_constant_lexeme "$PREFIX" "$LEX_TYPE"; then
+                compilation_error "Incorrect instruction" "Write command expects a constant as a parameter"
+                continue
+            fi
+
+            if ! contains_element "$CUR_VALUE" "${CONSTANTS[@]}"; then
+                CONSTANTS+=("${CUR_VALUE}")
+                CONSTANTS_EVALUATED+=("$(eval_constant_lexeme "${CUR_LEXEMES[1]}")")
+            fi
+        fi
+
+        # At this point we have only instructions that can be added to the list of instructions for further compilation
+        PARSED_LEXEMES+=( "$(echo line ${CUR_LINE_NO})" )
+        PARSED_LEXEMES+=("${CUR_LEXEMES[@]}")
         NEXT_INSTR_ADDRESS=$((NEXT_INSTR_ADDRESS + 1))
     done < "$CUR_FILE"
 done
-echo "======TEXT SEGMENT END======" >> "${OBJ_FILE}"
-NEXT_INSTR_ADDRESS=$((NEXT_INSTR_ADDRESS + 1))
 
-# Let's generate object file from constants. Later it will be appended to the end of the kernel.
-CONSTANTS_OBJ_FILE="${KERNEL_FILE}".constants.o
-CUR_COUNTER=0
-echo "======DATA SEGMENT CONSTANTS START======" > "${CONSTANTS_OBJ_FILE}"
-NEXT_INSTR_ADDRESS=$((NEXT_INSTR_ADDRESS + 1))
-for CONSTANT in "${CONSTANTS[@]}"; do
-    if [ ${CONSTANT:0:1} = '"' ]; then
-        echo "${CONSTANT:1:-1}" >> "${CONSTANTS_OBJ_FILE}"
-    else
-        eval echo "${CONSTANT}" >> "${CONSTANTS_OBJ_FILE}"
+
+# Let's calculate addreses for CONSTANTS as we already know the addresses used for instructions:
+for CUR_CONST in "${CONSTANTS[@]}"; do
+    CONSTANTS_ADDRESSES+=("$NEXT_INSTR_ADDRESS")
+    NEXT_INSTR_ADDRESS=$((NEXT_INSTR_ADDRESS + 1))
+done
+
+# Let's calculate addresses for VARIABLES - they will be just after constants in memory
+for CUR_VAR in "${VARIABLES[@]}"; do
+    VARIABLES_ADDRESSES+=("$NEXT_INSTR_ADDRESS")
+    NEXT_INSTR_ADDRESS=$((NEXT_INSTR_ADDRESS + 1))
+done
+
+function get_address_for_lexeme() {
+    local LEX="$1"
+    local TYPE="${LEX:2:3}"
+    local VALUE="${LEX:6}"
+    case $TYPE in
+    reg)
+        eval echo "\$$VALUE";;
+    num)
+        echo "$VALUE";;
+    lbl)
+        CUR_INDEX=$(find_index "$VALUE" "${LABELS[@]}")
+        echo "${LABELS_ADDRESSES[$CUR_INDEX]}";;
+    var)
+        CUR_INDEX=$(find_index "$VALUE" "${VARIABLES[@]}")
+        DECL_ADDRESS=${VARIABLES_DECL_ADDRESSES[$CUR_INDEX]}
+        if [ "$CUR_INSTRUCTION_NO" -lt "$DECL_ADDRESS" ]; then
+            compilation_error "Variable should be used after declaration" "Variable $VALUE is used before declaration"
+        fi
+        echo "${VARIABLES_ADDRESSES[$CUR_INDEX]}";;
+    *)  
+        ;;
+    esac
+}
+
+function get_debug_address_for_lexeme() {
+    local LEX="$1"
+    local VALUE="${LEX:6}"
+    local PREFIX="${LEX:0:1}"
+    if [ "$PREFIX" = "_" ]; then
+        PREFIX=""
     fi
-    CONSTANT_ADDRESSES[CUR_COUNTER]="${NEXT_INSTR_ADDRESS}"
-    CUR_COUNTER=$((CUR_COUNTER + 1))
-    NEXT_INSTR_ADDRESS=$((NEXT_INSTR_ADDRESS + 1))
-done
-echo "======DATA SEGMENT CONSTANTS END======" >> "${CONSTANTS_OBJ_FILE}"
+    echo "$PREFIX$VALUE"
+}
 
-# Let's generate object file from global variables. Later it will be appended to the end of the kernel.
-VARIABLES_OBJ_FILE="${KERNEL_FILE}".variables.o
-CUR_COUNTER=0
-echo "======DATA SEGMENT GLOBAL VARIABLES START======" > "${VARIABLES_OBJ_FILE}"
-NEXT_INSTR_ADDRESS=$((NEXT_INSTR_ADDRESS + 1))
-for VAR in "${VARIABLES[@]}"; do
-    echo "$VAR ${NEXT_INSTR_ADDRESS}" >> "${VARIABLES_OBJ_FILE}"
-    VARIABLES_ADDRESSES[CUR_COUNTER]="${NEXT_INSTR_ADDRESS}"
-    CUR_COUNTER=$((CUR_COUNTER + 1))
-    NEXT_INSTR_ADDRESS=$((NEXT_INSTR_ADDRESS + 1))
-done
-echo "======DATA SEGMENT GLOBAL VARIABLES END======" >> "${VARIABLES_OBJ_FILE}"
-
-# Let's concat generated object files and write them to the kernel file: 
 rm -rf "${KERNEL_FILE}"
-for OBJ_FILE in ${OBJ_FILES}; do
-    while read -r LINE; do
-        RES_LINE="$LINE"
+printf "%s\n" "${PARSED_LEXEMES[@]}" > "${KERNEL_FILE}.o"
 
-        # We should replace all the labels in jump/jump_if commands with corresponding addresses
-        if [[ "$LINE" == "$INSTR_JUMP "* ]] || [[ "$LINE" == "$INSTR_JUMP_IF "* ]]; then     
-            LEX2=$(echo "$LINE" | awk '{print $2}')
-            RES_LINE=$(echo "$LINE" | sed 's,'${LEX2}','$(eval_address ${LEX2})',1')
+LEXEME_INDEX=-1
+CUR_INSTRUCTION_NO=$((KERNEL_START - 1))
+
+function get_next_lexeme() {
+    LEXEME_INDEX=$((LEXEME_INDEX + 1))
+    LEXEME=${PARSED_LEXEMES[$LEXEME_INDEX]}
+}
+
+while true; do
+    get_next_lexeme
+
+    if [ -z "$LEXEME" ]; then
+        break
+    fi
+
+    if [ "${LEXEME:0:4}" = "file" ]; then
+        CUR_FILE=${LEXEME:5}
+        continue
+    fi
+
+    if [ "${LEXEME:0:4}" = "line" ]; then
+        CUR_LINE_NO=${LEXEME:5}
+        continue
+    fi
+
+    CUR_INSTRUCTION_NO=$((CUR_INSTRUCTION_NO + 1))
+    CUR_ERROR=""
+    CUR_CMD="${LEXEME:6}"
+    RES_STR=""
+    case "$CUR_CMD" in
+    cpu_exec)
+        RES_STR="$INSTR_CPU_EXEC # cpu_exec" ;;
+    DEBUG_ON|DEBUG_OFF)
+        RES_STR="$CUR_CMD" ;;
+    jump|jump_if)
+        get_next_lexeme
+        CUR_ADDR_TO=$(get_address_for_lexeme "${LEXEME}")
+        CUR_DEBUG_TO=$(get_debug_address_for_lexeme "${LEXEME}")
+        if [ "$CUR_CMD" = jump ]; then
+            RES_STR="$INSTR_JUMP $CUR_ADDR_TO # jump $CUR_DEBUG_TO"
+        else
+            RES_STR="$INSTR_JUMP_IF $CUR_ADDR_TO # jump_if $CUR_DEBUG_TO"
+        fi
+        ;;
+    write|copy)
+        get_next_lexeme
+        if [ $CUR_CMD = write ]; then
+            CUR_VALUE="${LEXEME:6}"
+            if [ "${LEXEME:2:3}" = str ]; then
+                CUR_VALUE="\"${CUR_VALUE}\"" 
+            fi
+            CUR_INDEX=$(find_index "$CUR_VALUE" "${CONSTANTS[@]}")
+            CUR_ADDR_FROM="${CONSTANTS_ADDRESSES[$CUR_INDEX]}"
+            CUR_DEBUG_FROM="${CONSTANTS[$CUR_INDEX]}"
+        else
+            CUR_ADDR_FROM=$(get_address_for_lexeme "${LEXEME}")
+            CUR_DEBUG_FROM=$(get_debug_address_for_lexeme "${LEXEME}")
         fi
 
-        # We should replace all the constant:N inside copy instructions with corresponding addresses;
-        # otherwise variables like $REG_OP should be evaluated to get addresses as well.
-        if [[ "$LINE" == "$INSTR_COPY_FROM_TO_ADDRESS"* ]]; then
-            LEX2=$(echo "$LINE" | awk '{print $2}')
-            LEX3=$(echo "$LINE" | awk '{print $3}')
-            RES_LINE=$(echo "$LINE" | sed 's,'$LEX2','$(eval_address $LEX2)',1' | sed 's,'$LEX3','$(eval_address $LEX3)',1')
+        get_next_lexeme
+        if [ "${LEXEME}" != "_ key to" ]; then
+            CUR_ERROR="Expected $CUR_CMD ... to."
         fi
-        echo "${RES_LINE}" >> "${KERNEL_FILE}"
-    done < "${OBJ_FILE}"
+
+        get_next_lexeme
+        CUR_ADDR_TO=$(get_address_for_lexeme "${LEXEME}")
+        CUR_DEBUG_TO=$(get_debug_address_for_lexeme "${LEXEME}")
+
+        RES_STR="$INSTR_COPY_FROM_TO_ADDRESS ${CUR_ADDR_FROM} ${CUR_ADDR_TO} # ${CUR_DEBUG_FROM} => ${CUR_DEBUG_TO}"
+        ;;
+    *)
+        CUR_ERROR="Unsupported command $CUR_CMD"
+        RES_STR="COMPILATION_ERROR"
+        ;;
+    esac
+    if [ -n "$CUR_ERROR" ]; then
+        compilation_error "$CUR_ERROR"
+        while [ -n "$LEXEME" ] && [ "$LEXEME" != "end" ]; do
+            get_next_lexeme
+        done
+    fi
+    if [ -n "$RES_STR" ]; then
+        echo "$RES_STR" >> "$KERNEL_FILE"
+    fi
 done
 
 # Let's align all the # comments to the right:
@@ -446,9 +429,16 @@ awk '{
     }
 }' "${KERNEL_FILE}" > "${KERNEL_FILE}".tmp && mv "${KERNEL_FILE}".tmp "${KERNEL_FILE}"
 
-# Let's append constants and global variables reserved memory to the end of the kernel file
-cat "${CONSTANTS_OBJ_FILE}" >> "${KERNEL_FILE}"
-cat "${VARIABLES_OBJ_FILE}" >> "${KERNEL_FILE}"
+# Append constants after instructions
+for CUR_CONST in "${CONSTANTS_EVALUATED[@]}"; do
+    echo "$CUR_CONST" >> "$KERNEL_FILE"
+done
+
+# Append empty line as a placeholder for variables
+for CUR_VAR in "${VARIABLES[@]}"; do
+    echo "" >> "$KERNEL_FILE"
+done
+
 
 # That's it - compilation finished. Let's report status to the user:
 if [ $COMPILATION_ERROR_COUNT -ne 0 ]; then
