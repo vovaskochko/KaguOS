@@ -1,0 +1,12 @@
+label test // inline comment
+label Test_
+//Some comment here
+label cAmEl_case
+copy REG_A to REG_B
+jump label:t1_2
+label t1_2
+jump label:Test_
+label t2_2
+jump_if label:test
+jump_if label:cAmEl_case
+jump label:t2_2

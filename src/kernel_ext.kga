@@ -5,5 +5,3 @@ label kernel_ext
     write OP_DISPLAY_LN to REG_OP
     cpu_exec
     jump label:kernel_end
-    var someTest
-    jump *var:someTest

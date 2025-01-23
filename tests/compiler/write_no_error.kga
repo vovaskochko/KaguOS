@@ -1,0 +1,9 @@
+write 1 to REG_A
+write 4 to INFO_REG_A // some comment
+write OP_CMP_EQ to DISPLAY_BUFFER
+write COLOR_GREEN to DISPLAY_COLOR //anotherComment
+
+// comment on a separate line
+
+write "Test" to KEYBOARD_BUFFER
+write "Text" to 2

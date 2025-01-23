@@ -1,0 +1,9 @@
+var test1
+var test2 // some comment
+cpu_exec
+var testVar
+write "Test" to var:testVar
+write OP_DISPLAY_LN to var:testVar
+copy var:test1 to var:test2
+copy *var:test1 to REG_OP
+copy @var:testVar to REG_A

@@ -1,0 +1,9 @@
+// Start comment is ok
+copy 5 to 10 // some inline comment is ok
+copy DISPLAY_BUFFER to REG_A
+
+// middle comment is ok
+copy 100 to REG_B
+copy REG_RES to 200
+
+// End comment is ok
