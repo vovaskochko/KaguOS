@@ -241,7 +241,7 @@ done
 # Go through the files and parse each line to the list of lexemes, store constants, variables and labels to calculate there addresses later:
 NEXT_INSTR_ADDRESS=$KERNEL_START
 for CUR_FILE in $SRC_FILES; do
-    PARSED_LEXEMES+=( "$(echo file ${CUR_FILE})" )
+    PARSED_LEXEMES+=( "file ${CUR_FILE}" )
     CUR_LINE_NO=0
 
     while read -r CUR_LINE || [ -n "$CUR_LINE" ]; do
@@ -362,7 +362,7 @@ for CUR_FILE in $SRC_FILES; do
         fi
 
         # At this point we have only valid instruction patterns that can be added to the list of instructions for further compilation
-        PARSED_LEXEMES+=( "$(echo line ${CUR_LINE_NO})" )
+        PARSED_LEXEMES+=( "line ${CUR_LINE_NO}" )
         PARSED_LEXEMES+=( "${CUR_LEXEMES[@]}" )
         NEXT_INSTR_ADDRESS=$((NEXT_INSTR_ADDRESS + 1))
     done < "$CUR_FILE"
