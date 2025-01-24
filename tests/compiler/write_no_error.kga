@@ -7,3 +7,4 @@ write COLOR_GREEN to DISPLAY_COLOR //anotherComment
 
 write "Test" to KEYBOARD_BUFFER
 write "Text" to 2
+write "Test" to REG_D
