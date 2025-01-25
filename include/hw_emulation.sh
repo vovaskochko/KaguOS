@@ -67,6 +67,19 @@ function copy_from_to_n_address {
     done
 }
 
+function get_background_color {
+    case $1 in
+        g|${COLOR_GREEN})       echo "\\e[42m";;
+        y|${COLOR_YELLOW})      echo "\\e[43m";;
+        r|${COLOR_RED})         echo "\\e[41m";;
+        B|${COLOR_BLACK})       echo "\\e[40m";;
+        b|${COLOR_BLUE})        echo "\\e[44m";;
+        m|${COLOR_MAGENTA})     echo "\\e[45m";;
+        c|${COLOR_CYAN})        echo "\\e[46m";;
+        w|${COLOR_WHITE})       echo "\\e[47m";;
+        *)                      echo "\\e[0m";;
+    esac
+}
 function dump_RAM_to_file {
     printf "%s\n" "${HW_RAM_MEMORY[@]}" > "${GLOBAL_RAM_FILE}"
 }
@@ -191,6 +204,26 @@ function cpu_exec {
                     START_COLOR="\033[91m"
                     END_COLOR="\033[0m"
                     ;;
+                $COLOR_BLACK)
+                    START_COLOR="\033[90m"
+                    END_COLOR="\033[0m"
+                    ;;
+                $COLOR_BLUE)
+                    START_COLOR="\033[94m"
+                    END_COLOR="\033[0m"
+                    ;;
+                $COLOR_MAGENTA)
+                    START_COLOR="\033[95m"
+                    END_COLOR="\033[0m"
+                    ;;
+                $COLOR_CYAN)
+                    START_COLOR="\033[96m"
+                    END_COLOR="\033[0m"
+                    ;;
+                $COLOR_WHITE)
+                    START_COLOR="\033[97m"
+                    END_COLOR="\033[0m"
+                    ;;
                 *)
                     START_COLOR=""
                     END_COLOR=""
@@ -209,7 +242,26 @@ function cpu_exec {
         ${OP_WRITE_BLOCK})
             echo "Write block not implemented yet."
             ;;
+        ${OP_SET_BACKGROUND_COLOR})
+            echo -e $(get_background_color $(read_from_address ${DISPLAY_BACKGROUND}))
+            clear
+            ;;
+        ${OP_RENDER_BITMAP})
+            local RES_STR=""
+            local BG_COLOR=$(get_background_color $(read_from_address ${DISPLAY_BACKGROUND}))
+            for ((i=$REG_A_VAL;i<$REG_B_VAL;i++)); do
+                local CUR_BITMAP_LINE=$(read_from_address $(($i)))
+                for ((j = 0; j < ${#CUR_BITMAP_LINE}; j++)); do
+                    RES_STR="$RES_STR$(get_background_color ${CUR_BITMAP_LINE:$j:1}) "
+                done
+                RES_STR="$RES_STR\n"
+            done
+            RES_STR="$RES_STR$BG_COLOR"
+            clear
+            echo -e "$RES_STR"
+            ;;
         ${OP_NOP})
+            sleep ${REG_A_VAL}
             ;;
         ${OP_UNKNOWN})
             echo "Unknown operation during cpu_exec. Terminated."

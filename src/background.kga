@@ -1,0 +1,41 @@
+    var bg_color
+    write COLOR_BLUE to var:bg_color
+    copy var:bg_color to DISPLAY_BACKGROUND
+    write OP_SET_BACKGROUND_COLOR to REG_OP
+    cpu_exec
+
+label start
+    write "bbbbbbbb" to 199
+    write "bbbggbbb" to 200
+    write "bbgbbgbb" to 201
+    write "bggbbggb" to 202
+    write "bbgbbgbb" to 203
+    write "bbbggbbb" to 204
+    write 199 to REG_A
+    write 205 to REG_B
+    write OP_RENDER_BITMAP to REG_OP
+    cpu_exec
+
+    write "0.5" to REG_A
+    write OP_NOP to REG_OP
+    cpu_exec
+
+    write "bbbbbbbb" to 199
+    write "bbbbgbbb" to 200
+    write "bbbggbbb" to 201
+    write "bbgbgbbb" to 202
+    write "bbbbgbbb" to 203
+    write "bbbbgbbb" to 204
+    write 199 to REG_A
+    write 205 to REG_B
+    write OP_RENDER_BITMAP to REG_OP
+    cpu_exec
+    write "0.5" to REG_A
+    write OP_NOP to REG_OP
+    cpu_exec
+
+    jump label:start
+
+label exit
+    write OP_HALT to REG_OP
+    cpu_exec
