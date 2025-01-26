@@ -104,6 +104,8 @@ function parse_lexeme() {
         echo "$PREFIX reg $CUR_LEXEME"
     elif [ "${CUR_LEXEME:0:6}" = "COLOR_" ]; then
         echo "$PREFIX clr $CUR_LEXEME"
+    elif [ "${CUR_LEXEME}" = "KEYBOARD_READ_LINE" ] || [ "${CUR_LEXEME}" = "KEYBOARD_READ_LINE_SILENTLY" ] || [ "${CUR_LEXEME}" = "KEYBOARD_READ_CHAR" ] || [ "${CUR_LEXEME}" = "KEYBOARD_READ_CHAR_SILENTLY" ]; then
+        echo "$PREFIX mod $CUR_LEXEME"
     elif is_command "${CUR_LEXEME}"; then
         echo "$PREFIX cmd ${CUR_LEXEME}"
     elif [[ "${CUR_LEXEME}" =~ ^[a-zA-Z][a-zA-Z0-9_]*$ ]]; then
@@ -134,7 +136,7 @@ function eval_lexeme() {
         esac
         ;;
     kto) FUNC_RESULT="";;
-    num|reg|opr|clr)
+    num|reg|opr|clr|mod)
         if [ "$POSITION" = "write_1" ]; then
             CUR_INDEX=$(find_index "$VALUE" "${CONSTANTS[@]}")
             FUNC_RESULT="${CONSTANTS_ADDRESSES[$CUR_INDEX]}"
@@ -260,7 +262,7 @@ for CUR_FILE in $SRC_FILES; do
         case $CUR_CMD in
         write)
             LEXEMES_COUNT=4
-            EXPECTED_PATTERN="^(_ cmd)(_ str|_ num|_ opr|_ clr)(_ kto)(_ num|\* num|_ reg|\* reg|_ var|\* var)(_ cmt)$"
+            EXPECTED_PATTERN="^(_ cmd)(_ str|_ num|_ opr|_ clr|_ mod)(_ kto)(_ num|\* num|_ reg|\* reg|_ var|\* var)(_ cmt)$"
             EXPECTED_SYNTAX="'write \"some string\" to address' or 'write 100 to address' or 'write OP_* to address' or 'write COLOR_* to address'"
             ;;
         copy)
@@ -352,10 +354,10 @@ for CUR_FILE in $SRC_FILES; do
             if ! contains_element "$CUR_VALUE" "${CONSTANTS[@]}"; then
                 CONSTANTS+=("${CUR_VALUE}")
                 case $LEX_TYPE in
-                    clr|reg|opr)    EVAL_VALUE=$(eval echo "\$$CUR_VALUE");;
-                    num)            EVAL_VALUE="$CUR_VALUE";;
-                    str)            EVAL_VALUE="${CUR_VALUE:1:-1}";;
-                    *)              EVAL_VALUE="";;
+                    clr|reg|opr|mod)    EVAL_VALUE=$(eval echo "\$$CUR_VALUE");;
+                    num)                EVAL_VALUE="$CUR_VALUE";;
+                    str)                EVAL_VALUE="${CUR_VALUE:1:-1}";;
+                    *)                  EVAL_VALUE="";;
                 esac
                 CONSTANTS_EVALUATED+=("${EVAL_VALUE}")
             fi

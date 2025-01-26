@@ -8,3 +8,9 @@ export COLOR_BLUE=5
 export COLOR_MAGENTA=6
 export COLOR_CYAN=7
 export COLOR_WHITE=8
+
+# Keyboard related constants:
+export KEYBOARD_READ_LINE="KeyboardReadLine"
+export KEYBOARD_READ_LINE_SILENTLY="KeyboardReadLineSilently"
+export KEYBOARD_READ_CHAR="KeyboardReadChar"
+export KEYBOARD_READ_CHAR_SILENTLY="KeyboardReadCharSilently"

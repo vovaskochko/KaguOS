@@ -185,7 +185,13 @@ function cpu_exec {
             write_to_address $REG_RES "${REG_A_VAL}${REG_C_VAL}${REG_B_VAL}"
             ;;
         ${OP_READ_INPUT})
-            IFS= read -r INPUT_LINE
+            case $REG_A_VAL in
+                ${KEYBOARD_READ_CHAR})          read -rn 1 INPUT_LINE;;
+                ${KEYBOARD_READ_CHAR_SILENTLY}) read -rsn 1 INPUT_LINE;;
+                ${KEYBOARD_READ_LINE})          read -r INPUT_LINE;;
+                ${KEYBOARD_READ_LINE_SILENTLY}) read -rs INPUT_LINE;;
+                *)                              read -r INPUT_LINE;;
+            esac
             write_to_address $KEYBOARD_BUFFER "${INPUT_LINE}"
             ;;
         ${OP_DISPLAY}|${OP_DISPLAY_LN})

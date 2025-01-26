@@ -1,0 +1,13 @@
+label startKernel // the kernel start
+    write "Hello! How are you?" to DISPLAY_BUFFER
+    write COLOR_GREEN to DISPLAY_COLOR
+    write OP_DISPLAY_LN to REG_OP
+    cpu_exec
+    write OP_READ_INPUT to REG_OP
+    cpu_exec
+    jump label:startKernel
+
+// The code below is not reached as the loop above is infinite
+label exit // jump here if you want to exit
+    write OP_HALT to REG_OP
+    cpu_exec

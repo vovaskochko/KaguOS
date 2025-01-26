@@ -124,6 +124,8 @@ export OP_REPLACE_COLUMN=16
 export OP_CONCAT_WITH=17
 
 # To read input from the keyboard, set REG_OP to OP_READ_INPUT and call INSTR_CPU_EXEC.
+# For advanced processing set REG_A with one of the modes:
+#   KEYBOARD_READ_LINE, KEYBOARD_READ_LINE_SILENTLY, KEYBOARD_READ_CHAR, KEYBOARD_READ_CHAR_SILENTLY.
 # After execution, the input will be stored in the KEYBOARD_BUFFER.
 export OP_READ_INPUT=18
 

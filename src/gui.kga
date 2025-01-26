@@ -1,0 +1,63 @@
+DEBUG_OFF
+
+// Add some prompt for the user:
+write "Type Enter to start, 0 or 1 to display corresponding symbol, type any other key to exit. " to DISPLAY_BUFFER
+write COLOR_NO to DISPLAY_COLOR
+write OP_DISPLAY_LN to REG_OP
+cpu_exec
+
+write OP_READ_INPUT to REG_OP
+cpu_exec
+
+// Let's set background color to blue:
+write COLOR_BLUE to DISPLAY_BACKGROUND
+write OP_SET_BACKGROUND_COLOR to REG_OP
+cpu_exec
+
+// We can read a single char and analyze it to determine what further symbol should be displayed
+// or we can exit in case of incorrect symbol
+label read_key
+    write KEYBOARD_READ_CHAR_SILENTLY to REG_A
+    write OP_READ_INPUT to REG_OP
+    cpu_exec
+    copy KEYBOARD_BUFFER to REG_A
+    write 0 to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec
+    jump_if label:draw_zero
+    write 1 to REG_B
+    cpu_exec
+    jump_if label:draw_one
+    jump label:exit
+
+// Draw 0 and jump back to read_key
+label draw_zero
+    write "bbbbbbbb" to 199
+    write "bbbggbbb" to 200
+    write "bbgbbgbb" to 201
+    write "bggbbggb" to 202
+    write "bbgbbgbb" to 203
+    write "bbbggbbb" to 204
+    write 199 to REG_A
+    write 205 to REG_B
+    write OP_RENDER_BITMAP to REG_OP
+    cpu_exec
+    jump label:read_key
+
+// Draw 1 and jump back to read key
+label draw_one
+    write "bbbbbbbb" to 199
+    write "bbbbgbbb" to 200
+    write "bbbggbbb" to 201
+    write "bbgbgbbb" to 202
+    write "bbbbgbbb" to 203
+    write "bbbbgbbb" to 204
+    write 199 to REG_A
+    write 205 to REG_B
+    write OP_RENDER_BITMAP to REG_OP
+    cpu_exec
+    jump label:read_key
+
+label exit
+    write OP_HALT to REG_OP
+    cpu_exec
