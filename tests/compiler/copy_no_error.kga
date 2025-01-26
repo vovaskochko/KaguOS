@@ -1,0 +1,62 @@
+// Start comment is ok
+copy 5 to 10 // some inline comment is ok
+copy DISPLAY_BUFFER to REG_A
+
+// middle comment is ok
+copy 100 to REG_B
+copy REG_RES to 200
+
+var test
+var someVar
+
+copy 100 to 200
+copy 50 to *70
+cpu_exec
+copy 200 to DISPLAY_BUFFER
+copy 10 to *REG_RES
+copy 100 to var:test
+copy 200 to *var:someVar
+
+copy *10 to 200
+copy *100 to *200
+copy *200 to DISPLAY_BUFFER
+copy *50 to *REG_RES
+copy *100 to var:test
+copy *200 to *var:someVar
+
+copy REG_RES to 200
+copy REG_A to *200
+copy KEYBOARD_BUFFER to DISPLAY_BUFFER
+copy REG_RES to *REG_RES
+copy REG_B to var:test
+copy REG_BOOL_RES to *var:someVar
+
+copy *REG_RES to 200
+copy *REG_RES to *200
+copy *REG_RES to DISPLAY_BUFFER
+copy *REG_RES to *REG_RES
+copy *REG_RES to var:test
+copy *REG_RES to *var:someVar
+
+copy var:someVar to 100
+copy var:someVar to *200
+copy var:someVar to DISPLAY_BACKGROUND
+copy var:someVar to *REG_RES
+copy var:someVar to var:test
+copy var:someVar to *var:someVar
+
+copy *var:someVar to 200
+copy *var:someVar to *200
+copy *var:someVar to REG_A
+copy *var:someVar to *REG_RES
+copy *var:someVar to var:test
+copy *var:someVar to *var:someVar
+
+copy @var:test to 200
+copy @var:test to *200
+copy @var:test to REG_C
+copy @var:test to *REG_RES
+copy @var:test to var:someVar
+copy @var:test to *var:someVar
+
+// End comment is ok

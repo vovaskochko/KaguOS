@@ -1,0 +1,50 @@
+write 1 to REG_A
+write 4 to INFO_REG_A // some comment
+write OP_CMP_EQ to DISPLAY_BUFFER
+write COLOR_GREEN to DISPLAY_COLOR //anotherComment
+
+// comment on a separate line
+
+var test
+write "Test" to KEYBOARD_BUFFER
+write "Text" to 2
+write "Test" to REG_D
+write KEYBOARD_READ_LINE to REG_A
+write OP_READ_INPUT to REG_OP // inline comment
+cpu_exec
+write KEYBOARD_READ_CHAR to REG_B // other inline comment
+
+write "Some text" to 100
+write "* another text***" to *50
+write "@one more line@" to REG_A
+write "___another__" to *REG_RES
+write "### ####" to var:test
+write "No text here" to *var:test
+
+write 12 to 100
+write 102 to *50
+write 1 to REG_B
+write 15 to *REG_RES
+write 22 to var:test
+write 132 to *var:test
+
+write OP_RENDER_BITMAP to 100
+write OP_NOP to *50
+write OP_DISPLAY to REG_OP
+write OP_READ_INPUT to *REG_RES
+write OP_CMP_EQ to var:test
+write OP_ADD to *var:test
+
+write COLOR_RED to 100
+write COLOR_GREEN to *50
+write COLOR_BLUE to REG_A
+write COLOR_BLACK to *REG_RES
+write COLOR_MAGENTA to var:test
+write COLOR_CYAN to *var:test
+
+write KEYBOARD_READ_CHAR to 100
+write KEYBOARD_READ_CHAR_SILENTLY to *50
+write KEYBOARD_READ_LINE to REG_A
+write KEYBOARD_READ_LINE_SILENTLY to *REG_RES
+write KEYBOARD_READ_CHAR_SILENTLY to var:test
+write KEYBOARD_READ_CHAR to *var:test

@@ -1,3 +1,5 @@
+<!-- toc -->
+
 # Welcome!
 Welcome to KaguOS - learning framework for operating system design.
 
@@ -266,3 +268,106 @@ Save it to `kernel/condition` and run it. Enter text *red* and ensure that it wi
 **TASK**: Adjust the kernel so it will run in loop and will prompt user input until the user enter exit.
 
 **TASK**: Create a program to calculate sum of two numbers. E.g. user should be prompted for input in format `15 + 2`, press enter and then program should output the result; incorrect format should be handled too. Note, you can find the list of operations in *instructionSet.html* and *include/operations.sh*. OP_GET_COLUMN and OP_IS_NUM should be a good choice fot this task.
+
+# KaguAsm language
+
+As we saw earlier, manually writing machine code requires significant attention and is prone to errors due to the many manual calculations involved.
+
+To address these challenges, we developed a simple assembler language that makes writing code for KaguOS much easier. The key features of this language include support for labels, jumps, and variables, along with the `write` function. The language also allows the use of constants such as `REG_OP`, `OP_READ_INPUT`, `COLOR_RED`, and others directly in the code. The `asm.sh` compiler handles address calculations and automatically generates the kernel.
+
+## Syntax
+Here some main ascpects of the language syntax:
+* Each command should be placed on its own line.
+* Supported commands are `write`, `copy`, `jump`, `jump_if`, `cpu_exec`, `DEBUG_ON`, `DEBUG_OFF`. Also you can use keyword `to` for `write` and `copy` commands.
+* We can declare variable with `var someName` and label with `label otherName`. You can refer to them with `var:someName` and `label:otherName` correspondingly. 
+* The names of the labels and variables should start with a letter and contain only letters, digits and _ symbol. 
+* You can use comments started with `//` symbols in a separate line.
+* Inline commets are allowed too(`jump 100 // some comment`).
+* You can use constants from *include/registers.sh*, *include/operations.sh*, and *include/other.sh* for example, `copy REG_RES to DISPLAY_BUFFER`, `write OP_HALT to REG_OP`, `write "some text" to REG_A`
+* You can use `*` just before address if corresponding address contains address number with a real data. For example, if `REG_RES` contains value `100` then `copy *REG_RES to REG_A` is equivalent to `copy 100 to REG_A`.
+* You can use `@` with variables to copy variable address somewhere. For example, `copy @var:someVar to REG_A` will store the address of the variable to `REG_A`.
+
+## How to run
+You can compile your source files using command `./asm.sh path/to/file.kga path/to/otherFile.kga`. That files will be processed in the provided order and merged to a single compiled kernel saved to the file **build/kernel.disk**. After compilation you can use `./bootloader.sh build/kernel.disk` to run the kernel.
+
+## VSCode extension
+We have an extension to highlight syntax of KaguOS assembler language. Use the following steps to install it:
+1. Download *.vsix file from the latest release on https://github.com/vovaskochko/VSCodeKaguLangSupport/releases 
+2. In VSCode go to extensions tab and select ... => Install from VSIX... => choose the file downloaded during previous step.
+3. Enjoy!
+
+## Examples
+Let's create a simple source file `simple.kga` and add some instructions to display a text and exit:
+```
+write "Hello!" to DISPLAY_BUFFER
+write COLOR_GREEN to DISPLAY_COLOR
+write OP_DISPLAY_LN to REG_OP
+cpu_exec
+write OP_HALT to REG_OP
+cpu_exec
+```
+Now we can compiler it `./asm.sh simple.kga` and run with `./bootloader.sh build/kernel.disk -j`.
+
+Let's use a label for infinite loop:
+```
+label startKernel // the kernel start
+    write "Hello! How are you?" to DISPLAY_BUFFER
+    write COLOR_GREEN to DISPLAY_COLOR
+    write OP_DISPLAY_LN to REG_OP
+    cpu_exec
+    write OP_READ_INPUT to REG_OP
+    cpu_exec
+    jump label:startKernel
+
+// The code below is not reached as the loop above is infinite
+label exit // jump here if you want to exit
+    write OP_HALT to REG_OP
+    cpu_exec
+```
+**TASK**: Extend the code with some logic to be able to exit from the loop.
+**TASK**: Write a code to use `if else` idiom for some handling of user input.
+**TASK**: Write a do-while loop to print user input 5 times.
+**TASK**: Declare variable with `var someName` and use it to store data from `KEYBOARD_BUFFER` e.g. `copy KEYBOARD_BUFFER to var:someName`. And then display the data from variable.
+
+## `asm.sh` implementation
+
+1. The assembler processes all .kga files provided by the user, analyzing each line sequentially. Empty lines and comments are ignored immediately.
+
+2. For all other lines, the first word is read and analyzed. This word must be one of the supported commands (`write`, `copy`, `jump`, `jump_if`, `cpu_exec`, `DEBUG_ON`, `DEBUG_OFF`) or declarations (`var` in `var name` for variables or `label` in `label name` for labels). Based on this first word, the expected number of lexemes is determined. For example, the `write` command requires 4 lexemes, plus the possibility of a comment at the end of the line, so a total of 5 lexemes is checked. Valid patterns for these lexemes are predefined and will be explained later.
+
+3. Each lexeme undergoes analysis via the `parse_lexeme` function. This function determines the lexeme's data type and whether it has an additional prefix (`*` or `@`). If there is no prefix, the default `_` is added. Consequently, every lexeme is converted into a string format where:
+
+* The first character represents the prefix.
+
+* A space follows the prefix.
+
+* The next three characters represent the lexeme type.
+
+* Another space separates the type from the lexeme's value.
+For example:
+`_ cmd write` corresponds to the word `write`.
+`* var name` corresponds to the lexeme `*var:name`.
+`_ lbl labelName` corresponds to the lexeme `label:labelname`.
+The first five characters of the formatted lexeme (prefix + type) are crucial for pattern validation.
+
+4. For example, valid patterns for the jump or jump_if commands look like:
+`^(_ cmd)(_ num|\* num|\* reg|_ lbl|\* var)(_ cmt)$`
+This pattern means the following. The first lexeme must be the command itself (`_ cmd`). The second lexeme can be: a plain number (`_ num`), a pointer to a number, register, or variable (`* num`, `* reg`, `* var`), or a label (`_ lbl`). The optional third lexeme is a comment (`_ cmt`).
+
+5. For each line, the assembler collects the lexeme types and validates them against the predefined regex pattern. This eliminates most errors early in the process. Remaining errors, such as using undeclared variables or jumping to non-existent labels, are checked later in subsequent passes.
+
+6. Separate auxiliary arrays are maintained for variables, labels, and constants. These arrays are used to verify whether a label exists, whether a variable was declared and when, which memory should be allocated for constants and variables.
+
+7. Only valid instructions are added to the `PARSED_LEXEMES` list, excluding variable and label declarations (as these perform no actual operation). Special debug strings, such as `line $CUR_LINE_NO`, are added to help pinpoint where errors occurred later in the process.
+
+8. After parsing all instructions, the assembler calculates memory addresses for constants and variables. It dumps the parsed lexeme schema into a file for better visualization.
+
+9. Next, the assembler processes the `PARSED_LEXEMES` array. You can find a dump of the array inside **build/kernel.disk.o** file. By this stage, the structure and types of all components are guaranteed to be correct. For each instruction:
+
+- the required number of lexemes is read
+- their values are evaluated using the `eval_lexeme` function. This determines the memory address, instruction code, or constant substitution.
+- debug information for each lexeme is generated using `eval_debug_info_for_lexeme`.
+
+10. The resulting machine code is written to **build/kernel.disk**. The assembler formats the output file to align comments neatly. It appends constants and allocates memory spaces for variables at the end of **build/kernel.disk**.
+
+11. Finally, the compilation process is complete, and the assembler provides status feedback to the user.
