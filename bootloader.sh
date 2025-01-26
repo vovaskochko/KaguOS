@@ -93,7 +93,7 @@ write_to_address ${INFO_KERNEL_START} "############ KERNEL START ###########"
 # NOTE: Real computer loads kernel from disk or disk partition
 #       so some basic disk driver should be present in bootloader.
 CUR_ADDRESS="${KERNEL_START}"
-while IFS= read -r LINE; do
+while IFS= read -r LINE || [ -n "$LINE" ]; do
     write_to_address ${CUR_ADDRESS} "${LINE}"
     CUR_ADDRESS=$((CUR_ADDRESS + 1))
 done < "${INPUT_KERNEL_FILE}"

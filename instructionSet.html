@@ -184,8 +184,8 @@
       <tr>
         <td>Read Input</td>
         <td>OP_READ_INPUT (18)</td>
-        <td>KEYBOARD_BUFFER</td>
-        <td>Reads input from the keyboard, stores it in KEYBOARD_BUFFER.</td>
+        <td>REG_A, KEYBOARD_BUFFER</td>
+        <td>Reads input from the keyboard, stores it in KEYBOARD_BUFFER. Use REG_A to set read mode: KEYBOARD_READ_LINE, KEYBOARD_READ_LINE_SILENTLY, KEYBOARD_READ_CHAR, KEYBOARD_READ_CHAR_SILENTLY </td>
       </tr>
       <tr>
         <td>Display</td>
@@ -212,10 +212,22 @@
         <td>Writes a string to a disk block, checks the result in REG_BOOL_RES.</td>
       </tr>
       <tr>
+        <td>Set background color</td>
+        <td>OP_SET_BACKGROUND_COLOR (23)</td>
+        <td>DISPLAY_BACKGROUND</td>
+        <td>Changes the background color based on the state of DISPLAY_BACKGROUND register which should contain a COLOR_* constant.</td>
+      </tr>
+      <tr>
+        <td>Render bitmap</td>
+        <td>OP_RENDER_BITMAP (24)</td>
+        <td>REG_A, REG_B</td>
+        <td>Allows to print colored cells on the screen based on the provided bitmap. Set address of the first bitmap line to REG_A and the address after the last line to REG_B. Bitmap lines should contain only letters B(black), g(green), y(yellow), r(red), b(blue), m(magenta), c(cyan), w(white)</td>
+      </tr> 
+      <tr>
         <td>No Operation</td>
         <td>OP_NOP (29)</td>
-        <td>None</td>
-        <td>Performs no operation, used for delays or placeholders.</td>
+        <td>REG_A</td>
+        <td>Performs no operation, used for delays or placeholders. Set delay value in seconds(for example, 0.5) to REG_A.</td>
       </tr>
       <tr>
         <td>Halt</td>

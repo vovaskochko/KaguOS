@@ -124,6 +124,8 @@ export OP_REPLACE_COLUMN=16
 export OP_CONCAT_WITH=17
 
 # To read input from the keyboard, set REG_OP to OP_READ_INPUT and call INSTR_CPU_EXEC.
+# For advanced processing set REG_A with one of the modes:
+#   KEYBOARD_READ_LINE, KEYBOARD_READ_LINE_SILENTLY, KEYBOARD_READ_CHAR, KEYBOARD_READ_CHAR_SILENTLY.
 # After execution, the input will be stored in the KEYBOARD_BUFFER.
 export OP_READ_INPUT=18
 
@@ -145,9 +147,20 @@ export OP_READ_BLOCK=21
 # The result (success or failure) will be present in REG_BOOL_RES, and any error message will be stored in REG_ERROR if needed.
 export OP_WRITE_BLOCK=22
 
-# OP codes from 23 to 28 are reserved for future use.
+# To change background color set COLOR_* constant to DISPLAY_BACKGROUND,
+# set OP_SET_BACKGROUND_COLOR to REG_OP and call INSTR_CPU_EXEC
+export OP_SET_BACKGROUND_COLOR=23
 
-# To perform no operation, set REG_OP to OP_NOP and call INSTR_CPU_EXEC.
+# To draw bitmap specify address of first line with bitmap representation to REG_A,
+# first address after the last line of bitmap to REG_B, and OP_RENDER_BITMAP to REG_OP.
+# Call INSTR_CPU_EXEC to render the bitmap.
+# Each line should contain letters B(black), g(green), y(yellow), r(red), b(blue), m(magenta), c(cyan), w(white)
+# For example string ggyyrr will display a line with 2 green cells, 2 yellow cells and 2 red cells
+export OP_RENDER_BITMAP=24
+
+# OP codes from 25 to 28 are reserved for future use.
+
+# To perform no operation with sleep, set REG_OP to OP_NOP, sleep delay in seconds to REG_A and call INSTR_CPU_EXEC.
 # This will have no effect and is useful for delays or placeholders.
 export OP_NOP=29
 
