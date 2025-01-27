@@ -1,0 +1,66 @@
+DEBUG_OFF
+
+// Add some prompt for the user:
+write "Press Enter and then type 0 or 1 to display corresponding symbol, type any other key to exit." to DISPLAY_BUFFER
+write COLOR_GREEN to DISPLAY_COLOR
+write OP_DISPLAY_LN to REG_OP
+cpu_exec
+
+write OP_READ_INPUT to REG_OP
+cpu_exec
+
+// Let's set background color to blue:
+write COLOR_BLUE to DISPLAY_BACKGROUND
+write OP_SET_BACKGROUND_COLOR to REG_OP
+cpu_exec
+
+// Save bitmaps to some range of free memory:
+write "bbbbbbbb" to 199 // symbol "0" bitmap start
+write "bbggggbb" to 200
+write "bggbbggb" to 201
+write "bgbbbbgb" to 202
+write "bggbbggb" to 203
+write "bbggggbb" to 204 // symbol "0" bitmap end
+write "bbbbbbbb" to 205 // symbol "1" bitmap start
+write "bbbbgbbb" to 206
+write "bbbggbbb" to 207
+write "bbgbgbbb" to 208
+write "bbbbgbbb" to 209
+write "bbbbgbbb" to 210 // symbol "1" bitmap end
+
+
+// We can read a single char and analyze it to determine what further symbol should be displayed
+// or we can exit in case of incorrect symbol
+label read_key
+    write KEYBOARD_READ_CHAR_SILENTLY to REG_A
+    write OP_READ_INPUT to REG_OP
+    cpu_exec
+    copy KEYBOARD_BUFFER to REG_A
+    write 0 to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec
+    jump_if label:draw_zero
+    write 1 to REG_B
+    cpu_exec
+    jump_if label:draw_one
+    jump label:exit
+
+// Draw 0 and jump back to read_key
+label draw_zero
+    write 199 to REG_A // symbol "0" bitmap is on the lines 199-204
+    write 205 to REG_B // the first address after the end of the bitmap is 205
+    write OP_RENDER_BITMAP to REG_OP
+    cpu_exec
+    jump label:read_key
+
+// Draw 1 and jump back to read key
+label draw_one
+    write 205 to REG_A // symbol "1" bitmap is on the lines 205-210
+    write 211 to REG_B // the first address after the end of the bitmap is 211
+    write OP_RENDER_BITMAP to REG_OP
+    cpu_exec
+    jump label:read_key
+
+label exit
+    write OP_HALT to REG_OP
+    cpu_exec
