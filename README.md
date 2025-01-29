@@ -325,8 +325,11 @@ label exit // jump here if you want to exit
     cpu_exec
 ```
 **TASK**: Extend the code with some logic to be able to exit from the loop.
+
 **TASK**: Write a code to use `if else` idiom for some handling of user input.
+
 **TASK**: Write a do-while loop to print user input 5 times.
+
 **TASK**: Declare variable with `var someName` and use it to store data from `KEYBOARD_BUFFER` e.g. `copy KEYBOARD_BUFFER to var:someName`. And then display the data from variable.
 
 ## `asm.sh` implementation
