@@ -115,7 +115,7 @@ function cpu_exec {
             write_to_address $REG_RES "$((REG_A_VAL * REG_B_VAL))"
             ;;
         ${OP_IS_NUM})
-            if (( $REG_A_VAL + 0 )); then
+            if (( $REG_A_VAL + 0 )) || [ "$REG_A_VAL" -eq 0 ]; then
                 CMP_RES=1
             else
                 CMP_RES=0

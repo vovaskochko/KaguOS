@@ -1,0 +1,47 @@
+label startTest
+// Test case 1: check that 0 is a number:
+    write 0 to REG_A
+    write OP_IS_NUM to REG_OP
+    cpu_exec
+
+    copy REG_BOOL_RES to var:actual
+    write "1" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 2: check that 1 is a number
+    write 1 to REG_A
+    write OP_IS_NUM to REG_OP
+    cpu_exec
+
+    copy REG_BOOL_RES to var:actual
+    write 1 to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 3: check that "a" is not a number
+    write "a" to REG_A
+    write OP_IS_NUM to REG_OP
+    cpu_exec
+
+    copy REG_BOOL_RES to var:actual
+    write 0 to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 4: check that -15 is a number
+    write "-15" to REG_A
+    write OP_IS_NUM to REG_OP
+    cpu_exec
+
+    copy REG_BOOL_RES to var:actual
+    write 1 to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Exit:
+jump label:exit

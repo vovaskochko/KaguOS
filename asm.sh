@@ -100,7 +100,7 @@ function parse_lexeme() {
         fi
     elif [ "${CUR_LEXEME:0:3}" = "OP_" ]; then
         echo "$PREFIX opr $CUR_LEXEME"
-    elif [ "${CUR_LEXEME:0:4}" = "REG_" ] || [ "${CUR_LEXEME:0:5}" = "INFO_" ] || [ "$CUR_LEXEME" = "DISPLAY_BUFFER" ] || [ "$CUR_LEXEME" = "DISPLAY_COLOR" ] || [ "$CUR_LEXEME" = "DISPLAY_BACKGROUND" ] || [ "$CUR_LEXEME" = "KEYBOARD_BUFFER" ] || [ "${CUR_LEXEME:0:5}" = "FREE_" ]; then
+    elif [ "${CUR_LEXEME:0:4}" = "REG_" ] || [ "${CUR_LEXEME:0:5}" = "INFO_" ] || [ "$CUR_LEXEME" = "DISPLAY_BUFFER" ] || [ "$CUR_LEXEME" = "DISPLAY_COLOR" ] || [ "$CUR_LEXEME" = "DISPLAY_BACKGROUND" ] || [ "$CUR_LEXEME" = "KEYBOARD_BUFFER" ] || [ "$CUR_LEXEME" = "PROGRAM_COUNTER" ] || [ "${CUR_LEXEME:0:5}" = "FREE_" ]; then
         echo "$PREFIX reg $CUR_LEXEME"
     elif [ "${CUR_LEXEME:0:6}" = "COLOR_" ]; then
         echo "$PREFIX clr $CUR_LEXEME"

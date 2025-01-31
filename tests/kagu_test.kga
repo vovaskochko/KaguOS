@@ -1,0 +1,107 @@
+// To run your test use command like
+//       ./asm.sh tests/kagu_test.kga tests/cpu/test_is_num.kga
+// your test should be started with label startTest.
+// To perform checks copy values to var:actual and var:expected
+// then add the code
+//    copy PROGRAM_COUNTER to var:nextTestAddress
+//    jump label:check
+// Use jump label:exit to print the statistics and exit.
+
+var actual
+var expected
+var totalCount
+var successCount
+var errorCount
+var nextTestAddress
+
+write 0 to var:successCount
+write 0 to var:errorCount
+write 0 to var:totalCount
+
+jump label:startTest
+
+label check
+    // increment test counter
+    copy var:totalCount to REG_A
+    write OP_INCR to REG_OP
+    cpu_exec
+    copy REG_RES to var:totalCount
+
+    // compare actual and expected and handle fail or success
+    copy var:expected to REG_A
+    copy var:actual to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec
+    jump_if label:success
+    jump label:fail
+
+    // Let's report fail
+    label fail
+        // increase fail count:
+        copy var:errorCount to REG_A
+        write OP_INCR to REG_OP
+        cpu_exec
+        copy REG_RES to var:errorCount
+
+        // Print message:
+        write "Fail" to DISPLAY_BUFFER
+        write COLOR_RED to DISPLAY_COLOR
+        write OP_DISPLAY_LN to REG_OP
+        cpu_exec
+        jump label:execNextTest
+
+    // Let's report success
+    label success
+        // increase success count
+        copy var:successCount to REG_A
+        write OP_INCR to REG_OP
+        cpu_exec
+        copy REG_RES to var:successCount
+
+        // Print message:
+        write "OK" to DISPLAY_BUFFER
+        write COLOR_GREEN to DISPLAY_COLOR
+        write OP_DISPLAY_LN to REG_OP
+        cpu_exec
+        jump label:execNextTest
+
+// Jump back to the place we use before the execution:
+label execNextTest
+    copy var:nextTestAddress to REG_A
+    write 2 to REG_B
+    write OP_ADD to REG_OP
+    cpu_exec
+    jump *REG_RES
+
+// report status and exit
+label exit
+    // Print total test count:
+    write "Total test count: " to DISPLAY_BUFFER
+    write COLOR_NO to DISPLAY_COLOR
+    write OP_DISPLAY to REG_OP
+    cpu_exec
+    copy var:totalCount to DISPLAY_BUFFER
+    write OP_DISPLAY_LN to REG_OP
+    cpu_exec
+
+    // Print success test count:
+    write "Success test count: " to DISPLAY_BUFFER
+    write COLOR_GREEN to DISPLAY_COLOR
+    write OP_DISPLAY to REG_OP
+    cpu_exec
+    copy var:successCount to DISPLAY_BUFFER
+    write OP_DISPLAY_LN to REG_OP
+    cpu_exec
+
+    // Print failed test count:
+    write "Failed test count: " to DISPLAY_BUFFER
+    write COLOR_RED to DISPLAY_COLOR
+    write OP_DISPLAY to REG_OP
+    cpu_exec
+    copy var:errorCount to DISPLAY_BUFFER
+    write OP_DISPLAY_LN to REG_OP
+    cpu_exec
+
+    // exit
+    write OP_HALT to REG_OP
+    cpu_exec
