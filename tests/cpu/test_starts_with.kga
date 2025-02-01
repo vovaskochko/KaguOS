@@ -1,0 +1,108 @@
+label startTest
+
+// Test case 1: check if an empty string starts with an empty string (always true)
+    write "Empty string starts with empty string" to var:testName
+    write "" to REG_A
+    write "" to REG_B
+    write OP_STARTS_WITH to REG_OP
+    cpu_exec
+
+    copy REG_BOOL_RES to var:actual
+    write "1" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 2: check if a string starts with an empty string (always true)
+    write "String starts with empty string" to var:testName
+    write "Hello" to REG_A
+    write "" to REG_B
+    write OP_STARTS_WITH to REG_OP
+    cpu_exec
+
+    copy REG_BOOL_RES to var:actual
+    write "1" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 3: check if a string starts with the correct prefix
+    write "String starts with prefix" to var:testName
+    write "HelloWorld" to REG_A
+    write "Hello" to REG_B
+    write OP_STARTS_WITH to REG_OP
+    cpu_exec
+
+    copy REG_BOOL_RES to var:actual
+    write "1" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 4: check if a string starts with an incorrect prefix
+    write "String starts with incorrect prefix" to var:testName
+    write "HelloWorld" to REG_A
+    write "World" to REG_B
+    write OP_STARTS_WITH to REG_OP
+    cpu_exec
+
+    copy REG_BOOL_RES to var:actual
+    write "0" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 5: check if a string starts with the prefix at the start (substring at the start)
+    write "String starts with prefix at start" to var:testName
+    write "GoodMorning" to REG_A
+    write "Good" to REG_B
+    write OP_STARTS_WITH to REG_OP
+    cpu_exec
+
+    copy REG_BOOL_RES to var:actual
+    write "1" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 6: check if a string starts with the prefix at the end (substring at the end)
+    write "String starts with prefix at the end" to var:testName
+    write "GoodMorning" to REG_A
+    write "Morning" to REG_B
+    write OP_STARTS_WITH to REG_OP
+    cpu_exec
+
+    copy REG_BOOL_RES to var:actual
+    write "0" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 7: check if a string starts with the prefix in the middle (substring in the middle)
+    write "String starts with prefix not contained by whole string" to var:testName
+    write "GoodMorning" to REG_A
+    write "ooM" to REG_B
+    write OP_STARTS_WITH to REG_OP
+    cpu_exec
+
+    copy REG_BOOL_RES to var:actual
+    write "0" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 8: check if a string starts with the prefix in the middle (substring in the middle)
+    write "String starts with prefix in middle" to var:testName
+    write "GoodMorning" to REG_A
+    write "oodM" to REG_B
+    write OP_STARTS_WITH to REG_OP
+    cpu_exec
+
+    copy REG_BOOL_RES to var:actual
+    write "0" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Exit:
+jump label:exit

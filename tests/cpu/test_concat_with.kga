@@ -1,0 +1,129 @@
+label startTest
+// Test case 1: Basic concatenation
+    write "Concatenate 'Hello' and 'World' with ', '" to var:testName
+    write "Hello" to REG_A
+    write "World" to REG_B
+    write ", " to REG_C
+    write OP_CONCAT_WITH to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write "Hello, World" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 2: Empty first string
+    write "Concatenate empty and 'World' with '-'" to var:testName
+    write "" to REG_A
+    write "World" to REG_B
+    write "-" to REG_C
+    write OP_CONCAT_WITH to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write "-World" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 3: Empty second string
+    write "Concatenate 'Hello' and empty with '++'" to var:testName
+    write "Hello" to REG_A
+    write "" to REG_B
+    write "++" to REG_C
+    write OP_CONCAT_WITH to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write "Hello++" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 4: Both strings empty
+    write "Concatenate two empty strings with '--'" to var:testName
+    write "" to REG_A
+    write "" to REG_B
+    write "--" to REG_C
+    write OP_CONCAT_WITH to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write "--" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 5: Empty delimiter (should simply join the two strings)
+    write "Concatenate 'first' and 'second' with empty delimiter" to var:testName
+    write "first" to REG_A
+    write "second" to REG_B
+    write "" to REG_C
+    write OP_CONCAT_WITH to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write "firstsecond" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 6: Special characters in strings and delimiter
+    write "Concatenate 'a!@#' and '$%^&' with '***'" to var:testName
+    write "a!@#" to REG_A
+    write "$%^&" to REG_B
+    write "***" to REG_C
+    write OP_CONCAT_WITH to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write "a!@#***$%^&" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 7: Space as delimiter
+    write "Concatenate 'Good' and 'Morning' with space" to var:testName
+    write "Good" to REG_A
+    write "Morning" to REG_B
+    write " " to REG_C
+    write OP_CONCAT_WITH to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write "Good Morning" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 8: Space as delimiter with empty first string
+    write "Concatenate empty and 'World' with space" to var:testName
+    write "" to REG_A
+    write "World" to REG_B
+    write " " to REG_C
+    write OP_CONCAT_WITH to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write " World" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 9: Space as delimiter with empty second string
+    write "Concatenate 'Hello' and empty with space" to var:testName
+    write "Hello" to REG_A
+    write "" to REG_B
+    write " " to REG_C
+    write OP_CONCAT_WITH to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write "Hello " to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Exit:
+jump label:exit

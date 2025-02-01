@@ -144,7 +144,12 @@ function eval_lexeme() {
             if [ "$TYPE" = "num" ]; then
                 FUNC_RESULT="${PREFIX}$VALUE"
             else
-                FUNC_RESULT="${PREFIX}$(eval echo "\$$VALUE")"
+                EVAL_VAR=$(eval echo "\$$VALUE")
+                if [ -z "$EVAL_VAR" ]; then
+                    compilation_error "" "Symbol $VALUE is unknown"
+                else
+                    FUNC_RESULT="${PREFIX}${EVAL_VAR}"
+                fi
             fi
         fi
        ;;
@@ -354,7 +359,12 @@ for CUR_FILE in $SRC_FILES; do
             if ! contains_element "$CUR_VALUE" "${CONSTANTS[@]}"; then
                 CONSTANTS+=("${CUR_VALUE}")
                 case $LEX_TYPE in
-                    clr|reg|opr|mod)    EVAL_VALUE=$(eval echo "\$$CUR_VALUE");;
+                    clr|reg|opr|mod)
+                        EVAL_VALUE=$(eval echo "\$$CUR_VALUE")
+                        if [ -z "$EVAL_VALUE" ]; then
+                            compilation_error "" "Symbol $CUR_VALUE is unknown"
+                        fi
+                        ;;
                     num)                EVAL_VALUE="$CUR_VALUE";;
                     str)                EVAL_VALUE="${CUR_VALUE:1:-1}";;
                     *)                  EVAL_VALUE="";;

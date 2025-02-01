@@ -94,16 +94,16 @@ function cpu_exec {
 
     case "${REG_OP_VAL}" in
         ${OP_ADD})
-            write_to_address $REG_RES "$((REG_A_VAL + REG_B_VAL))"
+            write_to_address $REG_RES "$(echo "${REG_A_VAL} + ${REG_B_VAL}" | bc | sed -e 's/^\./0./' -e 's/^-\./-0./')"
             ;;
         ${OP_SUB})
-            write_to_address $REG_RES "$((REG_A_VAL - REG_B_VAL))"
+            write_to_address $REG_RES "$(echo "${REG_A_VAL} - ${REG_B_VAL}" | bc | sed -e 's/^\./0./' -e 's/^-\./-0./')"
             ;;
         ${OP_INCR})
-            write_to_address $REG_RES "$((REG_A_VAL + 1))"
+            write_to_address $REG_RES "$(echo "${REG_A_VAL} + 1" | bc | sed -e 's/^\./0./' -e 's/^-\./-0./')"
             ;;
         ${OP_DECR})
-            write_to_address $REG_RES "$((REG_A_VAL - 1))"
+            write_to_address $REG_RES "$(echo "${REG_A_VAL} - 1" | bc | sed -e 's/^\./0./' -e 's/^-\./-0./')"
             ;;
         ${OP_DIV})
             write_to_address $REG_RES "$((REG_A_VAL / REG_B_VAL))"
@@ -112,10 +112,10 @@ function cpu_exec {
             write_to_address $REG_RES "$((REG_A_VAL % REG_B_VAL))"
             ;;
         ${OP_MUL})
-            write_to_address $REG_RES "$((REG_A_VAL * REG_B_VAL))"
+            write_to_address $REG_RES "$(echo "scale=2; ${REG_A_VAL} * ${REG_B_VAL}" | bc | sed -e 's/^\./0./' -e 's/^-\./-0./')"
             ;;
         ${OP_IS_NUM})
-            if (( $REG_A_VAL + 0 )) || [ "$REG_A_VAL" -eq 0 ]; then
+            if [[ "$REG_A_VAL" =~ ^-?[0-9]+$ ]] || [[ "$REG_A_VAL" =~ ^-?[0-9]*\.[0-9]+$ ]]; then
                 CMP_RES=1
             else
                 CMP_RES=0
@@ -174,11 +174,20 @@ function cpu_exec {
             write_to_address $REG_BOOL_RES "$CMP_RES"
             ;;
         ${OP_GET_COLUMN})
-            COLUMN_VAL=$(echo "${REG_A_VAL}" | awk -F"${REG_C_VAL}" '{print $'"${REG_B_VAL}"'}')
+            if [ -z "$REG_C_VAL" ]; then
+                COLUMN_VAL=${REG_A_VAL:$((REG_B_VAL - 1)):1}
+            else
+                COLUMN_VAL=$(echo "${REG_A_VAL}" | awk -F"${REG_C_VAL}" '{print $'"${REG_B_VAL}"'}')
+            fi
             write_to_address $REG_RES "$COLUMN_VAL"
             ;;
         ${OP_REPLACE_COLUMN})
-            REPLACED_STR=$(echo "${REG_A_VAL}" | awk -F"${REG_B_VAL}" '{$'${REG_C_VAL}'="'${REG_D_VAL}'"}1' )
+            if [ -z "$REG_C_VAL" ]; then
+                local INDEX=$((REG_B_VAL - 1))
+                REPLACED_STR="${REG_A_VAL:0:INDEX}${REG_D_VAL}${REG_A_VAL:INDEX+1}"
+            else
+                REPLACED_STR=$(echo "${REG_A_VAL}" | awk -F"${REG_C_VAL}" 'BEGIN { OFS = FS } {$'${REG_B_VAL}'="'${REG_D_VAL}'"}1' )
+            fi
             write_to_address $REG_RES "$REPLACED_STR"
             ;;
         ${OP_CONCAT_WITH})

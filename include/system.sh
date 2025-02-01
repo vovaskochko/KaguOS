@@ -3,7 +3,7 @@ export GLOBAL_HW_DIR="tmp"
 
 # RAM constants:
 export GLOBAL_RAM_FILE="${GLOBAL_HW_DIR}/RAM.txt"
-export GLOBAL_RAM_SIZE="300"
+export GLOBAL_RAM_SIZE="400"
 
 # Kernel constants:
 export GLOBAL_BUILD_DIR="build"

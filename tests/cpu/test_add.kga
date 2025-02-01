@@ -1,0 +1,159 @@
+label startTest
+// Test case 1: check that 2 + 3 equals 5
+    write "2 + 3 equals 5" to var:testName
+    write 2 to REG_A
+    write 3 to REG_B
+    write OP_ADD to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write 5 to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 2: check that "-4 + -5 equals -9"
+    write "-4 + -5 equals -9" to var:testName
+    write "-4" to REG_A
+    write "-5" to REG_B
+    write OP_ADD to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write "-9" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 3: check that "6 + -2 equals 4"
+    write "6 + -2 equals 4" to var:testName
+    write 6 to REG_A
+    write "-2" to REG_B
+    write OP_ADD to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write 4 to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 4: check that "2.5 + 3.5 equals 6"
+    write "2.5 + 3.5 equals 6" to var:testName
+    write "2.5" to REG_A
+    write "3.5" to REG_B
+    write OP_ADD to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write "6.0" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 5: check that "5 + 2.5 equals 7.5"
+    write "5 + 2.5 equals 7.5" to var:testName
+    write 5 to REG_A
+    write "2.5" to REG_B
+    write OP_ADD to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write "7.5" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 6: check that "-3.5 + 1.2 equals -2.3"
+    write "-3.5 + 1.2 equals -2.3" to var:testName
+    write "-3.5" to REG_A
+    write "1.2" to REG_B
+    write OP_ADD to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write "-2.3" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 7: check that "0 + 7 equals 7"
+    write "0 + 7 equals 7" to var:testName
+    write 0 to REG_A
+    write 7 to REG_B
+    write OP_ADD to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write 7 to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 8: check that "8 + 0 equals 8"
+    write "8 + 0 equals 8" to var:testName
+    write 8 to REG_A
+    write 0 to REG_B
+    write OP_ADD to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write 8 to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 9: check that "1 + 99 equals 100"
+    write "1 + 99 equals 100" to var:testName
+    write 1 to REG_A
+    write 99 to REG_B
+    write OP_ADD to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write 100 to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 10: check that "123456 + 7890 equals 131346"
+    write "123456 + 7890 equals 131346" to var:testName
+    write "123456" to REG_A
+    write "7890" to REG_B
+    write OP_ADD to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write "131346" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 11: check that "0.000001 + 0.000002 equals 0.000003"
+    write "0.000001 + 0.000002 equals 0.000003" to var:testName
+    write "0.000001" to REG_A
+    write "0.000002" to REG_B
+    write OP_ADD to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write "0.000003" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 12: check that "-1000000 + -2000000 equals -3000000"
+    write "-1000000 + -2000000 equals -3000000" to var:testName
+    write "-1000000" to REG_A
+    write "-2000000" to REG_B
+    write OP_ADD to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write "-3000000" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Exit:
+jump label:exit

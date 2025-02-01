@@ -1,0 +1,75 @@
+label startTest
+// Test case 1: check the length of an empty string
+    write "Empty string length" to var:testName
+    write "" to REG_A
+    write OP_GET_LENGTH to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write "0" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 2: check the length of a string with one character
+    write "Single character string length" to var:testName
+    write "A" to REG_A
+    write OP_GET_LENGTH to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write "1" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 3: check the length of a string with multiple characters
+    write "Multiple character string length" to var:testName
+    write "Hello" to REG_A
+    write OP_GET_LENGTH to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write "5" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 4: check the length of a string with spaces
+    write "String with spaces length" to var:testName
+    write "Hello World" to REG_A
+    write OP_GET_LENGTH to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write "11" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 5: check the length of a string with special characters
+    write "String with special characters length" to var:testName
+    write "!@#$%" to REG_A
+    write OP_GET_LENGTH to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write "5" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 6: check the length of a string with a long length
+    write "Long string length" to var:testName
+    write "This is a long string with many characters" to REG_A
+    write OP_GET_LENGTH to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write "42" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Exit:
+jump label:exit

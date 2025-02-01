@@ -7,6 +7,9 @@
 //    jump label:check
 // Use jump label:exit to print the statistics and exit.
 
+DEBUG_OFF
+
+var testName
 var actual
 var expected
 var totalCount
@@ -21,13 +24,26 @@ write 0 to var:totalCount
 jump label:startTest
 
 label check
-    // increment test counter
+    // increment test counter:
     copy var:totalCount to REG_A
     write OP_INCR to REG_OP
     cpu_exec
     copy REG_RES to var:totalCount
 
-    // compare actual and expected and handle fail or success
+    // print test name:
+    write "Test " to DISPLAY_BUFFER
+    write COLOR_NO to DISPLAY_COLOR
+    write OP_DISPLAY to REG_OP
+    cpu_exec
+    copy var:testName to DISPLAY_BUFFER
+    write COLOR_BLUE to DISPLAY_COLOR
+    cpu_exec
+    write ":" to DISPLAY_BUFFER
+    write COLOR_NO to DISPLAY_COLOR
+    write OP_DISPLAY_LN to REG_OP
+    cpu_exec
+
+    // compare actual and expected and handle fail or success:
     copy var:expected to REG_A
     copy var:actual to REG_B
     write OP_CMP_EQ to REG_OP
@@ -35,7 +51,7 @@ label check
     jump_if label:success
     jump label:fail
 
-    // Let's report fail
+    // Let's report fail:
     label fail
         // increase fail count:
         copy var:errorCount to REG_A
@@ -50,9 +66,9 @@ label check
         cpu_exec
         jump label:execNextTest
 
-    // Let's report success
+    // Let's report success:
     label success
-        // increase success count
+        // increase success count:
         copy var:successCount to REG_A
         write OP_INCR to REG_OP
         cpu_exec
@@ -73,10 +89,10 @@ label execNextTest
     cpu_exec
     jump *REG_RES
 
-// report status and exit
+// report status and exit from the program:
 label exit
     // Print total test count:
-    write "Total test count: " to DISPLAY_BUFFER
+    write "Total tests: " to DISPLAY_BUFFER
     write COLOR_NO to DISPLAY_COLOR
     write OP_DISPLAY to REG_OP
     cpu_exec
@@ -85,7 +101,7 @@ label exit
     cpu_exec
 
     // Print success test count:
-    write "Success test count: " to DISPLAY_BUFFER
+    write "Successful tests: " to DISPLAY_BUFFER
     write COLOR_GREEN to DISPLAY_COLOR
     write OP_DISPLAY to REG_OP
     cpu_exec
@@ -94,7 +110,12 @@ label exit
     cpu_exec
 
     // Print failed test count:
-    write "Failed test count: " to DISPLAY_BUFFER
+    copy var:errorCount to REG_A
+    write 0 to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec
+    jump_if label:halt // we do not need to print error count if no errors occured
+    write "Failed tests: " to DISPLAY_BUFFER
     write COLOR_RED to DISPLAY_COLOR
     write OP_DISPLAY to REG_OP
     cpu_exec
@@ -102,6 +123,6 @@ label exit
     write OP_DISPLAY_LN to REG_OP
     cpu_exec
 
-    // exit
+label halt
     write OP_HALT to REG_OP
     cpu_exec

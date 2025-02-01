@@ -1,0 +1,107 @@
+label startTest
+// Test case 1: check that 10 / 2 equals 5
+    write "10 / 2 equals 5" to var:testName
+    write "10" to REG_A
+    write "2" to REG_B
+    write OP_DIV to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write "5" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 2: check that 100 / 25 equals 4
+    write "100 / 25 equals 4" to var:testName
+    write "100" to REG_A
+    write "25" to REG_B
+    write OP_DIV to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write "4" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 3: check that 5 / 3 equals 1
+    write "5 / 3 equals 1" to var:testName
+    write "5" to REG_A
+    write "3" to REG_B
+    write OP_DIV to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write "1" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 4: check that 0 / 5 equals 0
+    write "0 / 5 equals 0" to var:testName
+    write "0" to REG_A
+    write "5" to REG_B
+    write OP_DIV to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write "0" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 5: check that 15 / -4 equals -3
+    write "15 / -4 equals -3" to var:testName
+    write "15" to REG_A
+    write "-4" to REG_B
+    write OP_DIV to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write "-3" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 6: check that -15 / 4 equals -3
+    write "-15 / 4 equals -3" to var:testName
+    write "-15" to REG_A
+    write "4" to REG_B
+    write OP_DIV to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write "-3" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 7: check that -10 / -3 equals 3
+    write "-10 / -3 equals 3" to var:testName
+    write "-10" to REG_A
+    write "-3" to REG_B
+    write OP_DIV to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write "3" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 8: check that -1 / 1 equals -1
+    write "-1 / 1 equals -1" to var:testName
+    write "-1" to REG_A
+    write "1" to REG_B
+    write OP_DIV to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write "-1" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Exit:
+jump label:exit

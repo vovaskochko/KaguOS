@@ -1,0 +1,157 @@
+label startTest
+// Test case 1: Get first column from "apple,banana,grape" with "," delimiter
+    write "First column of 'apple,banana,grape'" to var:testName
+    write "apple,banana,grape" to REG_A
+    write 1 to REG_B
+    write "," to REG_C
+    write OP_GET_COLUMN to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write "apple" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 2: Get second column from "apple,banana,grape" with "," delimiter
+    write "Second column of 'apple,banana,grape'" to var:testName
+    write "apple,banana,grape" to REG_A
+    write 2 to REG_B
+    write "," to REG_C
+    write OP_GET_COLUMN to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write "banana" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 3: Get third column from "apple,banana,grape" with "," delimiter
+    write "Third column of 'apple,banana,grape'" to var:testName
+    write "apple,banana,grape" to REG_A
+    write 3 to REG_B
+    write "," to REG_C
+    write OP_GET_COLUMN to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write "grape" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 4: Get first column when delimiter is empty (single character extraction)
+    write "First character of 'hello'" to var:testName
+    write "hello" to REG_A
+    write 1 to REG_B
+    write "" to REG_C
+    write OP_GET_COLUMN to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write "h" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 5: Get third character when delimiter is empty
+    write "Third character of 'hello'" to var:testName
+    write "hello" to REG_A
+    write 3 to REG_B
+    write "" to REG_C
+    write OP_GET_COLUMN to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write "l" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 6: Get column beyond available range (should return empty string)
+    write "Out of range column from 'apple,banana'" to var:testName
+    write "apple,banana" to REG_A
+    write 5 to REG_B
+    write "," to REG_C
+    write OP_GET_COLUMN to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write "" to var:expected  // Expecting empty result
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 7: Get first word using space as delimiter
+    write "First word of 'hello world'" to var:testName
+    write "hello world" to REG_A
+    write 1 to REG_B
+    write " " to REG_C
+    write OP_GET_COLUMN to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write "hello" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 8: Get second word using space as delimiter
+    write "Second word of 'hello world'" to var:testName
+    write "hello world" to REG_A
+    write 2 to REG_B
+    write " " to REG_C
+    write OP_GET_COLUMN to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write "world" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 9: Get first column using multi-character delimiter "__"
+    write "First column of 'one__two__three' with '__' delimiter" to var:testName
+    write "one__two__three" to REG_A
+    write 1 to REG_B
+    write "__" to REG_C
+    write OP_GET_COLUMN to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write "one" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 10: Get second column using multi-character delimiter "__"
+    write "Second column of 'one__two__three' with '__' delimiter" to var:testName
+    write "one__two__three" to REG_A
+    write 2 to REG_B
+    write "__" to REG_C
+    write OP_GET_COLUMN to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write "two" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 11: Get third column using multi-character delimiter "__"
+    write "Third column of 'one__two__three' with '__' delimiter" to var:testName
+    write "one__two__three" to REG_A
+    write 3 to REG_B
+    write "__" to REG_C
+    write OP_GET_COLUMN to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write "three" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Exit:
+jump label:exit

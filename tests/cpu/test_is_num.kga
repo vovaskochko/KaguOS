@@ -1,6 +1,7 @@
 label startTest
-// Test case 1: check that 0 is a number:
-    write 0 to REG_A
+// Test case 1: check that 0 is a number
+    write "0 is a number" to var:testName
+    write "0" to REG_A
     write OP_IS_NUM to REG_OP
     cpu_exec
 
@@ -11,34 +12,145 @@ label startTest
     jump label:check
 
 // Test case 2: check that 1 is a number
-    write 1 to REG_A
+    write "1 is a number" to var:testName
+    write "1" to REG_A
     write OP_IS_NUM to REG_OP
     cpu_exec
 
     copy REG_BOOL_RES to var:actual
-    write 1 to var:expected
+    write "1" to var:expected
 
     copy PROGRAM_COUNTER to var:nextTestAddress
     jump label:check
 
 // Test case 3: check that "a" is not a number
+    write "a is not a number" to var:testName
     write "a" to REG_A
     write OP_IS_NUM to REG_OP
     cpu_exec
 
     copy REG_BOOL_RES to var:actual
-    write 0 to var:expected
+    write "0" to var:expected
 
     copy PROGRAM_COUNTER to var:nextTestAddress
     jump label:check
 
 // Test case 4: check that -15 is a number
+    write "-15 is a number" to var:testName
     write "-15" to REG_A
     write OP_IS_NUM to REG_OP
     cpu_exec
 
     copy REG_BOOL_RES to var:actual
-    write 1 to var:expected
+    write "1" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 5: check that -0.4 is a number
+    write "-0.4 is a number" to var:testName
+    write "-0.4" to REG_A
+    write OP_IS_NUM to REG_OP
+    cpu_exec
+
+    copy REG_BOOL_RES to var:actual
+    write "1" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 6: check that 5.001 is a number
+    write "5.001 is a number" to var:testName
+    write "5.001" to REG_A
+    write OP_IS_NUM to REG_OP
+    cpu_exec
+
+    copy REG_BOOL_RES to var:actual
+    write "1" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 7: check that 5.1.1 is not a number
+    write "5.1.1 is not a number" to var:testName
+    write "5.1.1" to REG_A
+    write OP_IS_NUM to REG_OP
+    cpu_exec
+
+    copy REG_BOOL_RES to var:actual
+    write "0" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 8: check that ".5" is a number
+    write ".5 is a number" to var:testName
+    write ".5" to REG_A
+    write OP_IS_NUM to REG_OP
+    cpu_exec
+
+    copy REG_BOOL_RES to var:actual
+    write "1" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 9: check that "5." is not a number
+    write "5. is not a number" to var:testName
+    write "5." to REG_A
+    write OP_IS_NUM to REG_OP
+    cpu_exec
+
+    copy REG_BOOL_RES to var:actual
+    write "0" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 10: check that "-.5" is a number
+    write "-.5 is a number" to var:testName
+    write "-.5" to REG_A
+    write OP_IS_NUM to REG_OP
+    cpu_exec
+
+    copy REG_BOOL_RES to var:actual
+    write "1" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 11: check that "5.5.5" is not a number
+    write "5.5.5 is not a number" to var:testName
+    write "5.5.5" to REG_A
+    write OP_IS_NUM to REG_OP
+    cpu_exec
+
+    copy REG_BOOL_RES to var:actual
+    write "0" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 12: check that "1e10" is a number (scientific notation is not supported)
+    write "1e10 is not a number" to var:testName
+    write "1e10" to REG_A
+    write OP_IS_NUM to REG_OP
+    cpu_exec
+
+    copy REG_BOOL_RES to var:actual
+    write "0" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 13: check that "-1e10" is not a number (negative scientific notation is not supported)
+    write "-1e10 is not a number" to var:testName
+    write "-1e10" to REG_A
+    write OP_IS_NUM to REG_OP
+    cpu_exec
+
+    copy REG_BOOL_RES to var:actual
+    write "0" to var:expected
 
     copy PROGRAM_COUNTER to var:nextTestAddress
     jump label:check

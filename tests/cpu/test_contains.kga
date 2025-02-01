@@ -1,0 +1,159 @@
+label startTest
+// Test case 1: check if an empty string contains another empty string
+    write "Empty string contains empty string" to var:testName
+    write "" to REG_A
+    write "" to REG_B
+    write OP_CONTAINS to REG_OP
+    cpu_exec
+
+    copy REG_BOOL_RES to var:actual
+    write "1" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 2: check if a string contains an empty string (should always be true)
+    write "String contains empty string" to var:testName
+    write "Hello" to REG_A
+    write "" to REG_B
+    write OP_CONTAINS to REG_OP
+    cpu_exec
+
+    copy REG_BOOL_RES to var:actual
+    write "1" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 3: check if an empty string contains a non-empty string (should always be false)
+    write "Empty string contains non-empty string" to var:testName
+    write "" to REG_A
+    write "Hello" to REG_B
+    write OP_CONTAINS to REG_OP
+    cpu_exec
+
+    copy REG_BOOL_RES to var:actual
+    write "0" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 4: check if a string contains itself (should always be true)
+    write "String contains itself" to var:testName
+    write "Hello" to REG_A
+    write "Hello" to REG_B
+    write OP_CONTAINS to REG_OP
+    cpu_exec
+
+    copy REG_BOOL_RES to var:actual
+    write "1" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 5: check if a string contains a substring (substring at the start)
+    write "String contains substring at the start" to var:testName
+    write "Hello" to REG_A
+    write "Hel" to REG_B
+    write OP_CONTAINS to REG_OP
+    cpu_exec
+
+    copy REG_BOOL_RES to var:actual
+    write "1" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 6: check if a string contains a substring (substring at the end)
+    write "String contains substring at the end" to var:testName
+    write "Hello" to REG_A
+    write "llo" to REG_B
+    write OP_CONTAINS to REG_OP
+    cpu_exec
+
+    copy REG_BOOL_RES to var:actual
+    write "1" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 7: check if a string contains a substring (substring one char more)
+    write "String contains substring one char more" to var:testName
+    write "Hello" to REG_A
+    write "Helloo" to REG_B
+    write OP_CONTAINS to REG_OP
+    cpu_exec
+
+    copy REG_BOOL_RES to var:actual
+    write "0" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 8: check if a string contains a substring (substring one char less)
+    write "String contains substring one char less" to var:testName
+    write "Hello" to REG_A
+    write "Hell" to REG_B
+    write OP_CONTAINS to REG_OP
+    cpu_exec
+
+    copy REG_BOOL_RES to var:actual
+    write "1" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 9: check if a string contains a substring (substring is equal to the whole string)
+    write "String contains the whole string as substring" to var:testName
+    write "Hello" to REG_A
+    write "Hello" to REG_B
+    write OP_CONTAINS to REG_OP
+    cpu_exec
+
+    copy REG_BOOL_RES to var:actual
+    write "1" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 10: check if a string does not contain a substring
+    write "String does not contain a substring" to var:testName
+    write "Hello" to REG_A
+    write "World" to REG_B
+    write OP_CONTAINS to REG_OP
+    cpu_exec
+
+    copy REG_BOOL_RES to var:actual
+    write "0" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 11: check if a string contains a substring (substring is half the length of the string)
+    write "String contains substring half the length" to var:testName
+    write "HelloHello" to REG_A
+    write "Hello" to REG_B
+    write OP_CONTAINS to REG_OP
+    cpu_exec
+
+    copy REG_BOOL_RES to var:actual
+    write "1" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 12: check if a string contains a substring (substring is a third of the length of the string)
+    write "String contains substring a third of the length" to var:testName
+    write "HelloHelloHello" to REG_A
+    write "Hello" to REG_B
+    write OP_CONTAINS to REG_OP
+    cpu_exec
+
+    copy REG_BOOL_RES to var:actual
+    write "1" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Exit:
+jump label:exit

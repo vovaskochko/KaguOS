@@ -113,7 +113,7 @@ export OP_STARTS_WITH=14
 # After execution, the extracted column will be present in REG_RES.
 export OP_GET_COLUMN=15
 
-# To replace a specific column in a string, place the string in REG_A, the delimiter in REG_B, the column number in REG_C, and the new value in REG_D.
+# To replace a specific column in a string, place the string in REG_A, the column number in REG_B, the delimiter in REG_C,  and the new value in REG_D.
 # Set REG_OP to OP_REPLACE_COLUMN and call INSTR_CPU_EXEC.
 # After execution, the modified string will be present in REG_RES.
 export OP_REPLACE_COLUMN=16

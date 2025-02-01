@@ -1,0 +1,153 @@
+label startTest
+// Test case 1: Replace first column with 'X', delimiter ','
+    write "Replace first column" to var:testName
+    write "a,b,c" to REG_A
+    write 1 to REG_B
+    write "," to REG_C
+    write "X" to REG_D
+    write OP_REPLACE_COLUMN to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write "X,b,c" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 2: Replace second column with 'Y', delimiter ','
+    write "Replace second column" to var:testName
+    write "a,b,c" to REG_A
+    write 2 to REG_B
+    write "," to REG_C
+    write "Y" to REG_D
+    write OP_REPLACE_COLUMN to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write "a,Y,c" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 3: Replace third column with 'Z', delimiter ','
+    write "Replace third column" to var:testName
+    write "a,b,c" to REG_A
+    write 3 to REG_B
+    write "," to REG_C
+    write "Z" to REG_D
+    write OP_REPLACE_COLUMN to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write "a,b,Z" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 4: Replace column with space as delimiter
+    write "Replace with space delimiter" to var:testName
+    write "one two three" to REG_A
+    write 2 to REG_B
+    write " " to REG_C
+    write "X" to REG_D
+    write OP_REPLACE_COLUMN to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write "one X three" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 5: Replace with multi-character delimiter '__'
+    write "Replace with '__' delimiter" to var:testName
+    write "a__b__c" to REG_A
+    write 2 to REG_B
+    write "__" to REG_C
+    write "Y" to REG_D
+    write OP_REPLACE_COLUMN to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write "a__Y__c" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 6: Column out of range should return original string
+    write "Column out of range" to var:testName
+    write "a,b,c" to REG_A
+    write 4 to REG_B
+    write "," to REG_C
+    write "X" to REG_D
+    write OP_REPLACE_COLUMN to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write "a,b,c,X" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 7: Empty delimiter should replace character at position
+    write "Empty delimiter case" to var:testName
+    write "abcdef" to REG_A
+    write 3 to REG_B
+    write "" to REG_C
+    write "X" to REG_D
+    write OP_REPLACE_COLUMN to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write "abXdef" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 8: Replace first column when delimiter is space in "this is a test"
+    write "Replace first word of 'this is a test' with 'That'" to var:testName
+    write "this is a test" to REG_A
+    write 1 to REG_B
+    write " " to REG_C
+    write "That" to REG_D
+    write OP_REPLACE_COLUMN to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write "That is a test" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 9: Replace third column when delimiter is space in "this is a test"
+    write "Replace third word of 'this is a test' with 'an'" to var:testName
+    write "this is a test" to REG_A
+    write 3 to REG_B
+    write " " to REG_C
+    write "an" to REG_D
+    write OP_REPLACE_COLUMN to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write "this is an test" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 10: Empty delimiter should replace character at given position
+    write "Replace third character of 'abcdef' with 'X' using empty delimiter" to var:testName
+    write "abcdef" to REG_A
+    write 3 to REG_B
+    write "" to REG_C
+    write "X" to REG_D
+    write OP_REPLACE_COLUMN to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write "abXdef" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Exit:
+jump label:exit

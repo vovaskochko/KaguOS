@@ -1,0 +1,133 @@
+label startTest
+// Test case 1: check that 2 * 3 is 6
+    write "2 * 3 is 6" to var:testName
+    write "2" to REG_A
+    write "3" to REG_B
+    write OP_MUL to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write "6" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 2: check that 0 * 5 is 0
+    write "0 * 5 is 0" to var:testName
+    write "0" to REG_A
+    write "5" to REG_B
+    write OP_MUL to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write "0" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 3: check that 3 * 0 is 0
+    write "3 * 0 is 0" to var:testName
+    write "3" to REG_A
+    write "0" to REG_B
+    write OP_MUL to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write "0" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 4: check that 4 * 5 is 20
+    write "4 * 5 is 20" to var:testName
+    write "4" to REG_A
+    write "5" to REG_B
+    write OP_MUL to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write "20" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 5: check that -2 * 3 is -6
+    write "-2 * 3 is -6" to var:testName
+    write "-2" to REG_A
+    write "3" to REG_B
+    write OP_MUL to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write "-6" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 6: check that 2.5 * 4 is 10
+    write "2.5 * 4 is 10" to var:testName
+    write "2.5" to REG_A
+    write "4" to REG_B
+    write OP_MUL to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write "10.0" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 7: check that -1.5 * 2 is -3
+    write "-1.5 * 2 is -3" to var:testName
+    write "-1.5" to REG_A
+    write "2" to REG_B
+    write OP_MUL to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write "-3.0" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 8: check that 0.5 * 0.5 is 0.25
+    write "0.5 * 0.5 is 0.25" to var:testName
+    write "0.5" to REG_A
+    write "0.5" to REG_B
+    write OP_MUL to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write "0.25" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 9: check that -0.5 * 0.5 is -0.25
+    write "-0.5 * 0.5 is -0.25" to var:testName
+    write "-0.5" to REG_A
+    write "0.5" to REG_B
+    write OP_MUL to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write "-0.25" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 10: check that -0.5 * -0.5 is 0.25
+    write "-0.5 * -0.5 is 0.25" to var:testName
+    write "-0.5" to REG_A
+    write "-0.5" to REG_B
+    write OP_MUL to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    write "0.25" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Exit:
+jump label:exit
