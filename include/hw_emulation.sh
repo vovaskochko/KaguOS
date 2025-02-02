@@ -266,12 +266,9 @@ function cpu_exec {
             local BG_COLOR=$(get_background_color $(read_from_address ${DISPLAY_BACKGROUND}))
             for ((i=$REG_A_VAL;i<$REG_B_VAL;i++)); do
                 local CUR_BITMAP_LINE=$(read_from_address $(($i)))
-                for ((j = 0; j < ${#CUR_BITMAP_LINE}; j++)); do
-                    RES_STR="$RES_STR$(get_background_color ${CUR_BITMAP_LINE:$j:1}) "
-                done
-                RES_STR="$RES_STR\n"
+                RES_STR="$RES_STR${CUR_BITMAP_LINE}\n"
             done
-            RES_STR="$RES_STR$BG_COLOR"
+            RES_STR="$(echo "$RES_STR" | sed -e 's,m,\\e[45m ,g' -e 's,g,\\e[42m ,g' -e 's,y,\\e[43m ,g' -e 's,r,\\e[41m ,g' -e 's,B,\\e[40m ,g' -e 's,b,\\e[44m ,g' -e 's,c,\\e[46m ,g' -e 's,w,\\e[47m ,g')$BG_COLOR"
             clear
             echo -e "$RES_STR"
             ;;
