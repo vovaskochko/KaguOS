@@ -1,0 +1,43 @@
+var counter
+
+// Write some string to block 11 of the disk
+write 11 to var:counter
+write "main.disk" to REG_A
+copy var:counter to REG_B
+write "some line // even with special symbols & * \ /" to REG_C
+write OP_WRITE_BLOCK to REG_OP
+cpu_exec
+jump_err label:error
+
+// Read disk block by block until the end
+write 1 to var:counter
+label start
+    write "main.disk" to REG_A
+    copy var:counter to REG_B
+    write OP_READ_BLOCK to REG_OP
+    cpu_exec
+    jump_err label:error
+
+    copy REG_RES to DISPLAY_BUFFER
+    write COLOR_GREEN to DISPLAY_COLOR
+    write OP_DISPLAY_LN to REG_OP
+    cpu_exec
+
+    copy var:counter to REG_A
+    write OP_INCR to REG_OP
+    cpu_exec
+    copy REG_RES to var:counter
+
+    jump label:start
+
+
+
+label error
+    copy REG_ERROR to DISPLAY_BUFFER
+    write COLOR_RED to DISPLAY_COLOR
+    write OP_DISPLAY_LN to REG_OP
+    cpu_exec
+
+label exit
+    write OP_HALT to REG_OP
+    cpu_exec

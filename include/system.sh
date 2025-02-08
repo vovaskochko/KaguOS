@@ -1,6 +1,9 @@
 # We will store hw emulation files under tmp dir
 export GLOBAL_HW_DIR="tmp"
 
+# Disks and other devices should be stored inside this folder
+export SYSTEM_HW_DIR="hw"
+
 # RAM constants:
 export GLOBAL_RAM_FILE="${GLOBAL_HW_DIR}/RAM.txt"
 export GLOBAL_RAM_SIZE="400"

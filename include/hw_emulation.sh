@@ -93,6 +93,7 @@ function cpu_exec {
     local REG_C_VAL="$(read_from_address ${REG_C})"
     local REG_D_VAL="$(read_from_address ${REG_D})"
     local CMP_RES=""
+    write_to_address $REG_ERROR ""
 
     case "${REG_OP_VAL}" in
         ${OP_ADD})
@@ -254,10 +255,39 @@ function cpu_exec {
             fi
             ;;
         ${OP_READ_BLOCK})
-            echo "Read block not implemented yet."
+            local DISK_FILE="${SYSTEM_HW_DIR}/${REG_A_VAL}"
+            if [ ! -f "$DISK_FILE" ]; then
+                write_to_address $REG_ERROR "Disk ${REG_A_VAL} does not exist"
+            else
+                local BLOCK_COUNT=$(sed -n 1'p' ${DISK_FILE})
+                if [[ ! "$BLOCK_COUNT" =~ ^[0-9]+$ ]]; then
+                    write_to_address $REG_ERROR "Disk ${REG_A_VAL} is corrupted. First block should contain block count."
+                elif [ "$REG_B_VAL" -gt "$BLOCK_COUNT" ]; then
+                    write_to_address $REG_ERROR "Block number ${REG_B_VAL} does not exist"
+                else
+                    write_to_address $REG_RES "$(sed -n $REG_B_VAL'p' $DISK_FILE)"
+                fi
+            fi
             ;;
         ${OP_WRITE_BLOCK})
-            echo "Write block not implemented yet."
+            local DISK_FILE="${SYSTEM_HW_DIR}/${REG_A_VAL}"
+
+            if [ ! -f "$DISK_FILE" ]; then
+                write_to_address $REG_ERROR "Disk ${REG_A_VAL} does not exist"
+            else
+                local BLOCK_COUNT=$(sed -n 1'p' ${DISK_FILE})
+                if [[ ! "$BLOCK_COUNT" =~ ^[0-9]+$ ]]; then
+                    write_to_address $REG_ERROR "Disk ${REG_A_VAL} is corrupted. First block should contain block count."
+                elif [ "$REG_B_VAL" -gt "$BLOCK_COUNT" ]; then
+                    write_to_address $REG_ERROR "Block number ${REG_B_VAL} does not exist"
+                else
+                    if [[ "$OSTYPE" == "darwin"* ]]; then
+                        sed -i '' "${REG_B_VAL}s|.*|$(printf '%s\n' "$REG_C_VAL" | sed 's/[&/\]/\\&/g')|" "${DISK_FILE}"
+                    else
+                        sed -i "${REG_B_VAL}s|.*|$(printf '%s\n' "$REG_C_VAL" | sed 's/[&/\]/\\&/g')|" "${DISK_FILE}"
+                    fi
+                fi
+            fi
             ;;
         ${OP_SET_BACKGROUND_COLOR})
             echo -e $(get_background_color $(read_from_address ${DISPLAY_BACKGROUND}))
