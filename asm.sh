@@ -54,7 +54,7 @@ function concatStrings() {
     fi
 }
 
-CMDS_ARRAY=("write" "copy" "label" "jump" "jump_if" "cpu_exec" "var" "DEBUG_ON" "DEBUG_OFF")
+CMDS_ARRAY=("write" "copy" "label" "jump" "jump_if" "jump_if_not" "jump_err" "cpu_exec" "var" "DEBUG_ON" "DEBUG_OFF")
 function is_command() {
     for item in "${CMDS_ARRAY[@]}"; do
         if [[ "$item" == "$1" ]]; then
@@ -130,6 +130,8 @@ function eval_lexeme() {
             copy|write) FUNC_RESULT="$INSTR_COPY_FROM_TO_ADDRESS";;
             jump) FUNC_RESULT="$INSTR_JUMP";;
             jump_if) FUNC_RESULT="$INSTR_JUMP_IF";;
+            jump_if_not) FUNC_RESULT="$INSTR_JUMP_IF_NOT";;
+            jump_err) FUNC_RESULT="$INSTR_JUMP_ERR";;
             cpu_exec) FUNC_RESULT="$INSTR_CPU_EXEC";;
             DEBUG_ON|DEBUG_OFF) FUNC_RESULT="$VALUE";;
             *) FUNC_RESULT="";;
@@ -280,7 +282,7 @@ for CUR_FILE in $SRC_FILES; do
             EXPECTED_PATTERN="^(_ cmd)(_ nam)(_ cmt)$"
             EXPECTED_SYNTAX="$CUR_CMD name - name should start from a letter and contain only letters, numbers and _"
             ;;
-        jump|jump_if)
+        jump|jump_if|jump_if_not|jump_err)
             LEXEMES_COUNT=2
             EXPECTED_PATTERN="^(_ cmd)(_ num|\* num|\* reg|_ lbl|\* var)(_ cmt)$"
             EXPECTED_SYNTAX="$CUR_CMD label:someName or $CUR_CMD 100 or $CUR_CMD *100 or $CUR_CMD *var:varName"
@@ -426,10 +428,10 @@ while true; do
     CUR_INSTRUCTION_NO=$((CUR_INSTRUCTION_NO + 1))
     CUR_CMD="${LEXEME:6}"
     case "$CUR_CMD" in
-        cpu_exec|DEBUG_ON|DEBUG_OFF)    LEXEMES_COUNT=1;;
-        jump|jump_if)                   LEXEMES_COUNT=2;;
-        write|copy)                     LEXEMES_COUNT=4;;
-        *)                              LEXEMES_COUNT=0;;
+        cpu_exec|DEBUG_ON|DEBUG_OFF)        LEXEMES_COUNT=1;;
+        jump|jump_if|jump_if_not|jump_err)  LEXEMES_COUNT=2;;
+        write|copy)                         LEXEMES_COUNT=4;;
+        *)                                  LEXEMES_COUNT=0;;
     esac
 
     RES_STR=""

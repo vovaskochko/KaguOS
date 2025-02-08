@@ -22,10 +22,20 @@ export INSTR_READ_FROM_ADDRESS=2
 # Example: jump 100 will jump to address 100 and will use 100 as a PROGRAM_COUNTER so all further instruction will be executed started from address 100
 export INSTR_JUMP=3
 
-# To jump conditionally, perform conditional check to ensuset the target address in REG_A and the condition in REG_B.
+# To jump conditionally, perform conditional check operation(OP_IS_NUM, OP_CMP_EQ and so on) with cpu_exec first.
 # Call INSTR_JUMP_IF to transfer control only if the condition is true e.g. REG_BOOL_RES is 1.
-# Example: jump_if 100 will jump to address 100 if REG_BOOL_RES is equal to 1 otherwise jump_if instruction will be ignored and the next instruction will be run.
+# Example: jump_if 100 will jump to address 100 if REG_BOOL_RES is equal to 1 otherwise jump_if instruction will be ignored and the next instruction will be executed.
 export INSTR_JUMP_IF=4
+
+# To jump conditionally, perform conditional check operation(OP_IS_NUM, OP_CMP_EQ and so on) with cpu_exec first.
+# Call INSTR_JUMP_IF_NOT to transfer control only if the condition is false e.g. REG_BOOL_RES is 0.
+# Example: jump_if_not 100 will jump to address 100 if REG_BOOL_RES is equal to 0 otherwise jump_if instruction will be ignored and the next instruction will be executed.
+export INSTR_JUMP_IF_NOT=5
+
+# To jump conditionally in case of error happened during the most recent call of INSTR_CPU_EXEC.
+# Call INSTR_JUMP_ERR to transfer control only if the error was happened e.g. REG_ERROR is not empty.
+# Example: jump_err 100 will jump to address 100 if REG_ERROR is not empty or otherwise jump_err instruction will be ignored and the next instruction will be executed.
+export INSTR_JUMP_ERR=6
 
 #############################################
 #############################################
@@ -139,12 +149,12 @@ export OP_DISPLAY_LN=20
 
 # To read a block of data from a disk, set the disk name in REG_A and the block number in REG_B.
 # Set REG_OP to OP_READ_BLOCK and call INSTR_CPU_EXEC.
-# After execution, the data will be stored in REG_RES.
+# After execution, the data will be stored in REG_RES but in case of incorrect arguments REG_ERROR will be set to handle it if needed.
 export OP_READ_BLOCK=21
 
 # To write a string to a disk block, set the disk name in REG_A, the block number in REG_B, and the string in REG_C.
 # Set REG_OP to OP_WRITE_BLOCK and call INSTR_CPU_EXEC.
-# The result (success or failure) will be present in REG_BOOL_RES, and any error message will be stored in REG_ERROR if needed.
+# The result (success or failure) will be indicated by presence of error message in REG_ERROR buffer.
 export OP_WRITE_BLOCK=22
 
 # To change background color set COLOR_* constant to DISPLAY_BACKGROUND,

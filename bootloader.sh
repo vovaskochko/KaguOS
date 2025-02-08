@@ -156,6 +156,12 @@ do
         $INSTR_JUMP_IF)
             INSTR_FUNC=jump_if
             ;;
+        $INSTR_JUMP_IF_NOT)
+            INSTR_FUNC=jump_if_not
+            ;;
+        $INSTR_JUMP_ERR)
+            INSTR_FUNC=jump_err
+            ;;
         DEBUG_ON)
             echo "Enable debug"
             DEBUG_ON=true

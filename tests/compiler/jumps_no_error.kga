@@ -8,7 +8,11 @@ label afterLabel
 write OP_DISPLAY_LN to REG_OP
 var testVar
 jump *REG_RES
-jump_if *var:testVar
+jump_if_not *var:testVar
 
-jump 50
+jump_err 50
 jump_if *100
+
+jump_if_not *500
+
+jump_err *REG_A

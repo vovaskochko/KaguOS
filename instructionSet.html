@@ -59,6 +59,16 @@
         <td>INSTR_JUMP_IF (4)</td>
         <td>Jumps to the address provided as an argument if REG_BOOL_RES contains 1.</td>
       </tr>
+      <tr>
+        <td>Conditional Jump</td>
+        <td>INSTR_JUMP_IF_NOT (5)</td>
+        <td>Jumps to the address provided as an argument if REG_BOOL_RES contains 0.</td>
+      </tr>
+      <tr>
+        <td>Conditional Jump</td>
+        <td>INSTR_JUMP_ERR (6)</td>
+        <td>Jumps to the address provided as an argument if REG_ERROR is not empty.</td>
+      </tr>
     </tbody>
   </table>
 
@@ -202,14 +212,14 @@
       <tr>
         <td>Read Block</td>
         <td>OP_READ_BLOCK (21)</td>
-        <td>REG_A, REG_B, REG_RES</td>
-        <td>Reads a block of data from a disk, specified by the disk name in REG_A and block number in REG_B.</td>
+        <td>REG_A, REG_B, REG_RES, REG_ERROR</td>
+        <td>Reads a block of data from a disk, specified by the disk name in REG_A and block number in REG_B. In case of any errors REG_ERROR will be set.</td>
       </tr>
       <tr>
         <td>Write Block</td>
         <td>OP_WRITE_BLOCK (22)</td>
         <td>REG_A, REG_B, REG_C, REG_BOOL_RES, REG_ERROR</td>
-        <td>Writes a string to a disk block, checks the result in REG_BOOL_RES.</td>
+        <td>Writes a string to a disk block. In case of any errors REG_ERROR will be set.</td>
       </tr>
       <tr>
         <td>Set background color</td>

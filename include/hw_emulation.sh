@@ -7,6 +7,8 @@
 #       jump_next
 #       jump
 #       jump_if
+#       jump_if_not
+#       jump_err
 #       jump_print_debug_info
 
 # Read value from RAM
@@ -311,10 +313,26 @@ function jump {
 }
 
 
-# jump_if is a conditional jump to provided address e.g. it will jump only if REG_BOOL_RES contains "1"
+# jump_if is a conditional jump to provided address e.g. it will jump only if REG_BOOL_RES equals to "1"
 # INPUT: address to jump to
 function jump_if {
     if [ "$(read_from_address ${REG_BOOL_RES})" = "1" ]; then
+        jump ${1}
+    fi
+}
+
+# jump_if_not is a conditional jump to provided address e.g. it will jump only if REG_BOOL_RES equals to "0"
+# INPUT: address to jump to
+function jump_if_not {
+    if [ "$(read_from_address ${REG_BOOL_RES})" = "0" ]; then
+        jump ${1}
+    fi
+}
+
+# jump_err is a conditional jump to provided address e.g. it will jump only if REG_ERROR is not empty
+# INPUT: address to jump to
+function jump_err {
+    if [ ! -z "$(read_from_address ${REG_ERROR})" ]; then
         jump ${1}
     fi
 }
@@ -336,4 +354,6 @@ export -f cpu_exec
 export -f jump_next
 export -f jump
 export -f jump_if
+export -f jump_if_not
+export -f jump_err
 export -f jump_print_debug_info
