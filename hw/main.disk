@@ -10,7 +10,7 @@ END_PARTITION_TABLE
 FS_HEADER kagu_fs FIRST_USABLE_BLOCK 30 LAST_USABLE_BLOCK 200
 1.txt 7 7 7 user user BLOCKS 30 32 40 42
 2.txt 7 7 7 user user BLOCKS 33 39 43 45
-otherDir/3.txt 6 4 4 user user BLOCKS 45 50
+otherDir/3.txt 6 4 4 user user BLOCKS 46 50
 myDir/1.txt 7 4 0  user user BLOCKS 51 60
 
 
@@ -27,37 +27,37 @@ myDir/1.txt 7 4 0  user user BLOCKS 51 60
 
 
 FS_HEADER_END
+Line 1 from file 1.txt
+Line 2 from file 1.txt
+Line 3 from file 1.txt
+1 file 2.txt
+2 file 2.txt
+3 file 2.txt
+4 file 2.txt
+5 file 2.txt
+6 file 2.txt
+7 file 2.txt
+Line 4 from file 1.txt
+Line 5 from file 1.txt
+Line 6 from file 1.txt
+8 file 2.txt
+9 file 2.txt
+10 file 2.txt
+some 1
+other 2
+another 3
+one more 4
+the last one 5
+Some string
+Up or down
+Post modernism
+Earth & Moon
+Round Robin
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+Kotlin & Java
+Apple and banana
+Green color
+Union
 
 
 

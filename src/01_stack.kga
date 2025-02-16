@@ -1,4 +1,10 @@
 // This file contains implementation of simple stack
+// To push value from var:sys_return use helper sys_stack_return variable and jump
+//          copy PROGRAM_COUNTER to var:sys_stack_return
+//          jump label:sys_stack_push
+// To pop value and jump back use
+//          jump label:sys_stack_pop
+//
 
 // This file should be specified before real kernel start
 // therefore we will just jump to the real kernel entry point:
@@ -6,9 +12,11 @@ jump label:kernel_entry_point
 
 
 // Global constant
-var sys_return // variable to store return address for jump back
-var sys_stack_ptr // pointer to stack
-var sys_stack_return
+var sys_return                      // global variable for instruction that should be stored to the stack
+var sys_stack_ptr                   // pointer to stack
+var sys_stack_return                // helper variable to manage sys_stack_push jump
+
+// backup variables to properly restore registers after stack adjustment:
 var sys_stack_backup_REG_A
 var sys_stack_backup_REG_RES
 var sys_stack_backup_REG_ERROR
@@ -54,7 +62,7 @@ label sys_stack_push
 
 
 // To return to the previous instruction, pop the value from the stack and jump back to it using the following:
-// jump label:sys_stack_pop
+//          jump label:sys_stack_pop
 label sys_stack_pop
     // Backup REG_A, REG_RES, REG_ERROR as they will be overwritten during stack management
     copy REG_A to var:sys_stack_backup_REG_A

@@ -25,8 +25,8 @@ write "Free memory end:" to INFO_FREE_MEMORY_END
 write "Free chunks:" to INFO_FREE_CHUNKS
 write "" to FREE_CHUNKS
 
-// Let's init RAM size variable and pointer to stack
-// At the start var:sys_stack_ptr = FREE_MEMORY_END + 1
+// Let's init pointer to the stack
+//      var:sys_stack_ptr = FREE_MEMORY_END + 1
 // Therefore on any push to stack we will decrement it
 // If sys_stack_pop will be called incorrectly then we will get crashed
 copy FREE_MEMORY_END to REG_A

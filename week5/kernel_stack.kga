@@ -1,0 +1,77 @@
+// 0. Read and analyse the code in this file.
+// 1. Set GLOBAL_RAM_SIZE to 130 inside include/system.sh
+// 2. Compile this file together with src/01_stack.kga which should be specified before this file
+//      ./asm.sh src/01_stack.kga task_5/kernel_stack.kga
+// 3. Monitor end of the tmp/RAM.txt file while running the kernel with ./bootloader.sh build/kernel.disk
+
+
+// Here the real kernel start but as we specified stack source file prior to this file
+// then we should rely on its convention: it jump's immediately to label:kernel_entry_point
+// So we should define that expected entry point
+label kernel_entry_point
+
+    // Let's init pointer to the stack with var:sys_stack_ptr = FREE_MEMORY_END + 1
+    // Therefore on any push to stack we will decrement it
+    // If sys_stack_pop will be called incorrectly then we will get crashed
+    copy FREE_MEMORY_END to REG_A
+    write OP_INCR to REG_OP
+    cpu_exec
+    copy REG_RES to var:sys_stack_ptr
+
+    // prety_print expects that some input will be provided in REG_A
+    write "Hello!" to REG_A
+    // memorise current program counter to a special variable,
+    // as a result it will be pushed to stack as prety_print calls sys_stack_push
+    copy PROGRAM_COUNTER to var:sys_return
+    jump label:prety_print
+
+    // at the end of prety_print we will pop the stack and the program will jump here
+    jump label:kernel_exit
+
+// This is an equivalent of function
+// To call it set inputs to expected registers:
+//      REG_A is expected to be set for this block of instructions
+// then add
+//      copy PROGRAM_COUNTER to var:sys_return
+//      jump label:prety_print
+// RETURN: REG_RES will contain pretified version of the string
+//
+// IMPORTANT: Usage of stack introduces extra operations to manage it,
+//             therefore for small functions you may encounter a significant slow down of the code
+label prety_print
+    // Use the following 2 instruction to push var:sys_return function
+    copy PROGRAM_COUNTER to var:sys_stack_return
+    jump label:sys_stack_push
+
+    // some extra symbols to pretify the output
+    copy REG_A to REG_B
+    write "~~~~~~~~" to REG_B
+    write " " to REG_C
+    write OP_CONCAT_WITH to REG_OP // we expect "some_string ~~~~~~~~"
+    cpu_exec
+    copy REG_B to REG_A     // copy delimiter to the first component
+    copy REG_RES to REG_B   // copy previous result to the second component 
+    cpu_exec                // REG_C and REG_OP were not changed so we can avoid extra operations here and call cpu_exec directly
+
+    // Let's print it:
+    copy REG_RES to DISPLAY_BUFFER
+    write COLOR_GREEN to DISPLAY_COLOR
+    write OP_DISPLAY_LN to REG_OP
+    cpu_exec
+
+    // And we can call it recursively - open tmp/RAM.txt and obesrve the end lines of the file
+    copy REG_RES to REG_A
+    copy PROGRAM_COUNTER to var:sys_return
+    jump label:prety_print
+
+    // Call the equivalent of return, you can set any register just before this line
+    // and it will be avaliable to the code which called this block
+    // In this case our REG_RES is still set to the pretified version of the string and can be used from the outside.
+    jump label:sys_stack_pop
+
+
+label kernel_exit
+    write OP_HALT to REG_OP
+    cpu_exec
+
+
