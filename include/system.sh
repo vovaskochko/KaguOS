@@ -6,7 +6,7 @@ export SYSTEM_HW_DIR="hw"
 
 # RAM constants:
 export GLOBAL_RAM_FILE="${GLOBAL_HW_DIR}/RAM.txt"
-export GLOBAL_RAM_SIZE="600"
+export GLOBAL_RAM_SIZE="700"
 
 # Kernel constants:
 export GLOBAL_BUILD_DIR="build"

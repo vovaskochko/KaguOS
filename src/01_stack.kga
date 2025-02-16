@@ -1,0 +1,84 @@
+// This file contains implementation of simple stack
+
+// This file should be specified before real kernel start
+// therefore we will just jump to the real kernel entry point:
+jump label:kernel_entry_point
+
+
+// Global constant
+var sys_return // variable to store return address for jump back
+var sys_stack_ptr // pointer to stack
+var sys_stack_return
+var sys_stack_backup_REG_A
+var sys_stack_backup_REG_RES
+var sys_stack_backup_REG_ERROR
+
+// To save the value of var:sys_return to the stack, use the following:
+//          copy PROGRAM_COUNTER to var:sys_stack_return
+//          jump label:sys_stack_push
+label sys_stack_push
+    // Backup REG_A as it will be overwritten during stack management
+    copy REG_A to var:sys_stack_backup_REG_A
+
+    // The stack grows from the top of memory downward
+    // --var:sys_stack_ptr and --FREE_MEMORY_END
+    copy var:sys_stack_ptr to REG_A
+    write OP_DECR to REG_OP
+    cpu_exec
+    copy REG_RES to var:sys_stack_ptr
+    copy FREE_MEMORY_END to REG_A
+    cpu_exec
+    copy REG_RES to FREE_MEMORY_END
+
+    // Increment sys_return twice to correctly return after the jump
+    // since sys_return is set before the jump operation
+    //      *var:sys_stack_ptr = var:sys_return + 2
+    copy var:sys_return to REG_A
+    write OP_INCR to REG_OP
+    cpu_exec
+    copy REG_RES to REG_A
+    cpu_exec
+    copy REG_RES to *var:sys_stack_ptr
+
+    // Apply the same adjustment to the return address of sys_stack_push
+    //      var:sys_stack_return += 2
+    copy var:sys_stack_return to REG_A
+    cpu_exec
+    copy REG_RES to REG_A
+    cpu_exec
+    copy REG_RES to var:sys_stack_return
+
+    // Restore REG_A, then return to the caller of sys_stack_push
+    copy var:sys_stack_backup_REG_A to REG_A
+    jump *var:sys_stack_return
+
+
+// To return to the previous instruction, pop the value from the stack and jump back to it using the following:
+// jump label:sys_stack_pop
+label sys_stack_pop
+    // Backup REG_A, REG_RES, REG_ERROR as they will be overwritten during stack management
+    copy REG_A to var:sys_stack_backup_REG_A
+    copy REG_RES to var:sys_stack_backup_REG_RES
+    copy REG_ERROR to var:sys_stack_backup_REG_ERROR
+
+    // Retrieve the top of the stack and update stack pointer and free memory
+    var sys_stack_pop_jump
+    copy *var:sys_stack_ptr to var:sys_stack_pop_jump
+
+    // ++var:sys_stack_ptr
+    copy var:sys_stack_ptr to REG_A
+    write OP_INCR to REG_OP
+    cpu_exec
+    copy REG_RES to var:sys_stack_ptr
+
+    // ++FREE_MEMORY_END
+    copy FREE_MEMORY_END to REG_A
+    write OP_INCR to REG_OP
+    cpu_exec
+    copy REG_RES to FREE_MEMORY_END
+
+    // Restore REG_A, REG_RES, and REG_ERROR, then return to the caller of sys_stack_pop
+    copy var:sys_stack_backup_REG_A to REG_A
+    copy var:sys_stack_backup_REG_RES to REG_RES
+    copy var:sys_stack_backup_REG_ERROR to REG_ERROR
+    jump *var:sys_stack_pop_jump

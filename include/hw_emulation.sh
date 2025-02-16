@@ -17,7 +17,7 @@ function read_from_address {
     local LINE_NO="${1}"
     # Check if line number is valid e.g. is not outside the range [1, GLOBAL_RAM_SIZE] :
     if [ "${LINE_NO}" -lt 1 ] || [ "${LINE_NO}" -gt ${GLOBAL_RAM_SIZE} ]; then
-        exit_fatal "Access to invalid address ${1}. System halt!"
+        exit_fatal "Access to an invalid address ${1}. This may be caused by an incorrect instruction (use -j for debugging) or insufficient GLOBAL_RAM_SIZE (adjust include/system.sh). System halted!"
     fi
 
     echo "${HW_RAM_MEMORY[${LINE_NO}]}"
@@ -32,7 +32,7 @@ function write_to_address {
 
     # Check if line number is valid e.g. is not outside the range [1, GLOBAL_RAM_SIZE].
     if [ "${LINE_NO}" -lt 1 ] || [ "${LINE_NO}" -gt ${GLOBAL_RAM_SIZE} ]; then
-        exit_fatal "Access to invalid address ${1}. System halt!"
+        exit_fatal "Access to an invalid address ${1}. This may be caused by an incorrect instruction (use -j for debugging) or insufficient GLOBAL_RAM_SIZE (adjust include/system.sh). System halted!"
     fi
 
     HW_RAM_MEMORY[${LINE_NO}]="$VALUE"

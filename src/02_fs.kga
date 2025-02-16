@@ -16,13 +16,8 @@
 //          copy PROGRAM_COUNTER to var:sys_return
 //          jump label:someLabelFromThisFile
 
-// This file should be specified first therefore we will just jump to the real kernel entry point:
-jump label:kernel_entry_point
 
 // GLOBAL CONSTANTS
-var sys_ram_size
-var sys_return // variable to store return address for jump back
-var sys_stack_ptr // pointer to stack
 var sys_work_dir // current working dir in the filesystem, should be always end with /
 
 var sys_fs_desc_start // first address to be used for file descriptors
@@ -32,91 +27,14 @@ var sys_fs_mounts_start // first address which will contain information about mo
 var sys_fs_mounts_count // mount points count
 // ------------------------------------------------------
 
-var sys_stack_return
-var sys_stack_backup_REG_A
-
-// To save the value of var:sys_return to the stack, use the following:
-// copy PROGRAM_COUNTER to var:sys_stack_return
-// jump label:sys_stack_push
-label sys_stack_push
-    // Backup REG_A as it will be used for stack management
-    copy REG_A to var:sys_stack_backup_REG_A
-
-    // The stack grows from the top of memory downward
-    // --var:sys_stack_ptr and --FREE_MEMORY_END
-    copy var:sys_stack_ptr to REG_A
-    write OP_DECR to REG_OP
-    cpu_exec
-    copy REG_RES to var:sys_stack_ptr
-    copy FREE_MEMORY_END to REG_A
-    cpu_exec
-    copy REG_RES to FREE_MEMORY_END
-
-    // Increment sys_return twice to correctly return after the jump
-    // since sys_return is set before the jump operation
-    //      *var:sys_stack_ptr = var:sys_return + 2
-    copy var:sys_return to REG_A
-    write OP_INCR to REG_OP
-    cpu_exec
-    copy REG_RES to REG_A
-    cpu_exec
-    copy REG_RES to *var:sys_stack_ptr
-
-    // Apply the same adjustment to the return address of sys_stack_push
-    //      var:sys_stack_return += 2
-    copy var:sys_stack_return to REG_A
-    cpu_exec
-    copy REG_RES to REG_A
-    cpu_exec
-    copy REG_RES to var:sys_stack_return
-
-    // Restore REG_A and return to the caller of sys_stack_push
-    copy var:sys_stack_backup_REG_A to REG_A
-    jump *var:sys_stack_return
-
-// To return to the previous instruction, pop the value from the stack and jump back to it using the following:
-// jump label:sys_stack_pop
-label sys_stack_pop
-    // Backup REG_A as it will be used for stack management
-    copy REG_A to var:sys_stack_backup_REG_A
-
-    // Retrieve the top of the stack and update stack pointer and free memory
-    var sys_stack_pop_jump
-    copy var:sys_stack_ptr to var:sys_stack_pop_jump
-
-    // ++var:sys_stack_ptr
-    copy var:sys_stack_ptr to REG_A
-    write OP_INCR to REG_OP
-    cpu_exec
-    copy REG_RES to var:sys_stack_ptr
-
-    // ++FREE_MEMORY_END
-    copy FREE_MEMORY_END to REG_A
-    write OP_INCR to REG_OP
-    cpu_exec
-    copy REG_RES to FREE_MEMORY_END
-
-    // Restore REG_A and return to the caller of sys_stack_push
-    copy var:sys_stack_backup_REG_A to REG_A
-    jump *var:sys_stack_pop_jump
-
-// Helper instructions to jump back to the previous place defined by var:sys_return
-label sys_jump_back
-    // let's jump back to the place from which these instructions were called
-    var sys_jump_back_tmp
-    copy REG_ERROR to var:sys_jump_back_tmp
-    copy var:sys_return to REG_A
-    write 2 to REG_B
-    write OP_ADD to REG_OP
-    cpu_exec
-    copy var:sys_jump_back_tmp to REG_ERROR
-    jump *REG_RES
-
 
 // Use the following commands to run sys_fs_init instructions properly:
 //          copy PROGRAM_COUNTER to var:sys_return
 //          jump label:sys_fs_init
 label sys_fs_init
+    copy PROGRAM_COUNTER to var:sys_stack_return
+    jump label:sys_stack_push
+
     // Set default work dir to /
     write "/" to var:sys_work_dir
 
@@ -376,7 +294,7 @@ label sys_fs_init
         cpu_exec
         copy REG_RES to FREE_MEMORY_START
 
-        jump label:sys_jump_back
+        jump label:sys_stack_pop
 
 
 
@@ -384,26 +302,17 @@ label sys_fs_init
 //          REG_A should contain the path to file that should be open. it may be absolute or relative path(sys_work_dir will be appended to it automatically)
 //          copy PROGRAM_COUNTER to var:sys_return
 //          jump label:sys_fs_open
-// RESULT: descriptor will be stored into REG_D
+// RESULT: descriptor will be stored into REG_RES, error will be returned in REG_ERROR
 label sys_fs_open
+    copy PROGRAM_COUNTER to var:sys_stack_return
+    jump label:sys_stack_push
+
+    // Let's make path absolute by calling helper instructions
     var sys_fs_open_path
-    copy REG_A to var:sys_fs_open_path
-
-    // Check whether path in REG_A is absolute
-    write "/" to REG_B
-    write OP_STARTS_WITH to REG_OP
-    cpu_exec
-    jump_if label:sys_fs_open_path_is_absolute
-
-    // If not then we should append current working dir.
-    copy var:sys_work_dir to REG_A
-    copy var:sys_fs_open_path to REG_B
-    write "" to REG_C
-    write OP_CONCAT_WITH to REG_OP
-    cpu_exec
+    copy PROGRAM_COUNTER to var:sys_return
+    jump label:sys_fs_helper_make_absolute
     copy REG_RES to var:sys_fs_open_path
 
-    label sys_fs_open_path_is_absolute
     // Now we should go through the mount points
     // and find the correct partition where this file can be stored
     var sys_fs_open_temp
@@ -579,20 +488,20 @@ label sys_fs_open
 
     label sys_fs_open_success
         copy var:sys_fs_open_fd to *var:sys_fs_open_ptr
-        copy var:sys_fs_open_ptr to REG_D
+        copy var:sys_fs_open_ptr to REG_RES
         write "" to REG_ERROR
-        jump label:sys_jump_back
+        jump label:sys_stack_pop
 
 
     label sys_fs_open_error
-        write "" to REG_D
+        write "" to REG_RES
         write "Fail to open file" to REG_ERROR
-        jump label:sys_jump_back
+        jump label:sys_stack_pop
 
     label sys_fs_open_error_no_descriptors
-        write "" to REG_D
+        write "" to REG_RES
         write "Fail to open file: No free descriptors" to REG_ERROR
-        jump label:sys_jump_back
+        jump label:sys_stack_pop
 
 
 // Use the following commands to run sys_fs_close instructions properly:
@@ -601,6 +510,9 @@ label sys_fs_open
 //          jump label:sys_fs_close
 // RESULT: REG_ERROR will be set in case of error
 label sys_fs_close
+    copy PROGRAM_COUNTER to var:sys_stack_return
+    jump label:sys_stack_push
+
     var sys_fs_close_fd
     var sys_fs_close_temp
     copy REG_A to var:sys_fs_close_fd
@@ -628,11 +540,11 @@ label sys_fs_close
 
     write "" to REG_ERROR
     write "0" to *var:sys_fs_close_fd
-    jump label:sys_jump_back
+    jump label:sys_stack_pop
 
 label sys_fs_close_error
     write "Incorrect file descriptor fo sys_fs_close" to REG_ERROR
-    jump label:sys_jump_back
+    jump label:sys_stack_pop
 
 
 // Use the following commands to run sys_fs_create instructions properly:
@@ -642,10 +554,11 @@ label sys_fs_close_error
 //          jump label:sys_fs_create
 // RETURN REG_ERROR should contain error
 label sys_fs_create
+    copy PROGRAM_COUNTER to var:sys_stack_return
+    jump label:sys_stack_push
 
 
-
-    jump label:sys_jump_back
+    jump label:sys_stack_pop
 
 
 // Use the following commands to run sys_fs_read instructions properly:
@@ -653,10 +566,11 @@ label sys_fs_create
 //          copy PROGRAM_COUNTER to var:sys_return
 //          jump label:sys_fs_read
 label sys_fs_read
+    copy PROGRAM_COUNTER to var:sys_stack_return
+    jump label:sys_stack_push
 
 
-
-    jump label:sys_jump_back
+    jump label:sys_stack_pop
 
 
 // Use the following commands to run sys_fs_write instructions properly:
@@ -664,18 +578,36 @@ label sys_fs_read
 //          copy PROGRAM_COUNTER to var:sys_return
 //          jump label:sys_fs_write
 label sys_fs_write
+    copy PROGRAM_COUNTER to var:sys_stack_return
+    jump label:sys_stack_push
 
 
-
-    jump label:sys_jump_back
+    jump label:sys_stack_pop
 
 // Helper function to calculate absolute path from relative
 // Backup var:sys_return to some var before call if needed and then restore
 //          REG_A should contain path to adjust
 //          copy PROGRAM_COUNTER to var:sys_return
 //          jump label:sys_fs_write
-// RETURN 
+// RETURN absolute path will be stored in REG_RES
 label sys_fs_helper_make_absolute
+    copy PROGRAM_COUNTER to var:sys_stack_return
+    jump label:sys_stack_push
 
+    var sys_fs_helper_absolute_input_path
+    copy REG_A to var:sys_fs_helper_absolute_input_path
 
-    jump label:sys_jump_back
+    // Check whether path in REG_A is absolute
+    write "/" to REG_B
+    write OP_STARTS_WITH to REG_OP
+    cpu_exec
+    copy REG_A to REG_RES
+    jump_if label:sys_stack_pop
+
+    // If not then we should append current working dir.
+    copy var:sys_work_dir to REG_A
+    copy var:sys_fs_helper_absolute_input_path to REG_B
+    write "" to REG_C
+    write OP_CONCAT_WITH to REG_OP
+    cpu_exec
+    jump label:sys_stack_pop
