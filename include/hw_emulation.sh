@@ -175,6 +175,7 @@ function cpu_exec {
                 CMP_RES=0
             fi
             write_to_address $REG_BOOL_RES "$CMP_RES"
+            write_to_address $REG_RES "${REG_A_VAL#"$REG_B_VAL"}"
             ;;
         ${OP_GET_COLUMN})
             if [ -z "$REG_C_VAL" ]; then

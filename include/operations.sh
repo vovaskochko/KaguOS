@@ -115,7 +115,7 @@ export OP_GET_LENGTH=13
 
 # To check if a string starts with a given prefix, place the string in REG_A and the prefix in REG_B.
 # Set REG_OP to OP_STARTS_WITH and call INSTR_CPU_EXEC.
-# After execution, the result (true or false) will be present in REG_BOOL_RES.
+# After execution, the result (true or false) will be present in REG_BOOL_RES, tail of the string will be in REG_RES.
 export OP_STARTS_WITH=14
 
 # To extract a specific column from a string, place the string in REG_A, the column number in REG_B, and the delimiter in REG_C.

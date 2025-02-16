@@ -3,7 +3,9 @@
 // ##########################################
 // # INITRAMFS_START                        #
 // ##########################################
-//DEBUG_OFF
+label kernel_entry_point
+
+DEBUG_OFF
 
 write "Operation register:" to INFO_REG_OP
 write "A register:" to INFO_REG_A
@@ -22,6 +24,21 @@ write "Free memory start:" to INFO_FREE_MEMORY_START
 write "Free memory end:" to INFO_FREE_MEMORY_END
 write "Free chunks:" to INFO_FREE_CHUNKS
 write "" to FREE_CHUNKS
+
+// Let's init RAM size variable and pointer to stack
+// At the start var:sys_stack_ptr = var:sys_ram_size + 1
+// Therefore on any push to stack we will decrement it
+// If sys_stack_pop will be called incorrectly then we will get crashed
+copy FREE_MEMORY_END to var:sys_ram_size
+copy var:sys_ram_size to REG_A
+write 1 to REG_B
+write OP_ADD to REG_OP
+cpu_exec
+copy REG_RES to var:sys_stack_ptr
+
+// init file system
+copy PROGRAM_COUNTER to var:sys_return
+jump label:sys_fs_init
 
 // Print welcome message
 write "RAMFS init - done." to DISPLAY_BUFFER
@@ -48,9 +65,11 @@ cpu_exec
 
 label kernel_start
     // Display prompt to enter the value:
-    write " :) " to DISPLAY_BUFFER
+    copy var:sys_work_dir to DISPLAY_BUFFER
     write "" to DISPLAY_COLOR
     write OP_DISPLAY to REG_OP
+    cpu_exec
+    write " :) " to DISPLAY_BUFFER
     cpu_exec
 
     // read cmd from keyboard
@@ -85,9 +104,29 @@ label kernel_start
     cpu_exec
 
     jump_if label:kernel_end
+
+    // Let's try to open file descriptor:
+    copy var:parsedStr to REG_A
+    copy PROGRAM_COUNTER to var:sys_return
+    jump label:sys_fs_open
+    jump_err label:kernel_end
+
+
+    var file_desc
+    copy REG_D to var:file_desc
+    copy *var:file_desc to DISPLAY_BUFFER
+    write COLOR_CYAN to DISPLAY_COLOR
+    write OP_DISPLAY_LN to REG_OP
+    cpu_exec
+
     jump label:kernel_start
 
 label kernel_end
+    copy REG_ERROR to DISPLAY_BUFFER
+    write COLOR_RED to DISPLAY_COLOR
+    write OP_DISPLAY_LN to REG_OP
+    cpu_exec
+
     // Print bye message and exit:
     write "Good bye!" to DISPLAY_BUFFER
     write COLOR_GREEN to DISPLAY_COLOR

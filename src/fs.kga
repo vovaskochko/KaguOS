@@ -1,0 +1,681 @@
+// This part of the system provides basic support of file open, write, read and close functionality.
+// The following list is implemented inside this file:
+//===========================
+//      sys_fs_init
+//      sys_fs_open
+//      sys_fs_close
+//      sys_fs_create
+//      sys_fs_read
+//      sys_fs_write
+//===========================
+// IMPORTANT: we are using file descriptors of the following format:
+//  filename nameOfTheDisk headerBlockNo CURSOR ind CURSOR_BLOCK cursorBlockNo LAST_CHECKED_COLUMN colNo
+// NOTE: all that functionality is implemented as labels.
+// As a result state of registers is not backuped and can be changed during execution of relevant functionality.
+// You must specify address of the call by copying of PROGRAM_COUNTER to var:sys_return, e.g
+//          copy PROGRAM_COUNTER to var:sys_return
+//          jump label:someLabelFromThisFile
+
+// This file should be specified first therefore we will just jump to the real kernel entry point:
+jump label:kernel_entry_point
+
+// GLOBAL CONSTANTS
+var sys_ram_size
+var sys_return // variable to store return address for jump back
+var sys_stack_ptr // pointer to stack
+var sys_work_dir // current working dir in the filesystem, should be always end with /
+
+var sys_fs_desc_start // first address to be used for file descriptors
+var sys_fs_desc_max_count // maximal count of descriptors
+
+var sys_fs_mounts_start // first address which will contain information about mount point and mounted partition on the disk
+var sys_fs_mounts_count // mount points count
+// ------------------------------------------------------
+
+var sys_stack_return
+var sys_stack_backup_REG_A
+
+// To save the value of var:sys_return to the stack, use the following:
+// copy PROGRAM_COUNTER to var:sys_stack_return
+// jump label:sys_stack_push
+label sys_stack_push
+    // Backup REG_A as it will be used for stack management
+    copy REG_A to var:sys_stack_backup_REG_A
+
+    // The stack grows from the top of memory downward
+    // --var:sys_stack_ptr and --FREE_MEMORY_END
+    copy var:sys_stack_ptr to REG_A
+    write OP_DECR to REG_OP
+    cpu_exec
+    copy REG_RES to var:sys_stack_ptr
+    copy FREE_MEMORY_END to REG_A
+    cpu_exec
+    copy REG_RES to FREE_MEMORY_END
+
+    // Increment sys_return twice to correctly return after the jump
+    // since sys_return is set before the jump operation
+    //      *var:sys_stack_ptr = var:sys_return + 2
+    copy var:sys_return to REG_A
+    write OP_INCR to REG_OP
+    cpu_exec
+    copy REG_RES to REG_A
+    cpu_exec
+    copy REG_RES to *var:sys_stack_ptr
+
+    // Apply the same adjustment to the return address of sys_stack_push
+    //      var:sys_stack_return += 2
+    copy var:sys_stack_return to REG_A
+    cpu_exec
+    copy REG_RES to REG_A
+    cpu_exec
+    copy REG_RES to var:sys_stack_return
+
+    // Restore REG_A and return to the caller of sys_stack_push
+    copy var:sys_stack_backup_REG_A to REG_A
+    jump *var:sys_stack_return
+
+// To return to the previous instruction, pop the value from the stack and jump back to it using the following:
+// jump label:sys_stack_pop
+label sys_stack_pop
+    // Backup REG_A as it will be used for stack management
+    copy REG_A to var:sys_stack_backup_REG_A
+
+    // Retrieve the top of the stack and update stack pointer and free memory
+    var sys_stack_pop_jump
+    copy var:sys_stack_ptr to var:sys_stack_pop_jump
+
+    // ++var:sys_stack_ptr
+    copy var:sys_stack_ptr to REG_A
+    write OP_INCR to REG_OP
+    cpu_exec
+    copy REG_RES to var:sys_stack_ptr
+
+    // ++FREE_MEMORY_END
+    copy FREE_MEMORY_END to REG_A
+    write OP_INCR to REG_OP
+    cpu_exec
+    copy REG_RES to FREE_MEMORY_END
+
+    // Restore REG_A and return to the caller of sys_stack_push
+    copy var:sys_stack_backup_REG_A to REG_A
+    jump *var:sys_stack_pop_jump
+
+// Helper instructions to jump back to the previous place defined by var:sys_return
+label sys_jump_back
+    // let's jump back to the place from which these instructions were called
+    var sys_jump_back_tmp
+    copy REG_ERROR to var:sys_jump_back_tmp
+    copy var:sys_return to REG_A
+    write 2 to REG_B
+    write OP_ADD to REG_OP
+    cpu_exec
+    copy var:sys_jump_back_tmp to REG_ERROR
+    jump *REG_RES
+
+
+// Use the following commands to run sys_fs_init instructions properly:
+//          copy PROGRAM_COUNTER to var:sys_return
+//          jump label:sys_fs_init
+label sys_fs_init
+    // Set default work dir to /
+    write "/" to var:sys_work_dir
+
+    // Let's allocate some memory to store file descriptors for open files.
+    // Note, that the error will be returned sys if open files count is equal to this value
+    write 10 to var:sys_fs_desc_max_count
+    copy FREE_MEMORY_START to var:sys_fs_desc_start
+    copy var:sys_fs_desc_start to REG_A
+    copy var:sys_fs_desc_max_count to REG_B
+    write OP_ADD to REG_OP
+    cpu_exec
+    copy REG_RES to FREE_MEMORY_START
+
+    // Allocate memory for mount point information and parse it
+    copy FREE_MEMORY_START to var:sys_fs_mounts_start
+    write 0 to var:sys_fs_mounts_count
+
+    var sys_fs_init_counter
+    var sys_fs_init_local_counter
+    var sys_fs_init_ptr
+    var sys_fs_init_temp
+    var sys_fs_init_disk
+    var sys_fs_init_part
+    var sys_fs_init_part_block
+    var sys_fs_init_mount_point
+
+    copy var:sys_fs_mounts_start to var:sys_fs_init_ptr
+    write 2 to var:sys_fs_init_counter
+
+    label sys_fs_init_mounts
+        write "mount.info" to REG_A
+        copy var:sys_fs_init_counter to REG_B
+        write OP_READ_BLOCK to REG_OP
+        cpu_exec
+        jump_err label:sys_fs_init_mounts_end
+        copy REG_RES to var:sys_fs_init_temp
+
+        // get_column var:sys_fs_init_temp 1 " "
+        copy var:sys_fs_init_temp to REG_A
+        write 1 to REG_B
+        write " " to REG_C
+        write OP_GET_COLUMN to REG_OP
+        cpu_exec
+
+        // cmp REG_RES != "MOUNT"
+        copy REG_RES to REG_A
+        write "MOUNT" to REG_B
+        write OP_CMP_NEQ to REG_OP
+        cpu_exec
+        jump_if label:sys_fs_init_mounts_end
+
+        // get_column var:sys_fs_init_temp 2
+        copy var:sys_fs_init_temp to REG_A
+        write 2 to REG_B
+        write " " to REG_C
+        write OP_GET_COLUMN to REG_OP
+        cpu_exec
+
+        // cmp REG_RES == ""
+        copy REG_RES to REG_A
+        write "" to REG_B
+        write OP_CMP_EQ to REG_OP
+        cpu_exec
+        jump_if label:sys_fs_init_mounts_end
+
+        copy REG_RES to var:sys_fs_init_disk
+
+        // get_column var:sys_fs_init_temp 3
+        copy var:sys_fs_init_temp to REG_A
+        write 3 to REG_B
+        write " " to REG_C
+        write OP_GET_COLUMN to REG_OP
+        cpu_exec
+
+        // cmp REG_RES == ""
+        copy REG_RES to REG_A
+        write "" to REG_B
+        write OP_CMP_EQ to REG_OP
+        cpu_exec
+        jump_if label:sys_fs_init_mounts_end
+
+        copy REG_RES to var:sys_fs_init_part
+
+        // get_column var:sys_fs_init_temp 4
+        copy var:sys_fs_init_temp to REG_A
+        write 4 to REG_B
+        write " " to REG_C
+        write OP_GET_COLUMN to REG_OP
+        cpu_exec
+
+        // cmp REG_RES == ""
+        copy REG_RES to REG_A
+        write "" to REG_B
+        write OP_CMP_EQ to REG_OP
+        cpu_exec
+        jump_if label:sys_fs_init_mounts_end
+        copy REG_RES to var:sys_fs_init_mount_point
+
+        // get_column var:sys_fs_init_temp 5
+        copy var:sys_fs_init_temp to REG_A
+        write 5 to REG_B
+        write " " to REG_C
+        write OP_GET_COLUMN to REG_OP
+        cpu_exec
+
+        // cmp REG_RES != ""
+        copy REG_RES to REG_A
+        write "" to REG_B
+        write OP_CMP_NEQ to REG_OP
+        cpu_exec
+        jump_if label:sys_fs_init_mounts_end
+
+        write 4 to var:sys_fs_init_local_counter
+
+    label sys_fs_init_part_loop
+        copy var:sys_fs_init_disk to REG_A
+        copy var:sys_fs_init_local_counter to REG_B
+        write OP_READ_BLOCK to REG_OP
+        cpu_exec
+        jump_err label:sys_fs_init_mounts_end
+        copy REG_RES to var:sys_fs_init_temp
+
+        // cmp var:sys_fs_init_temp == "END_PARTITION_TABLE"
+        copy var:sys_fs_init_temp to REG_A
+        write "END_PARTITION_TABLE" to REG_B
+        write OP_CMP_EQ to REG_OP
+        cpu_exec
+        jump_if label:sys_fs_init_mounts_end
+
+        // get_column var:sys_fs_init_temp 1
+        copy var:sys_fs_init_temp to REG_A
+        write 1 to REG_B
+        write " " to REG_C
+        write OP_GET_COLUMN to REG_OP
+        cpu_exec
+
+        // cmp REG_RES != "NAME"
+        copy REG_RES to REG_A
+        write "NAME" to REG_B
+        write OP_CMP_NEQ to REG_OP
+        cpu_exec
+        jump_if label:sys_fs_init_mounts_end
+
+        // get_column var:sys_fs_init_temp 2
+        copy var:sys_fs_init_temp to REG_A
+        write 2 to REG_B
+        write " " to REG_C
+        write OP_GET_COLUMN to REG_OP
+        cpu_exec
+
+        // cmp REG_RES == var:sys_fs_init_part
+        copy REG_RES to REG_A
+        copy var:sys_fs_init_part to REG_B
+        write OP_CMP_EQ to REG_OP
+        cpu_exec
+        jump_if label:sys_fs_init_part_found
+
+        // ++ var:sys_fs_init_local_counter
+        copy var:sys_fs_init_local_counter to REG_A
+        write OP_INCR to REG_OP
+        cpu_exec
+        copy REG_RES to var:sys_fs_init_local_counter
+
+        jump label:sys_fs_init_part_loop
+
+    label sys_fs_init_part_found
+        // get_column var:sys_fs_init_temp 4
+        copy var:sys_fs_init_temp to REG_A
+        write 4 to REG_B
+        write " " to REG_C
+        write OP_GET_COLUMN to REG_OP
+        cpu_exec
+
+        copy REG_RES to var:sys_fs_init_part_block
+
+        // check whether mount point ends with /
+        copy var:sys_fs_init_mount_point to REG_A
+        write OP_GET_LENGTH to REG_OP
+        cpu_exec
+        copy REG_RES to REG_B
+        write "" to REG_C
+        write OP_GET_COLUMN to REG_OP
+        cpu_exec
+        // compare last symbol with /
+        copy REG_RES to REG_A
+        write "/" to REG_B
+        write OP_CMP_EQ to REG_OP
+        cpu_exec
+        jump_if label:sys_fs_init_all_ok
+
+        // append / to the end otherwise
+        copy var:sys_fs_init_mount_point to REG_A
+        write "/" to REG_B
+        write "" to REG_C
+        write OP_CONCAT_WITH to REG_OP
+        cpu_exec
+        copy REG_RES to var:sys_fs_init_mount_point
+
+        label sys_fs_init_all_ok
+        // concat mount point, disk name, first block
+        copy var:sys_fs_init_mount_point to REG_A
+        copy var:sys_fs_init_disk to REG_B
+        write " " to REG_C
+        write OP_CONCAT_WITH to REG_OP
+        cpu_exec
+        copy REG_RES to REG_A
+        copy var:sys_fs_init_part to REG_B
+        cpu_exec
+        copy REG_RES to REG_A
+        copy var:sys_fs_init_part_block to REG_B
+        cpu_exec
+        copy REG_RES to *var:sys_fs_init_ptr
+
+        // Display info about mount points:
+        write "Partition " to DISPLAY_BUFFER
+        write COLOR_CYAN to DISPLAY_COLOR
+        write OP_DISPLAY to REG_OP
+        cpu_exec
+        copy var:sys_fs_init_part to DISPLAY_BUFFER
+        cpu_exec
+        write " from " to DISPLAY_BUFFER
+        cpu_exec
+        copy var:sys_fs_init_disk to DISPLAY_BUFFER
+        cpu_exec
+        write " mounted as " to DISPLAY_BUFFER
+        cpu_exec
+        write OP_DISPLAY_LN to REG_OP
+        copy var:sys_fs_init_mount_point to DISPLAY_BUFFER
+        cpu_exec
+
+        // ++ var:sys_fs_init_ptr
+        copy var:sys_fs_init_ptr to REG_A
+        write OP_INCR to REG_OP
+        cpu_exec
+        copy REG_RES to var:sys_fs_init_ptr
+
+        // ++ var:sys_fs_init_counter
+        copy var:sys_fs_init_counter to REG_A
+        write OP_INCR to REG_OP
+        cpu_exec
+        copy REG_RES to var:sys_fs_init_counter
+
+        // ++ var:sys_fs_mounts_count
+        copy var:sys_fs_mounts_count to REG_A
+        write OP_INCR to REG_OP
+        cpu_exec
+        copy REG_RES to var:sys_fs_mounts_count
+
+        jump label:sys_fs_init_mounts
+
+    label sys_fs_init_mounts_end
+
+        // FREE_MEMORY_START = var:sys_fs_mounts_start + var:sys_fs_mounts_count
+        copy var:sys_fs_mounts_start to REG_A
+        copy var:sys_fs_mounts_count to REG_B
+        write OP_ADD to REG_OP
+        cpu_exec
+        copy REG_RES to FREE_MEMORY_START
+
+        jump label:sys_jump_back
+
+
+
+// Use the following commands to run sys_fs_open instructions properly:
+//          REG_A should contain the path to file that should be open. it may be absolute or relative path(sys_work_dir will be appended to it automatically)
+//          copy PROGRAM_COUNTER to var:sys_return
+//          jump label:sys_fs_open
+// RESULT: descriptor will be stored into REG_D
+label sys_fs_open
+    var sys_fs_open_path
+    copy REG_A to var:sys_fs_open_path
+
+    // Check whether path in REG_A is absolute
+    write "/" to REG_B
+    write OP_STARTS_WITH to REG_OP
+    cpu_exec
+    jump_if label:sys_fs_open_path_is_absolute
+
+    // If not then we should append current working dir.
+    copy var:sys_work_dir to REG_A
+    copy var:sys_fs_open_path to REG_B
+    write "" to REG_C
+    write OP_CONCAT_WITH to REG_OP
+    cpu_exec
+    copy REG_RES to var:sys_fs_open_path
+
+    label sys_fs_open_path_is_absolute
+    // Now we should go through the mount points
+    // and find the correct partition where this file can be stored
+    var sys_fs_open_temp
+    var sys_fs_open_ptr
+    var sys_fs_open_relative_path
+    var sys_fs_open_counter
+    write 0 to var:sys_fs_open_counter
+    copy var:sys_fs_mounts_start to var:sys_fs_open_ptr
+
+    label sys_fs_open_find_mount
+        // cmp var:sys_fs_open_counter > var:sys_fs_mounts_count
+        copy var:sys_fs_mounts_count to REG_A
+        copy var:sys_fs_open_counter to REG_B
+        write OP_CMP_LT to REG_OP
+        cpu_exec
+        jump_if label:sys_fs_open_error
+
+        copy *var:sys_fs_open_ptr to var:sys_fs_open_temp
+
+        // get_column var:sys_fs_open_temp 1
+        copy var:sys_fs_open_temp to REG_A
+        write 1 to REG_B
+        write " " to REG_C
+        write OP_GET_COLUMN to REG_OP
+        cpu_exec
+
+        copy var:sys_fs_open_path to REG_A
+        copy REG_RES to REG_B
+        write OP_STARTS_WITH to REG_OP
+        cpu_exec
+        copy REG_RES to var:sys_fs_open_relative_path
+        jump_if label:sys_fs_open_mount_found
+
+        // ++ var:sys_fs_open_ptr
+        copy var:sys_fs_open_ptr to REG_A
+        write OP_INCR to REG_OP
+        cpu_exec
+        copy REG_RES to var:sys_fs_open_ptr
+
+        // ++ var:sys_fs_open_counter
+        copy var:sys_fs_open_counter to REG_A
+        write OP_INCR to REG_OP
+        cpu_exec
+        copy REG_RES to var:sys_fs_open_counter
+
+        jump label:sys_fs_open_find_mount
+
+
+    label sys_fs_open_mount_found
+        var sys_fs_open_disk
+        var sys_fs_open_block
+        var sys_fs_open_partition_header
+        var sys_fs_open_fd
+
+        // get_column var:sys_fs_open_temp 2
+        copy var:sys_fs_open_temp to REG_A
+        write 2 to REG_B
+        write " " to REG_C
+        write OP_GET_COLUMN to REG_OP
+        cpu_exec
+
+        copy REG_RES to var:sys_fs_open_disk
+
+        // get_column var:sys_fs_open_temp 4
+        copy var:sys_fs_open_temp to REG_A
+        write 4 to REG_B
+        write " " to REG_C
+        write OP_GET_COLUMN to REG_OP
+        cpu_exec
+
+        copy REG_RES to var:sys_fs_open_block
+
+        copy var:sys_fs_open_disk to REG_A
+        copy var:sys_fs_open_block to REG_B
+        write OP_READ_BLOCK to REG_OP
+        cpu_exec
+
+        copy REG_RES to var:sys_fs_open_partition_header
+
+        // var:sys_fs_open_counter = var:sys_fs_open_block + 1
+        copy var:sys_fs_open_block to REG_A
+        write 1 to REG_B
+        write OP_ADD to REG_OP
+        cpu_exec
+        copy REG_RES to var:sys_fs_open_counter
+
+        label sys_fs_open_find_file_header
+            copy var:sys_fs_open_disk to REG_A
+            copy var:sys_fs_open_counter to REG_B
+            write OP_READ_BLOCK to REG_OP
+            cpu_exec
+
+            // cmp REG_RES == "FS_HEADER_END"
+            copy REG_RES to REG_A
+            write "FS_HEADER_END" to REG_B
+            write OP_CMP_EQ to REG_OP
+            cpu_exec
+            jump_if label:sys_fs_open_error
+
+            // get_column REG_RES 1
+            copy REG_RES to REG_A
+            write 1 to REG_B
+            write " " to REG_C
+            write OP_GET_COLUMN to REG_OP
+            cpu_exec
+
+            // cmp var:sys_fs_open_relative_path == REG_RES
+            copy var:sys_fs_open_relative_path to REG_A
+            copy REG_RES to REG_B
+            write OP_CMP_EQ to REG_OP
+            cpu_exec
+            jump_if label:sys_fs_open_find_success
+
+            // ++ var:sys_fs_open_counter
+            copy var:sys_fs_open_counter to REG_A
+            write OP_INCR to REG_OP
+            cpu_exec
+            copy REG_RES to var:sys_fs_open_counter
+
+            jump label:sys_fs_open_find_file_header
+
+        label sys_fs_open_find_success
+            // concat file name and disk name
+            copy var:sys_fs_open_path to REG_A
+            copy var:sys_fs_open_disk to REG_B
+            write " " to REG_C
+            write OP_CONCAT_WITH to REG_OP
+            cpu_exec
+
+            // append block with header of the file
+            copy REG_RES to REG_A
+            copy var:sys_fs_open_counter to REG_B
+            cpu_exec
+
+            // append other values to set cursor at the start of the file:
+            copy REG_RES to REG_A
+            write "CURSOR 0 CURSOR_BLOCK 0 LAST_CHECKED_COLUMN 8" to REG_B
+            cpu_exec
+
+            copy REG_RES to var:sys_fs_open_fd
+
+            copy var:sys_fs_desc_start to var:sys_fs_open_ptr
+            write 0 to var:sys_fs_open_counter
+
+            label sys_fs_open_find_fd_memory
+                // cmp var:sys_fs_open_counter == var:sys_fs_desc_max_count
+                copy var:sys_fs_open_counter to REG_A
+                copy var:sys_fs_desc_max_count to REG_B
+                write OP_CMP_EQ to REG_OP
+                cpu_exec
+                jump_if label:sys_fs_open_error_no_descriptors
+
+                // cmp *var:sys_fs_open_ptr == 0
+                copy *var:sys_fs_open_ptr to REG_A
+                write 0 to REG_B
+                write OP_CMP_EQ to REG_OP
+                cpu_exec
+                jump_if label:sys_fs_open_success
+
+                // ++ var:sys_fs_open_ptr
+                copy var:sys_fs_open_ptr to REG_A
+                write OP_INCR to REG_OP
+                cpu_exec
+                copy REG_RES to var:sys_fs_open_ptr
+
+                // ++ var:sys_fs_open_counter
+                copy var:sys_fs_open_counter to REG_A
+                write OP_INCR to REG_OP
+                cpu_exec
+                copy REG_RES to var:sys_fs_open_counter
+
+                jump label:sys_fs_open_find_fd_memory
+
+    label sys_fs_open_success
+        copy var:sys_fs_open_fd to *var:sys_fs_open_ptr
+        copy var:sys_fs_open_ptr to REG_D
+        write "" to REG_ERROR
+        jump label:sys_jump_back
+
+
+    label sys_fs_open_error
+        write "" to REG_D
+        write "Fail to open file" to REG_ERROR
+        jump label:sys_jump_back
+
+    label sys_fs_open_error_no_descriptors
+        write "" to REG_D
+        write "Fail to open file: No free descriptors" to REG_ERROR
+        jump label:sys_jump_back
+
+
+// Use the following commands to run sys_fs_close instructions properly:
+//          REG_A should contain file descriptor obtained from sys_fs_open
+//          copy PROGRAM_COUNTER to var:sys_return
+//          jump label:sys_fs_close
+// RESULT: REG_ERROR will be set in case of error
+label sys_fs_close
+    var sys_fs_close_fd
+    var sys_fs_close_temp
+    copy REG_A to var:sys_fs_close_fd
+
+    // cmp var:sys_fs_close_fd < var:sys_fs_desc_start
+    copy var:sys_fs_close_fd to REG_A
+    copy var:sys_fs_desc_start to REG_B
+    write OP_CMP_LT to REG_OP
+    cpu_exec
+    jump_if label:sys_fs_close_error
+
+    // var:sys_fs_close_temp = var:sys_fs_desc_start + var:sys_fs_desc_max_count
+    copy var:sys_fs_desc_start to REG_A
+    copy var:sys_fs_desc_max_count to REG_B
+    write OP_ADD to REG_OP
+    cpu_exec
+    copy REG_RES to var:sys_fs_close_temp
+
+    // cmp var:sys_fs_close_fd >= var:sys_fs_close_temp
+    copy var:sys_fs_close_temp to REG_A
+    copy var:sys_fs_close_fd to REG_B
+    write OP_CMP_LE to REG_OP
+    cpu_exec
+    jump_if label:sys_fs_close_error
+
+    write "" to REG_ERROR
+    write "0" to *var:sys_fs_close_fd
+    jump label:sys_jump_back
+
+label sys_fs_close_error
+    write "Incorrect file descriptor fo sys_fs_close" to REG_ERROR
+    jump label:sys_jump_back
+
+
+// Use the following commands to run sys_fs_create instructions properly:
+//          REG_A should contain path to new file
+//          REG_B should contain size of the file
+//          copy PROGRAM_COUNTER to var:sys_return
+//          jump label:sys_fs_create
+// RETURN REG_ERROR should contain error
+label sys_fs_create
+
+
+
+    jump label:sys_jump_back
+
+
+// Use the following commands to run sys_fs_read instructions properly:
+//          REG_A should contain file descriptor obtained from sys_fs_open
+//          copy PROGRAM_COUNTER to var:sys_return
+//          jump label:sys_fs_read
+label sys_fs_read
+
+
+
+    jump label:sys_jump_back
+
+
+// Use the following commands to run sys_fs_write instructions properly:
+//          REG_A should contain file descriptor obtained from sys_fs_open
+//          copy PROGRAM_COUNTER to var:sys_return
+//          jump label:sys_fs_write
+label sys_fs_write
+
+
+
+    jump label:sys_jump_back
+
+// Helper function to calculate absolute path from relative
+// Backup var:sys_return to some var before call if needed and then restore
+//          REG_A should contain path to adjust
+//          copy PROGRAM_COUNTER to var:sys_return
+//          jump label:sys_fs_write
+// RETURN 
+label sys_fs_helper_make_absolute
+
+
+    jump label:sys_jump_back
