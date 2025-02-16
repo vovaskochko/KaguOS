@@ -134,7 +134,7 @@ label kernel_file_info
     copy var:parsedArg1 to REG_A
     copy PROGRAM_COUNTER to var:sys_return
     jump label:sys_fs_open
-    jump_err label:kernel_end
+    jump_err label:kernel_start
 
     var file_desc
     copy REG_RES to var:file_desc
