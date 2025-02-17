@@ -138,7 +138,17 @@ label cat_command
     jump label:sys_fs_open
     jump_err label:kernel_start
     copy REG_RES to var:cat_command_file_desc
+
     copy var:cat_command_file_desc to REG_A
+    copy PROGRAM_COUNTER to var:sys_return
+    jump label:sys_fs_descriptor_info
+    write "File descriptor info(name disk fileHeaderBlock fileSize): " to DISPLAY_BUFFER
+    write COLOR_CYAN to DISPLAY_COLOR
+    write OP_DISPLAY to REG_OP
+    cpu_exec
+    copy REG_RES to DISPLAY_BUFFER
+    write OP_DISPLAY_LN to REG_OP
+    cpu_exec
 
     // Read it line by line:
     var cat_command_counter

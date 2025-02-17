@@ -3,6 +3,7 @@
 //===========================
 //      sys_fs_init
 //      sys_fs_open
+//      sys_fs_descriptor_info
 //      sys_fs_close
 //      sys_fs_create
 //      sys_fs_read
@@ -520,6 +521,37 @@ label sys_fs_open
         write "Fail to open file: No free descriptors" to REG_ERROR
         jump label:sys_stack_pop
 
+// Use the following commands to run sys_fs_descriptor_info instructions properly:
+//          REG_A should contain file descriptor obtained from sys_fs_open
+//          copy PROGRAM_COUNTER to var:sys_return
+//          jump label:sys_fs_descriptor_info
+// RESULT:
+//          REG_RES contains info stored in descriptor e.g. absolutePath diskName fileHeaderBlockNo fileSize
+//          REG_ERROR will be set in case of error
+label sys_fs_descriptor_info
+    copy PROGRAM_COUNTER to var:sys_stack_return
+    jump label:sys_stack_push
+
+    // Check that descriptor is valid e.g. REG_A < var:sys_fs_desc_max_count
+    copy var:sys_fs_desc_max_count to REG_B
+    write OP_CMP_LT to REG_OP
+    cpu_exec
+    jump_if_not label:sys_fs_descriptor_info_error
+
+    // Find the memory with a descriptor e.g. REG_A + var:sys_fs_desc_start
+    copy var:sys_fs_desc_start to REG_B
+    write OP_ADD to REG_OP
+    cpu_exec
+
+    copy *REG_RES to REG_RES
+    write "" to REG_ERROR
+    jump label:sys_stack_pop
+
+    label sys_fs_descriptor_info_error
+        write "Incorrect file descriptor for sys_fs_descriptor_info" to REG_ERROR
+        jump label:sys_stack_pop
+
+
 
 // Use the following commands to run sys_fs_close instructions properly:
 //          REG_A should contain file descriptor obtained from sys_fs_open
@@ -530,19 +562,14 @@ label sys_fs_close
     copy PROGRAM_COUNTER to var:sys_stack_return
     jump label:sys_stack_push
 
-    var sys_fs_close_fd
-    copy REG_A to var:sys_fs_close_fd
-
-    // Check that descriptor is valid var:sys_fs_close_fd < var:sys_fs_desc_max_count
-    copy var:sys_fs_close_fd to REG_A
+    // Check that descriptor is valid e.g. REG_A < var:sys_fs_desc_max_count
     copy var:sys_fs_desc_max_count to REG_B
     write OP_CMP_LT to REG_OP
     cpu_exec
     jump_if_not label:sys_fs_close_error
 
-    // Find the memory with a descriptor e.g. var:sys_fs_desc_start + var:sys_fs_close_fd
-    copy var:sys_fs_desc_start to REG_A
-    copy var:sys_fs_close_fd to REG_B
+    // Find the memory with a descriptor e.g. REG_A + var:sys_fs_desc_start
+    copy var:sys_fs_desc_start to REG_B
     write OP_ADD to REG_OP
     cpu_exec
     write "0" to *REG_RES
@@ -550,9 +577,9 @@ label sys_fs_close
     write "" to REG_ERROR
     jump label:sys_stack_pop
 
-label sys_fs_close_error
-    write "Incorrect file descriptor fo sys_fs_close" to REG_ERROR
-    jump label:sys_stack_pop
+    label sys_fs_close_error
+        write "Incorrect file descriptor for sys_fs_close" to REG_ERROR
+        jump label:sys_stack_pop
 
 
 // Use the following commands to run sys_fs_read instructions properly:
