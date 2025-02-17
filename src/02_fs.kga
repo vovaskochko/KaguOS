@@ -9,7 +9,7 @@
 //      sys_fs_write
 //===========================
 // IMPORTANT: we are using file descriptors of the following format:
-//  filename nameOfTheDisk headerBlockNo CURSOR ind CURSOR_BLOCK cursorBlockNo LAST_CHECKED_COLUMN colNo
+//  filename nameOfTheDisk headerBlockNo filesize
 // NOTE: all that functionality is implemented as labels.
 // As a result state of registers is not backuped and can be changed during execution of relevant functionality.
 // You must specify address of the call by copying of PROGRAM_COUNTER to var:sys_return, e.g
@@ -382,6 +382,8 @@ label sys_fs_open
     cpu_exec
     jump_if_not label:sys_fs_open_error
 
+    var sys_fs_open_header_content
+
     // Read block by block from the file system header to find the file header with the relative name we are looking for.
     label sys_fs_open_find_file_header_loop
         // Increment counter as for the first iteration we are not interested in the FS header line
@@ -403,9 +405,10 @@ label sys_fs_open
         write OP_READ_BLOCK to REG_OP
         cpu_exec
         jump_err label:sys_fs_open_error
+        copy REG_RES to var:sys_fs_open_header_content
 
         // Skip empty file headers.
-        copy REG_RES to REG_A
+        copy var:sys_fs_open_header_content to REG_A
         write "" to REG_B
         write OP_CMP_EQ to REG_OP
         cpu_exec
@@ -434,7 +437,14 @@ label sys_fs_open
 
     label sys_fs_open_find_file_success
         // Let's prepare a file descriptor
-        // It contains absolute filepath, disk name, block on the disk with file header info
+        // It contains absolute filepath, disk name, block on the disk with file header info and file size
+
+        var sys_fs_open_file_size
+        copy var:sys_fs_open_header_content to REG_A
+        copy PROGRAM_COUNTER to var:sys_return
+        jump label:sys_fs_helper_calc_size
+        copy REG_RES to var:sys_fs_open_file_size
+        jump_err label:sys_fs_open_error
 
         // Concat file name and disk name with space
         copy var:sys_fs_open_path to REG_A
@@ -448,9 +458,9 @@ label sys_fs_open
         copy var:sys_fs_open_counter to REG_B
         cpu_exec
 
-        // Append other values to set cursor at the start of the file with default values:
+        // Append file size:
         copy REG_RES to REG_A
-        write "CURSOR 0 CURSOR_BLOCK 0 LAST_CHECKED_COLUMN 8" to REG_B
+        copy var:sys_fs_open_file_size to REG_B
         cpu_exec
 
         var sys_fs_open_fd
@@ -488,8 +498,14 @@ label sys_fs_open
             jump label:sys_fs_open_find_fd_memory
 
     label sys_fs_open_success
+        // Save descriptor content to the memory
         copy var:sys_fs_open_fd to *var:sys_fs_open_ptr
-        copy var:sys_fs_open_ptr to REG_RES
+
+        // Calculate descriptor as offset from the descriptors memory start
+        copy var:sys_fs_open_ptr to REG_A
+        copy var:sys_fs_desc_start to REG_B
+        write OP_SUB to REG_OP
+        cpu_exec
         write "" to REG_ERROR
         jump label:sys_stack_pop
 
@@ -515,32 +531,23 @@ label sys_fs_close
     jump label:sys_stack_push
 
     var sys_fs_close_fd
-    var sys_fs_close_temp
     copy REG_A to var:sys_fs_close_fd
 
-    // cmp var:sys_fs_close_fd < var:sys_fs_desc_start
+    // Check that descriptor is valid var:sys_fs_close_fd < var:sys_fs_desc_max_count
     copy var:sys_fs_close_fd to REG_A
-    copy var:sys_fs_desc_start to REG_B
+    copy var:sys_fs_desc_max_count to REG_B
     write OP_CMP_LT to REG_OP
     cpu_exec
-    jump_if label:sys_fs_close_error
+    jump_if_not label:sys_fs_close_error
 
-    // var:sys_fs_close_temp = var:sys_fs_desc_start + var:sys_fs_desc_max_count
+    // Find the memory with a descriptor e.g. var:sys_fs_desc_start + var:sys_fs_close_fd
     copy var:sys_fs_desc_start to REG_A
-    copy var:sys_fs_desc_max_count to REG_B
+    copy var:sys_fs_close_fd to REG_B
     write OP_ADD to REG_OP
     cpu_exec
-    copy REG_RES to var:sys_fs_close_temp
-
-    // cmp var:sys_fs_close_fd >= var:sys_fs_close_temp
-    copy var:sys_fs_close_temp to REG_A
-    copy var:sys_fs_close_fd to REG_B
-    write OP_CMP_LE to REG_OP
-    cpu_exec
-    jump_if label:sys_fs_close_error
+    write "0" to *REG_RES
 
     write "" to REG_ERROR
-    write "0" to *var:sys_fs_close_fd
     jump label:sys_stack_pop
 
 label sys_fs_close_error
@@ -553,7 +560,8 @@ label sys_fs_close_error
 //          REG_B should contain size of the file
 //          copy PROGRAM_COUNTER to var:sys_return
 //          jump label:sys_fs_create
-// RETURN REG_ERROR should contain error
+// RETURN:
+//      REG_ERROR contains error in case of file creation failure
 label sys_fs_create
     copy PROGRAM_COUNTER to var:sys_stack_return
     jump label:sys_stack_push
@@ -564,14 +572,97 @@ label sys_fs_create
 
 // Use the following commands to run sys_fs_read instructions properly:
 //          REG_A should contain file descriptor obtained from sys_fs_open
+//          REG_B block number inside the file
 //          copy PROGRAM_COUNTER to var:sys_return
 //          jump label:sys_fs_read
+// RETURN:
+//      REG_RES contains next block read from the file.
+//      REG_ERROR is empty if read was successful, EOF if no more lines to read, error otherwise.
 label sys_fs_read
     copy PROGRAM_COUNTER to var:sys_stack_return
     jump label:sys_stack_push
 
+    var sys_fs_read_line_to_read
+    copy REG_B to var:sys_fs_read_line_to_read
 
+    var sys_fs_read_descriptor
+    // check that file descriptor is valid and calculate it's address
+    //      REG_A < var:sys_fs_desc_max_count
+    copy var:sys_fs_desc_max_count to REG_B
+    write OP_CMP_LE to REG_OP
+    cpu_exec
+    jump_if_not label:sys_fs_read_error
+
+    copy var:sys_fs_desc_start to REG_B // descriptor address is REG_A + var:sys_fs_desc_start
+    write OP_ADD to REG_OP
+    cpu_exec
+    copy *REG_RES to var:sys_fs_read_descriptor
+
+    // File descriptor follows the format:
+    // filePath disk headerBlock size
+
+    // Get disk name from column 2
+    var sys_fs_read_disk
+    copy var:sys_fs_read_descriptor to REG_A
+    write 2 to REG_B
+    write " " to REG_C
+    write OP_GET_COLUMN to REG_OP
+    cpu_exec
+    copy REG_RES to var:sys_fs_read_disk
+
+    // Get block with file header from column 3
+    var sys_fs_read_headerBlock
+    copy var:sys_fs_read_descriptor to REG_A
+    write 3 to REG_B
+    write " " to REG_C
+    write OP_GET_COLUMN to REG_OP
+    cpu_exec
+    copy REG_RES to var:sys_fs_read_headerBlock
+
+    // Get file size from column 4
+    var sys_fs_read_size
+    copy var:sys_fs_read_descriptor to REG_A
+    write 4 to REG_B
+    write " " to REG_C
+    write OP_GET_COLUMN to REG_OP
+    cpu_exec
+    copy REG_RES to var:sys_fs_read_size
+
+    // If line number is incorrect e.g. var:sys_fs_read_line_to_read > var:sys_fs_read_size
+    // then we should report error
+    copy var:sys_fs_read_size to REG_A
+    copy var:sys_fs_read_line_to_read to REG_B
+    write OP_CMP_LT to REG_OP
+    cpu_exec
+    jump_if label:sys_fs_read_error
+
+    // Let's find block to read next
+    // Read header
+    copy var:sys_fs_read_disk to REG_A
+    copy var:sys_fs_read_headerBlock to REG_B
+    write OP_READ_BLOCK to REG_OP
+    cpu_exec
+    jump_err label:sys_fs_read_error
+    copy REG_RES to REG_A
+    copy var:sys_fs_read_line_to_read to REG_B
+    // call helper function
+    copy PROGRAM_COUNTER to var:sys_return
+    jump label:sys_fs_helper_file_line_to_block
+    jump_err label:sys_fs_read_error
+
+    // read corresponding block on the disk:
+    copy var:sys_fs_read_disk to REG_A
+    copy REG_RES to REG_B
+    write OP_READ_BLOCK to REG_OP
+    cpu_exec
+    jump_err label:sys_fs_read_error
+    write "" to REG_ERROR
     jump label:sys_stack_pop
+
+    label sys_fs_read_error
+        write "" to REG_RES
+        write "Failed to read data from the file" to REG_ERROR
+        jump label:sys_stack_pop
 
 
 // Use the following commands to run sys_fs_write instructions properly:
@@ -681,3 +772,209 @@ label sys_fs_helper_find_mount_point
         write "" to REG_A
         write "No mount point found for the file path" to REG_ERROR
         jump label:sys_stack_pop
+
+// Helper function to find size of the file:
+//          REG_A should contain file header value
+//          copy PROGRAM_COUNTER to var:sys_return
+//          jump label:sys_fs_helper_calc_size
+// RETURN:
+//      REG_RES contains file size
+//      REG_ERROR contains error if any
+label sys_fs_helper_calc_size
+    copy PROGRAM_COUNTER to var:sys_stack_return
+    jump label:sys_stack_push
+
+    var sys_fs_helper_calc_size_header
+    copy REG_A to var:sys_fs_helper_calc_size_header
+
+    // File header is expected to be of the following format:
+    // 1.txt 7 7 7 user user BLOCKS 30 32 40 42
+    var sys_fs_helper_calc_size_result
+    write 0 to var:sys_fs_helper_calc_size_result
+
+    var sys_fs_helper_calc_size_column
+    write 8 to var:sys_fs_helper_calc_size_column
+
+    var sys_fs_helper_calc_size_start
+    var sys_fs_helper_calc_size_end
+
+    label sys_fs_helper_calc_size_loop
+        // Get start of the interval and check it
+        copy var:sys_fs_helper_calc_size_header to REG_A
+        copy var:sys_fs_helper_calc_size_column to REG_B
+        write " " to REG_C
+        write OP_GET_COLUMN to REG_OP
+        cpu_exec
+        copy REG_RES to var:sys_fs_helper_calc_size_start
+        // If empty then we already calculated all the intervals
+        copy var:sys_fs_helper_calc_size_start to REG_A
+        write "" to REG_B
+        write OP_CMP_EQ to REG_OP
+        cpu_exec
+        jump_if label:sys_fs_helper_calc_size_success
+        // We should report error if not a number
+        copy var:sys_fs_helper_calc_size_start to REG_A
+        write OP_IS_NUM to REG_OP
+        cpu_exec
+        jump_if_not label:sys_fs_helper_calc_size_error
+
+        // Get end of the interval and check it
+        copy var:sys_fs_helper_calc_size_column to REG_A
+        write OP_INCR to REG_OP
+        cpu_exec
+        copy REG_RES to var:sys_fs_helper_calc_size_column
+        copy var:sys_fs_helper_calc_size_header to REG_A
+        copy var:sys_fs_helper_calc_size_column to REG_B
+        write " " to REG_C
+        write OP_GET_COLUMN to REG_OP
+        cpu_exec
+        copy REG_RES to var:sys_fs_helper_calc_size_end
+
+        copy var:sys_fs_helper_calc_size_end to REG_A
+        write OP_IS_NUM to REG_OP
+        cpu_exec
+        jump_if_not label:sys_fs_helper_calc_size_error
+
+        // calculate count of lines in the interval:
+        // var:sys_fs_helper_calc_size_end - var:sys_fs_helper_calc_size_start + 1
+        copy var:sys_fs_helper_calc_size_end to REG_A
+        copy var:sys_fs_helper_calc_size_start to REG_B
+        write OP_SUB to REG_OP
+        cpu_exec
+        copy REG_RES to REG_A
+        write OP_INCR to REG_OP
+        cpu_exec
+        // add interval size to result size
+        copy var:sys_fs_helper_calc_size_result to REG_A
+        copy REG_RES to REG_B
+        write OP_ADD to REG_OP
+        cpu_exec
+        copy REG_RES to var:sys_fs_helper_calc_size_result
+
+        // ++ var:sys_fs_helper_calc_size_column
+        copy var:sys_fs_helper_calc_size_column to REG_A
+        write OP_INCR to REG_OP
+        cpu_exec
+        copy REG_RES to var:sys_fs_helper_calc_size_column
+
+        jump label:sys_fs_helper_calc_size_loop
+
+    label sys_fs_helper_calc_size_error
+        write 0 to REG_RES
+        write "Error calculating the size" to REG_ERROR
+        jump label:sys_stack_pop
+
+    label sys_fs_helper_calc_size_success
+        copy var:sys_fs_helper_calc_size_result to REG_RES
+        write "" to REG_ERROR
+        jump label:sys_stack_pop
+
+
+
+// Helper function to find block on disk based on line number in the file
+//      REG_A file header value
+//      REG_B line in file to find
+//      copy PROGRAM_COUNTER to var:sys_return
+//      jump label:sys_fs_helper_file_line_to_block
+// RETURN:
+//      REG_RES contains block number
+//      REG_ERROR contains error if any
+label sys_fs_helper_file_line_to_block
+    copy PROGRAM_COUNTER to var:sys_stack_return
+    jump label:sys_stack_push
+
+    var sys_fs_helper_ltb_header
+    copy REG_A to var:sys_fs_helper_ltb_header
+    var sys_fs_helper_ltb_index
+    copy REG_B to var:sys_fs_helper_ltb_index
+
+    // File header is expected to be of the following format:
+    // 1.txt 7 7 7 user user BLOCKS 30 32 40 42
+    var sys_fs_helper_ltb_column
+    write 8 to var:sys_fs_helper_ltb_column
+
+    var sys_fs_helper_ltb_start
+    var sys_fs_helper_ltb_end
+    var sys_fs_helper_ltb_interval_size
+
+    label sys_fs_helper_ltb_loop
+        // get_column var:sys_fs_helper_ltb_header var:sys_fs_helper_ltb_column
+        copy var:sys_fs_helper_ltb_header to REG_A
+        copy var:sys_fs_helper_ltb_column to REG_B
+        write " " to REG_C
+        write OP_GET_COLUMN to REG_OP
+        cpu_exec
+        copy REG_RES to var:sys_fs_helper_ltb_start
+
+        copy var:sys_fs_helper_ltb_start to REG_A
+        write OP_IS_NUM to REG_OP
+        cpu_exec
+        jump_if_not label:sys_fs_helper_ltb_error
+
+        // get_column var:sys_fs_helper_ltb_header ++var:sys_fs_helper_ltb_column
+        copy var:sys_fs_helper_ltb_column to REG_A
+        write OP_INCR to REG_OP
+        cpu_exec
+        copy REG_RES to var:sys_fs_helper_ltb_column
+        copy var:sys_fs_helper_ltb_header to REG_A
+        copy var:sys_fs_helper_ltb_column to REG_B
+        write " " to REG_C
+        write OP_GET_COLUMN to REG_OP
+        cpu_exec
+        copy REG_RES to var:sys_fs_helper_ltb_end
+
+        copy var:sys_fs_helper_ltb_end to REG_A
+        write OP_IS_NUM to REG_OP
+        cpu_exec
+        jump_if_not label:sys_fs_helper_ltb_error
+
+        // calculate count of lines in the interval:
+        // var:sys_fs_helper_ltb_end - var:sys_fs_helper_ltb_start + 1
+        copy var:sys_fs_helper_ltb_end to REG_A
+        copy var:sys_fs_helper_ltb_start to REG_B
+        write OP_SUB to REG_OP
+        cpu_exec
+        copy REG_RES to REG_A
+        write OP_INCR to REG_OP
+        cpu_exec
+        copy REG_RES to var:sys_fs_helper_ltb_interval_size
+
+        copy var:sys_fs_helper_ltb_index to REG_A
+        copy var:sys_fs_helper_ltb_interval_size to REG_B
+        write OP_CMP_LE to REG_OP
+        cpu_exec
+        jump_if label:sys_fs_helper_ltb_success
+
+        // ++ var:sys_fs_helper_ltb_column
+        copy var:sys_fs_helper_ltb_column to REG_A
+        write OP_INCR to REG_OP
+        cpu_exec
+        copy REG_RES to var:sys_fs_helper_ltb_column
+
+        // var:sys_fs_helper_ltb_index -= var:sys_fs_helper_ltb_interval_size
+        copy var:sys_fs_helper_ltb_index to REG_A
+        copy var:sys_fs_helper_ltb_interval_size to REG_B
+        write OP_SUB to REG_OP
+        cpu_exec
+        copy REG_RES to var:sys_fs_helper_ltb_index
+
+        jump label:sys_fs_helper_ltb_loop
+
+    label sys_fs_helper_ltb_success
+        // REG_RES = var:sys_fs_helper_ltb_start + var:sys_fs_helper_ltb_index - 1
+        copy var:sys_fs_helper_ltb_start to REG_A
+        copy var:sys_fs_helper_ltb_index to REG_B
+        write OP_ADD to REG_OP
+        cpu_exec
+        copy REG_RES to REG_A
+        write OP_DECR to REG_OP
+        cpu_exec
+
+        write "" to REG_ERROR
+        jump label:sys_stack_pop
+
+    label sys_fs_helper_ltb_error
+        write 0 to REG_RES
+        write "Error during conversion from line to block" to REG_ERROR
+        jump label:sys_stack_pop
+
