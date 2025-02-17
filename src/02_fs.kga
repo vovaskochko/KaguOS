@@ -555,21 +555,6 @@ label sys_fs_close_error
     jump label:sys_stack_pop
 
 
-// Use the following commands to run sys_fs_create instructions properly:
-//          REG_A should contain path to new file
-//          REG_B should contain size of the file
-//          copy PROGRAM_COUNTER to var:sys_return
-//          jump label:sys_fs_create
-// RETURN:
-//      REG_ERROR contains error in case of file creation failure
-label sys_fs_create
-    copy PROGRAM_COUNTER to var:sys_stack_return
-    jump label:sys_stack_push
-
-
-    jump label:sys_stack_pop
-
-
 // Use the following commands to run sys_fs_read instructions properly:
 //          REG_A should contain file descriptor obtained from sys_fs_open
 //          REG_B block number inside the file
@@ -589,7 +574,7 @@ label sys_fs_read
     // check that file descriptor is valid and calculate it's address
     //      REG_A < var:sys_fs_desc_max_count
     copy var:sys_fs_desc_max_count to REG_B
-    write OP_CMP_LE to REG_OP
+    write OP_CMP_LT to REG_OP
     cpu_exec
     jump_if_not label:sys_fs_read_error
 
@@ -666,12 +651,99 @@ label sys_fs_read
 
 
 // Use the following commands to run sys_fs_write instructions properly:
-//          REG_A should contain file descriptor obtained from sys_fs_open
+//          REG_A - file descriptor obtained from sys_fs_open
+//          REG_B - line number to be overwritten
+//          REG_C - new value for the line
 //          copy PROGRAM_COUNTER to var:sys_return
 //          jump label:sys_fs_write
 label sys_fs_write
     copy PROGRAM_COUNTER to var:sys_stack_return
     jump label:sys_stack_push
+
+    var sys_fs_write_line_to_write
+    copy REG_B to var:sys_fs_write_line_to_write
+
+    var sys_fs_write_value_to_write
+    copy REG_C to var:sys_fs_write_value_to_write
+
+    var sys_fs_write_descriptor
+    // check that file descriptor is valid and calculate its address
+    //      REG_A < var:sys_fs_desc_max_count
+    copy var:sys_fs_desc_max_count to REG_B
+    write OP_CMP_LT to REG_OP
+    cpu_exec
+    jump_if_not label:sys_fs_write_error
+    copy var:sys_fs_desc_start to REG_B // descriptor address is REG_A + var:sys_fs_desc_start
+    write OP_ADD to REG_OP
+    cpu_exec
+    copy *REG_RES to var:sys_fs_write_descriptor
+
+    // File descriptor follows the format:
+    // filePath disk headerBlock size
+
+    // Get disk name from column 2
+    var sys_fs_write_disk
+    copy var:sys_fs_write_descriptor to REG_A
+    write 2 to REG_B
+    write " " to REG_C
+    write OP_GET_COLUMN to REG_OP
+    cpu_exec
+    copy REG_RES to var:sys_fs_write_disk
+
+    // Get block with file header from column 3
+    var sys_fs_write_headerBlock
+    copy var:sys_fs_write_descriptor to REG_A
+    write 3 to REG_B
+    write " " to REG_C
+    write OP_GET_COLUMN to REG_OP
+    cpu_exec
+    copy REG_RES to var:sys_fs_write_headerBlock
+
+    // Get file size from column 4
+    var sys_fs_write_size
+    copy var:sys_fs_write_descriptor to REG_A
+    write 4 to REG_B
+    write " " to REG_C
+    write OP_GET_COLUMN to REG_OP
+    cpu_exec
+    copy REG_RES to var:sys_fs_write_size
+
+    // If line number is incorrect e.g. var:sys_fs_write_line_to_write > var:sys_fs_write_size
+    // then we should report an error
+    copy var:sys_fs_write_size to REG_A
+    copy var:sys_fs_write_line_to_write to REG_B
+    write OP_CMP_LT to REG_OP
+    cpu_exec
+    jump_if label:sys_fs_write_error
+
+    // Let's find block to write next
+    // Read header
+    copy var:sys_fs_write_disk to REG_A
+    copy var:sys_fs_write_headerBlock to REG_B
+    write OP_READ_BLOCK to REG_OP
+    cpu_exec
+    jump_err label:sys_fs_write_error
+    copy REG_RES to REG_A
+    copy var:sys_fs_write_line_to_write to REG_B
+    // call helper function
+    copy PROGRAM_COUNTER to var:sys_return
+    jump label:sys_fs_helper_file_line_to_block
+    jump_err label:sys_fs_write_error
+
+    // write corresponding block on the disk:
+    copy var:sys_fs_write_disk to REG_A
+    copy REG_RES to REG_B
+    copy var:sys_fs_write_value_to_write to REG_C
+    write OP_WRITE_BLOCK to REG_OP
+    cpu_exec
+    jump_err label:sys_fs_write_error
+    write "" to REG_ERROR
+    jump label:sys_stack_pop
+
+    label sys_fs_write_error
+        write "" to REG_RES
+        write "Failed to write data to the file" to REG_ERROR
+        jump label:sys_stack_pop
 
 
     jump label:sys_stack_pop
@@ -978,3 +1050,18 @@ label sys_fs_helper_file_line_to_block
         write "Error during conversion from line to block" to REG_ERROR
         jump label:sys_stack_pop
 
+
+
+// Use the following commands to run sys_fs_create instructions properly:
+//          REG_A should contain path to new file
+//          REG_B should contain size of the file
+//          copy PROGRAM_COUNTER to var:sys_return
+//          jump label:sys_fs_create
+// RETURN:
+//      REG_ERROR contains error in case of file creation failure
+label sys_fs_create
+    copy PROGRAM_COUNTER to var:sys_stack_return
+    jump label:sys_stack_push
+
+
+    jump label:sys_stack_pop
