@@ -44,7 +44,6 @@ label prety_print
     jump label:sys_stack_push
 
     // some extra symbols to pretify the output
-    copy REG_A to REG_B
     write "~~~~~~~~" to REG_B
     write " " to REG_C
     write OP_CONCAT_WITH to REG_OP // we expect "some_string ~~~~~~~~"

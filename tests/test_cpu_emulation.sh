@@ -1,12 +1,19 @@
 #!/usr/bin/env bash
 
 BASE_DIR="$(dirname "$0")"
-if [ ! -f "${BASE_DIR}"/../asm.sh ]; then
-    echo "asm.sh does not exist."
+ASM=$(realpath "${BASE_DIR}/../asm.sh")
+BOOTLOADER=$(realpath "${BASE_DIR}/../bootloader.sh")
+
+if [ ! -f "${ASM}" ]; then
+    echo "${ASM} does not exist."
+    exit 1
+fi
+if [ ! -f "${BOOTLOADER}" ]; then
+    echo "${BOOTLOADER} does not exist."
     exit 1
 fi
 
 for FILE in $(ls "${BASE_DIR}"/cpu/*.kga); do
     echo "Testing $FILE"
-    (DEBUG_INFO=0 "${BASE_DIR}"/../asm.sh tests/kagu_test.kga $FILE && ./bootloader.sh build/kernel.disk) | grep "Total tests\|Successful tests\|Failed tests"
+    (DEBUG_INFO=0 "${ASM}" tests/kagu_test.kga $FILE && "${BOOTLOADER}" build/kernel.disk) | grep "Total tests\|Successful tests\|Failed tests"
 done

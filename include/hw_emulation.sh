@@ -58,17 +58,6 @@ function copy_from_to_address {
     fi
 }
 
-# Copy value from one address to another in RAM
-# INPUT: source address, destination address, number of lines to copy
-function copy_from_to_n_address {
-    local SOURCE_ADDRESS="$1"
-    local DESTINATION_ADDRESS="$2"
-    local NUMBER_OF_LINES="$3"
-    for (( i = 0; i < $NUMBER_OF_LINES; i++ )); do
-        write_to_address $(($DESTINATION_ADDRESS + i)) "$(read_from_address $(($SOURCE_ADDRESS + i)))"
-    done
-}
-
 function get_background_color {
     case $1 in
         g|${COLOR_GREEN})       echo "\\e[42m";;
@@ -304,6 +293,14 @@ function cpu_exec {
             RES_STR="$(echo "$RES_STR" | sed -e 's,m,\\e[45m ,g' -e 's,g,\\e[42m ,g' -e 's,y,\\e[43m ,g' -e 's,r,\\e[41m ,g' -e 's,B,\\e[40m ,g' -e 's,b,\\e[44m ,g' -e 's,c,\\e[46m ,g' -e 's,w,\\e[47m ,g')$BG_COLOR"
             clear
             echo -e "$RES_STR"
+            ;;
+        ${OP_ENCRYPT_DATA})
+            local ENCRYPTED_DATA="${REG_A_VAL}"
+            write_to_address $REG_RES "${ENCRYPTED_DATA}"
+            ;;
+        ${OP_DECRYPT_DATA})
+            local DECRYPTED_DATA="${REG_A_VAL}"
+            write_to_address $REG_RES "${DECRYPTED_DATA}"
             ;;
         ${OP_NOP})
             sleep ${REG_A_VAL}

@@ -168,7 +168,17 @@ export OP_SET_BACKGROUND_COLOR=23
 # For example string ggyyrr will display a line with 2 green cells, 2 yellow cells and 2 red cells
 export OP_RENDER_BITMAP=24
 
-# OP codes from 25 to 28 are reserved for future use.
+# OP codes from 25 to 26 are reserved for future use.
+
+# To encrypt the data place it to REG_A, write OP_ENCRYPT_DATA to REG_OP.
+# Call INSTR_CPU_EXEC to encrypt the data.
+# The encrypted data will be stored in REG_RES.
+export OP_ENCRYPT_DATA=27
+
+# To decrypt the data place it to REG_A, write OP_DECRYPT_DATA to REG_OP.
+# Call INSTR_CPU_EXEC to decrypt the data.
+# The decrypted data will be stored in REG_RES.
+export OP_DECRYPT_DATA=28
 
 # To perform no operation with sleep, set REG_OP to OP_NOP, sleep delay in seconds to REG_A and call INSTR_CPU_EXEC.
 # This will have no effect and is useful for delays or placeholders.
