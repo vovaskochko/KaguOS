@@ -11,7 +11,7 @@ FS_HEADER kagu_fs FIRST_USABLE_BLOCK 30 LAST_USABLE_BLOCK 200
 1.txt 7 7 7 user user BLOCKS 30 32 40 42
 2.txt 7 7 7 user user BLOCKS 33 39 43 45
 otherDir/3.txt 6 4 4 user user BLOCKS 46 50
-dir/1.txt 7 4 0  user user BLOCKS 51 60
+dir/1.txt 7 4 0 user user BLOCKS 51 60
 
 
 
