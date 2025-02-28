@@ -64,6 +64,29 @@ For educational purpose KaguOS has simplified computation scheme to make debug a
 
 8. Kernel should be run with `bootloader.sh` script. You can use debug options like -j -s and also special instructions `DEBUG_ON` or `DEBUG_OFF` to enable or disable debug functionality and dumping of RAM into `tmp/RAM.txt` file.
 
+## C++ hardware emulation
+Alternative version of hardware emulation is written as a C++ source file `bootloader.cpp`.
+
+### Compilation
+For **MacOS and Linux**, compile it using:
+```sh
+clang++ bootloader.cpp -o bootloader
+```
+or
+```sh
+g++ bootloader.cpp -o bootloader
+```
+
+### Running the Bootloader
+To execute the bootloader, use:
+```sh
+./bootloader build/kernel.disk 1500
+```
+where `1500` is the size of RAM you want to allocate.
+
+After compilation you can run unit tests for cpu emulation with command
+`CPP_BOOTLOADER=1 tests/test_cpu_emulation.sh`
+
 # How to work with KaguOS
 The simplest way to run KaguOS is to use command `./bootloader <path to kernel disk>`
 The kernel disk itself contains a list of lines with machine codes and some constant data that may be required to run that instructions.

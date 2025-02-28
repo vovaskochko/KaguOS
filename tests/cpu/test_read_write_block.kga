@@ -1,0 +1,154 @@
+label startTest
+
+    var testDisk
+    write "../tests/hw/test.disk" to var:testDisk
+
+    var testLine
+    write 0 to var:testLine
+
+label write_read_data_loop
+// Test case 1: check that writing to a valid block returns no error:
+    write "Write block to a valid block no error" to var:testName
+    copy var:testDisk to REG_A
+    write 2 to REG_B
+    copy var:testLine to REG_C
+    write OP_WRITE_BLOCK to REG_OP
+    cpu_exec
+
+    copy REG_ERROR to var:actual
+    write "" to var:expected  // Expecting no error
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 2: check that string written in test case 1 can be read
+    write "Read block after write returns proper string" to var:testName
+    copy var:testDisk to REG_A
+    write 2 to REG_B
+    write OP_READ_BLOCK to REG_OP
+    cpu_exec
+
+    copy REG_RES to var:actual
+    copy var:testLine to var:expected
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+    copy var:testLine to REG_A
+    write OP_INCR to REG_OP
+    cpu_exec
+    copy REG_RES to var:testLine
+
+    copy var:testLine to REG_A
+    write 5 to REG_B
+    write OP_CMP_LE to REG_OP
+    cpu_exec
+    jump_if label:write_read_data_loop
+
+// Test case 3: read from the first block success:
+    write "Read from first block should be successful" to var:testName
+    copy var:testDisk to REG_A
+    write 1 to REG_B
+    write OP_READ_BLOCK to REG_OP
+    cpu_exec
+
+    copy REG_ERROR to var:actual
+    write "" to var:expected  // Expecting no error
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 4: write to the first block fail:
+    write "Write to first block should fail" to var:testName
+    copy var:testDisk to REG_A
+    write 1 to REG_B
+    write "InvalidData" to REG_C
+    write OP_WRITE_BLOCK to REG_OP
+    cpu_exec
+
+    write "" to REG_A
+    copy REG_ERROR to REG_B
+    write OP_CMP_NEQ to REG_OP
+    cpu_exec
+
+    copy REG_BOOL_RES to var:actual
+    write "1" to var:expected  // Expecting failure
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 5: read from out-of-range address 0 should return error:
+    write "Read from block 0 should return error" to var:testName
+    copy var:testDisk to REG_A
+    write 0 to REG_B
+    write OP_READ_BLOCK to REG_OP
+    cpu_exec
+
+    write "" to REG_A
+    copy REG_ERROR to REG_B
+    write OP_CMP_NEQ to REG_OP
+    cpu_exec
+
+    copy REG_BOOL_RES to var:actual
+    write "1" to var:expected  // Expecting failure
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 6: write to out-of-range address 0 should return error:
+    write "Write to block 0 should return error" to var:testName
+    copy var:testDisk to REG_A
+    write 0 to REG_B
+    write "InvalidData" to REG_C
+    write OP_WRITE_BLOCK to REG_OP
+    cpu_exec
+
+    write "" to REG_A
+    copy REG_ERROR to REG_B
+    write OP_CMP_NEQ to REG_OP
+    cpu_exec
+
+    copy REG_BOOL_RES to var:actual
+    write "1" to var:expected  // Expecting failure
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 7: read from out-of-range address 11 should return error:
+    write "Read from block 11 should return error" to var:testName
+    copy var:testDisk to REG_A
+    write 11 to REG_B
+    write OP_READ_BLOCK to REG_OP
+    cpu_exec
+
+    write "" to REG_A
+    copy REG_ERROR to REG_B
+    write OP_CMP_NEQ to REG_OP
+    cpu_exec
+
+    copy REG_BOOL_RES to var:actual
+    write "1" to var:expected  // Expecting failure
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 8: write to out-of-range address 11 should return error:
+    write "Write to block 11 should return error" to var:testName
+    copy var:testDisk to REG_A
+    write 11 to REG_B
+    write "InvalidData" to REG_C
+    write OP_WRITE_BLOCK to REG_OP
+    cpu_exec
+
+    write "" to REG_A
+    copy REG_ERROR to REG_B
+    write OP_CMP_NEQ to REG_OP
+    cpu_exec
+
+    copy REG_BOOL_RES to var:actual
+    write "1" to var:expected  // Expecting failure
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Exit:
+jump label:exit

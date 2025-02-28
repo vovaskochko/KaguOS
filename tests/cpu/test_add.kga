@@ -38,15 +38,15 @@ label startTest
     copy PROGRAM_COUNTER to var:nextTestAddress
     jump label:check
 
-// Test case 4: check that "2.5 + 3.5 equals 6"
-    write "2.5 + 3.5 equals 6" to var:testName
+// Test case 4: check that "2.5 + 3.6 equals 6.1"
+    write "2.5 + 3.6 equals 6.1" to var:testName
     write "2.5" to REG_A
-    write "3.5" to REG_B
+    write "3.6" to REG_B
     write OP_ADD to REG_OP
     cpu_exec
 
     copy REG_RES to var:actual
-    write "6.0" to var:expected
+    write "6.1" to var:expected
 
     copy PROGRAM_COUNTER to var:nextTestAddress
     jump label:check

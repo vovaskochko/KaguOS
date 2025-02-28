@@ -2,8 +2,13 @@
 
 BASE_DIR="$(dirname "$0")"
 ASM=$(realpath "${BASE_DIR}/../asm.sh")
-BOOTLOADER=$(realpath "${BASE_DIR}/../bootloader.sh")
-FLAGS=""
+if [ "$CPP_BOOTLOADER" -eq 1 ]; then
+    BOOTLOADER=$(realpath "${BASE_DIR}/../bootloader")
+    FLAGS="500"
+else
+    BOOTLOADER=$(realpath "${BASE_DIR}/../bootloader.sh")
+    FLAGS=""
+fi
 
 if [ ! -f "${ASM}" ]; then
     echo "${ASM} does not exist."

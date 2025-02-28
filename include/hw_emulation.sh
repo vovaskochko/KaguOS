@@ -252,7 +252,7 @@ function cpu_exec {
                 local BLOCK_COUNT=$(sed -n 1'p' ${DISK_FILE})
                 if [[ ! "$BLOCK_COUNT" =~ ^[0-9]+$ ]]; then
                     write_to_address $REG_ERROR "Disk ${REG_A_VAL} is corrupted. First block should contain block count."
-                elif [ "$REG_B_VAL" -gt "$BLOCK_COUNT" ]; then
+                elif [ "$REG_B_VAL" -gt "$BLOCK_COUNT" ] || [ "$REG_B_VAL" -lt 1 ]; then
                     write_to_address $REG_ERROR "Block number ${REG_B_VAL} does not exist"
                 else
                     write_to_address $REG_RES "$(sed -n $REG_B_VAL'p' $DISK_FILE)"
@@ -268,8 +268,10 @@ function cpu_exec {
                 local BLOCK_COUNT=$(sed -n 1'p' ${DISK_FILE})
                 if [[ ! "$BLOCK_COUNT" =~ ^[0-9]+$ ]]; then
                     write_to_address $REG_ERROR "Disk ${REG_A_VAL} is corrupted. First block should contain block count."
-                elif [ "$REG_B_VAL" -gt "$BLOCK_COUNT" ]; then
+                elif [ "$REG_B_VAL" -gt "$BLOCK_COUNT" ] || [ "$REG_B_VAL" -lt 1 ]; then
                     write_to_address $REG_ERROR "Block number ${REG_B_VAL} does not exist"
+                elif [ "$REG_B_VAL" -eq 1 ]; then
+                    write_to_address $REG_ERROR "Block 1 is read-only"
                 else
                     if [[ "$OSTYPE" == "darwin"* ]]; then
                         sed -i '' "${REG_B_VAL}s|.*|$(printf '%s\n' "$REG_C_VAL" | sed 's/[&/\]/\\&/g')|" "${DISK_FILE}"

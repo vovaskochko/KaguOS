@@ -1,11 +1,14 @@
 #include <fstream>
 #include <iostream>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <vector>
 #include <unordered_map>
 #include <thread>
 #include <regex>
+#include <termios.h>
+#include <unistd.h>
 
 enum class cpu_instruction_t {
     cpu_exec = 0,
@@ -124,7 +127,7 @@ const std::unordered_map<std::string, std::string> background_color_map = {
 
 std::string get_background_color(const std::string& color) {
     auto it = background_color_map.find(color);
-    return (it != background_color_map.end()) ? it->second : "\033[0m";
+    return (it != background_color_map.end()) ? it->second : "\033[40m";
 }
 
 namespace keyboard_mode {
@@ -241,8 +244,6 @@ void dump_RAM_to_file() {
     for (auto it = RAM_data.begin() + 1; it != RAM_data.end(); it++) {
         file << *it << '\n';
     }
-
-    std::cout << "[INFO] RAM dumped to " << RAM_DUMP_FILE << std::endl;
 }
 
 std::optional<std::string> read_disk_block(const std::string& disk_name, int block_number) {
@@ -268,21 +269,27 @@ std::optional<std::string> read_disk_block(const std::string& disk_name, int blo
 }
 
 bool write_disk_block(const std::string& disk_name, int block_number, const std::string& data) {
+    std::cout << "Writing to disk hw/" << disk_name << " block " << block_number << " data:" << data << std::endl;
     std::vector<std::string> lines;
     std::ifstream file_in("hw/" + disk_name);
-    if (file_in) {
+    if (file_in.is_open()) {
         std::string line;
         while (std::getline(file_in, line)) {
             lines.push_back(line);
         }
+    } else {
+        return false;
     }
+    file_in.close();
+
     int block_count = std::stoi(lines[0]);
-    if (block_number < 1 || block_number >= block_count) {
+    // We cannot rewrite block 1 with disk size
+    if (block_number < 2 || block_number >= block_count) {
         return false;
     }
 
-    lines[block_number] = data;
-    std::ofstream file_out(disk_name);
+    lines[block_number - 1] = data;
+    std::ofstream file_out("hw/" + disk_name);
     for (const auto& l : lines) {
         file_out << l << "\n";
     }
@@ -294,7 +301,8 @@ void render_bitmap(int start, int end) {
         std::string bitmap_line = read_from_address(std::to_string(i));
         std::string bitmap_line_decoded;
         for (size_t j = 0; j < bitmap_line.length(); j += 1) {
-            bitmap_line_decoded += background_color_map.find(bitmap_line.substr(j, 1))->second + " ";
+            auto it = background_color_map.find(bitmap_line.substr(j, 1));
+            bitmap_line_decoded += (it != background_color_map.end() ? it->second : read_from_address(address_t::display_background)) + " ";
         }
         std::cout << bitmap_line_decoded << std::endl;
     }
@@ -314,6 +322,26 @@ std::string to_string_no_trailing_zeros(double value) {
     }
 
     return result;
+}
+
+char get_char_no_enter(bool echo = false) {
+    struct termios oldt, newt;
+    char ch = '\0';
+
+    tcgetattr(STDIN_FILENO, &oldt);
+    newt = oldt;
+    newt.c_lflag &= ~(ICANON);
+    if (!echo) {
+        newt.c_lflag &= ~ECHO;
+    }
+    tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+
+    read(STDIN_FILENO, &ch, 1);
+
+    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+
+    if (echo) std::cout << ch;
+    return ch;
 }
 
 void cpu_exec() {
@@ -450,8 +478,11 @@ void cpu_exec() {
             
             if (reg_c.empty()) {
                 // If no delimiter is provided, replace the reg_b-th character
-                if (column_index > 0 && column_index <= static_cast<int>(reg_a.length())) {
-                    result[column_index - 1] = reg_d[0];
+                if (column_index > 0) {
+                    // TODO test case: replace with empty string and empty delimiter
+                    result = result.substr(0, column_index - 1)
+                            + reg_d
+                            + ((column_index < static_cast<int>(reg_a.length())) ? result.substr(column_index) : "");
                 }
             } else {
                 // Tokenize by delimiter from reg_c
@@ -488,9 +519,7 @@ void cpu_exec() {
             if (reg_a == keyboard_mode::read_line || reg_a == keyboard_mode::read_line_silently) {
                 std::getline(std::cin, input);
             } else if (reg_a == keyboard_mode::read_char || reg_a == keyboard_mode::read_char_silently) {
-                char ch;
-                std::cin.get(ch);
-                input = std::string(1, ch);
+                input = std::string(1, get_char_no_enter(reg_a == keyboard_mode::read_char));
             } else {
                 std::getline(std::cin, input);
             }
@@ -517,7 +546,10 @@ void cpu_exec() {
             else if (color_code == display_color_t::no) start_color = "";
             
             std::cout << start_color << text_val << end_color;
-            if (reg_op == cpu_operation_t::display_ln) std::cout << std::endl;
+            if (reg_op == cpu_operation_t::display_ln) {
+                std::cout << std::endl;
+            }
+            std::cout << std::flush;
             break;
         }
         case cpu_operation_t::read_block:
@@ -531,7 +563,7 @@ void cpu_exec() {
             write_to_address(address_t::error, write_disk_block(reg_a, std::stoi(reg_b), reg_c) ? "" : "Error during block write");
             break;
         case cpu_operation_t::set_background_color:
-            std::cout << get_background_color(reg_a) << std::flush;
+            std::cout << get_background_color(read_from_address(address_t::display_background)) << std::flush;
             break;
         case cpu_operation_t::render_bitmap:
             std::cout << "\033[2J\033[H" << std::flush;
@@ -651,7 +683,7 @@ int main(int argc, char* argv[]) {
 
         if (debug_on) {
             dump_RAM_to_file();
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            // std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
     }
     return 0;

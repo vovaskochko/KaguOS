@@ -64,28 +64,28 @@ label startTest
     copy PROGRAM_COUNTER to var:nextTestAddress
     jump label:check
 
-// Test case 6: check that 2.5 * 4 is 10
-    write "2.5 * 4 is 10" to var:testName
+// Test case 6: check that 2.5 * 4.1 is 10.25
+    write "2.5 * 4.1 is 10.25" to var:testName
     write "2.5" to REG_A
-    write "4" to REG_B
+    write "4.1" to REG_B
     write OP_MUL to REG_OP
     cpu_exec
 
     copy REG_RES to var:actual
-    write "10.0" to var:expected
+    write "10.25" to var:expected
 
     copy PROGRAM_COUNTER to var:nextTestAddress
     jump label:check
 
-// Test case 7: check that -1.5 * 2 is -3
-    write "-1.5 * 2 is -3" to var:testName
-    write "-1.5" to REG_A
+// Test case 7: check that -1.6 * 2 is -3.2
+    write "-1.6 * 2 is -3.2" to var:testName
+    write "-1.6" to REG_A
     write "2" to REG_B
     write OP_MUL to REG_OP
     cpu_exec
 
     copy REG_RES to var:actual
-    write "-3.0" to var:expected
+    write "-3.2" to var:expected
 
     copy PROGRAM_COUNTER to var:nextTestAddress
     jump label:check
