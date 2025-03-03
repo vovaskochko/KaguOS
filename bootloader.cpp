@@ -10,6 +10,11 @@
 #include <termios.h>
 #include <unistd.h>
 
+namespace {
+    bool debug_on = true;
+    bool debug_print_jumps = false;
+    std::optional<std::chrono::milliseconds> debug_sleep_interval = std::nullopt;
+}
 enum class cpu_instruction_t {
     cpu_exec = 0,
     copy_from_to_address = 1,
@@ -595,8 +600,9 @@ void cpu_exec() {
 
 
 int main(int argc, char* argv[]) {
-    if (argc != 3 && argc != 4) {
-        std::cerr << "Usage: " << argv[0] << " <kernel_file_name> <ram_size>" << std::endl;
+    if (argc < 3 || argc > 5) {
+        std::cerr << "Usage: " << argv[0] << " <kernel_file_name> <ram_size> <options>" << std::endl;
+        std::cerr << "Options:\n -j print jump information\n -s=0.1 add delay 0.1 second between command execution" << std::endl;
         return 1;
     }
 
@@ -604,9 +610,22 @@ int main(int argc, char* argv[]) {
     std::string file_name = argv[1];
     int ram_size = std::stoi(argv[2]);
     RAM_data.resize(ram_size + 1, "0");
-    bool debug_on = false;
-    if (argc == 4 && std::string(argv[3]) == "-d") {
-        debug_on = true;
+    std::vector<std::string> args;
+    if (argc == 4) {
+        args.emplace_back(argv[3]);
+    } else if (argc == 5) {
+        args.emplace_back(argv[3]);
+        args.emplace_back(argv[4]);
+    }
+
+    for (auto cur_arg : args) {
+        if (cur_arg == "-j") {
+            debug_print_jumps = true;
+        }
+        if (cur_arg.substr(0, 3) == "-s=") {
+            std::string delay_str = cur_arg.substr(3);
+            debug_sleep_interval = std::chrono::milliseconds(static_cast<int>(1000 * std::stod(delay_str)));
+        }
     }
 
     // Let's load the kernel into RAM starting from register_t::kernel_start address
@@ -629,7 +648,7 @@ int main(int argc, char* argv[]) {
     // Main execution loop
     while (true) {
         jump_next();
-        if (debug_on) {
+        if (debug_on && debug_print_jumps) {
             jump_print_debug_info();
         }
 
@@ -639,9 +658,11 @@ int main(int argc, char* argv[]) {
         int instr_code;
         if (cur_instruction.substr(0, 8) == "DEBUG_ON") {
             debug_on = true;
+            std::cout << "DEBUG ON" << std::endl;
             continue;
         } else if (cur_instruction.substr(0, 9) == "DEBUG_OFF") {
             debug_on = false;
+            std::cout << "DEBUG OFF" << std::endl;
             continue;
         }
 
@@ -683,7 +704,9 @@ int main(int argc, char* argv[]) {
 
         if (debug_on) {
             dump_RAM_to_file();
-            // std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            if (debug_sleep_interval) {
+                std::this_thread::sleep_for(debug_sleep_interval.value());
+            }
         }
     }
     return 0;
