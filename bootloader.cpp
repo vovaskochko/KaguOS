@@ -274,7 +274,6 @@ std::optional<std::string> read_disk_block(const std::string& disk_name, int blo
 }
 
 bool write_disk_block(const std::string& disk_name, int block_number, const std::string& data) {
-    std::cout << "Writing to disk hw/" << disk_name << " block " << block_number << " data:" << data << std::endl;
     std::vector<std::string> lines;
     std::ifstream file_in("hw/" + disk_name);
     if (file_in.is_open()) {
