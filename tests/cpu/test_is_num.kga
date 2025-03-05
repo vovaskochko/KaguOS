@@ -155,5 +155,29 @@ label startTest
     copy PROGRAM_COUNTER to var:nextTestAddress
     jump label:check
 
+// Test case 14: check that "t20" is not a number
+    write "t20 is not a number" to var:testName
+    write "t20" to REG_A
+    write OP_IS_NUM to REG_OP
+    cpu_exec
+
+    copy REG_BOOL_RES to var:actual
+    write "0" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
+// Test case 15: check that "20a" is not a number
+    write "20a is not a number" to var:testName
+    write "20a" to REG_A
+    write OP_IS_NUM to REG_OP
+    cpu_exec
+
+    copy REG_BOOL_RES to var:actual
+    write "0" to var:expected
+
+    copy PROGRAM_COUNTER to var:nextTestAddress
+    jump label:check
+
 // Exit:
 jump label:exit
