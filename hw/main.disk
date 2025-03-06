@@ -1,17 +1,1009 @@
-1024
+2048
 START_PARTITION_TABLE
 PARTITION_ENTRIES 4
-NAME part1 START_BLOCK 10 END_BLOCK 200
-NAME part2 START_BLOCK 201 END_BLOCK 300
-NAME part3 START_BLOCK 401 END_BLOCK 700
-NAME part4 START_BLOCK 701 END_BLOCK 1024
+NAME part1 START_BLOCK 10 END_BLOCK 1000
+NAME part2 START_BLOCK 1001 END_BLOCK 1500
+NAME part3 START_BLOCK 1501 END_BLOCK 1800
+NAME part4 START_BLOCK 1801 END_BLOCK 2048
 END_PARTITION_TABLE
 
-FS_HEADER kagu_fs FIRST_USABLE_BLOCK 30 LAST_USABLE_BLOCK 200
-1.txt 7 7 7 user user BLOCKS 30 32 40 42
-2.txt 7 7 7 user user BLOCKS 33 39 43 45
-otherDir/3.txt 6 4 4 user user BLOCKS 46 50
-dir/1.txt 7 4 0 user user BLOCKS 51 60
+FS_HEADER kagu_fs FIRST_USABLE_BLOCK 31 LAST_USABLE_BLOCK 1000
+config.txt 4 4 0 user user BLOCKS 31 40
+cat 7 7 7 user user BLOCKS 41 100
+1.txt 4 4 4 user user BLOCKS 101 110
+mario 7 7 7 user user BLOCKS 111 261
+clear 7 7 7 user user BLOCKS 262 275
+debug 7 7 7 user user BLOCKS 276 320
+
+
+
+
+
+
+
+
+
+
+
+
+
+FS_HEADER_END
+proc_memory 250
+
+
+
+
+
+
+
+
+
+1 4 70         #  copy REG_A => var:input_file
+1 58 6         #  write "" => REG_B
+1 59 2         #  write OP_CMP_EQ => REG_OP
+0              #  cpu_exec
+4 54           #  jump_if lbl:exit_error
+1 70 4         #  copy var:input_file => REG_A
+1 60 10        #  write SYS_CALL_OPEN => REG_D
+1 61 2         #  write OP_SYS_CALL => REG_OP
+0              #  cpu_exec
+6 54           #  jump_err lbl:exit_error
+1 12 71        #  copy REG_RES => var:fd
+1 62 72        #  write "1" => var:counter
+1 71 4         #  copy var:fd => REG_A
+1 72 6         #  copy var:counter => REG_B
+1 63 10        #  write SYS_CALL_READ => REG_D
+1 61 2         #  write OP_SYS_CALL => REG_OP
+0              #  cpu_exec
+6 45           #  jump_err lbl:close
+1 12 4         #  copy REG_RES => REG_A
+1 64 6         #  write COLOR_NO => REG_B
+1 65 10        #  write SYS_CALL_PRINTLN => REG_D
+1 61 2         #  write OP_SYS_CALL => REG_OP
+0              #  cpu_exec
+1 72 4         #  copy var:counter => REG_A
+1 66 2         #  write OP_INCR => REG_OP
+0              #  cpu_exec
+1 12 72        #  copy REG_RES => var:counter
+3 29           #  jump lbl:loop
+1 71 4         #  copy var:fd => REG_A
+1 67 10        #  write SYS_CALL_CLOSE => REG_D
+1 61 2         #  write OP_SYS_CALL => REG_OP
+0              #  cpu_exec
+6 54           #  jump_err lbl:exit_error
+1 68 4         #  write "0" => REG_A
+1 69 10        #  write SYS_CALL_EXIT => REG_D
+1 61 2         #  write OP_SYS_CALL => REG_OP
+0              #  cpu_exec
+1 62 4         #  write "1" => REG_A
+1 69 10        #  write SYS_CALL_EXIT => REG_D
+1 61 2         #  write OP_SYS_CALL => REG_OP
+0              #  cpu_exec
+
+8
+4
+25
+1
+7
+0
+1
+2
+6
+0
+0
+
+
+
+
+
+
+
+Some line 1
+Line 2
+Another line
+Just for test
+Ok
+That's it
+Text
+Other Text
+One more Text
+The end
+1 4 166        #  copy REG_A => var:iterations
+1 126 4        #  write COLOR_CYAN => REG_A
+1 127 10       #  write SYS_CALL_SET_BACKGROUND => REG_D
+1 128 2        #  write OP_SYS_CALL => REG_OP
+0              #  cpu_exec
+1 129 170      #  write "cccccccccccccccccccccccccccc" => 170
+1 129 171      #  write "cccccccccccccccccccccccccccc" => 171
+1 129 172      #  write "cccccccccccccccccccccccccccc" => 172
+1 129 173      #  write "cccccccccccccccccccccccccccc" => 173
+1 130 174      #  write "cccccccccccrrrrrcccccccccccc" => 174
+1 131 175      #  write "ccccccccccrrrrrrrrrccccccccc" => 175
+1 132 176      #  write "ccccccccccbbbyybyccccccccccc" => 176
+1 133 177      #  write "cccccccccbybyyybyyyccccccccc" => 177
+1 134 178      #  write "cccccccccbybbyyybyyycccccccc" => 178
+1 135 179      #  write "cccccccccbbyyyybbbbccccccccc" => 179
+1 136 180      #  write "cccccccccccyyyyyyycccccccccc" => 180
+1 137 181      #  write "ccccccccccbbrbbbcccccccccccc" => 181
+1 138 182      #  write "cccccccccbbbrbbrbbbccccccccc" => 182
+1 139 183      #  write "ccccccccbbbbrrrrbbbbcccccccc" => 183
+1 140 184      #  write "ccccccccyybryrryrbyycccccccc" => 184
+1 141 185      #  write "ccccccccyyyrrrrrryyycccccccc" => 185
+1 142 186      #  write "ccccccccyyrrrrrrrryycccccccc" => 186
+1 143 187      #  write "ccccccccccrrrccrrrcccccccccc" => 187
+1 144 188      #  write "cccccccccbbbccccbbbccccccccc" => 188
+1 145 189      #  write "ccccccccbbbbccccbbbbcccccccc" => 189
+1 146 190      #  write "cwwwwwwwwwwwwwwwwwwwwwwwwwwc" => 190
+1 129 191      #  write "cccccccccccccccccccccccccccc" => 191
+1 129 192      #  write "cccccccccccccccccccccccccccc" => 192
+1 129 193      #  write "cccccccccccccccccccccccccccc" => 193
+1 129 194      #  write "cccccccccccccccccccccccccccc" => 194
+1 166 4        #  copy var:iterations => REG_A
+1 147 2        #  write OP_DECR => REG_OP
+0              #  cpu_exec
+1 12 166       #  copy REG_RES => var:iterations
+1 166 4        #  copy var:iterations => REG_A
+1 148 6        #  write "0" => REG_B
+1 149 2        #  write OP_CMP_EQ => REG_OP
+0              #  cpu_exec
+4 118          #  jump_if lbl:exit
+1 150 167      #  write "170" => var:counter
+1 167 4        #  copy var:counter => REG_A
+1 151 2        #  write OP_INCR => REG_OP
+0              #  cpu_exec
+1 12 167       #  copy REG_RES => var:counter
+1 167 4        #  copy var:counter => REG_A
+1 152 6        #  write "21" => REG_B
+1 153 2        #  write OP_ADD => REG_OP
+0              #  cpu_exec
+1 167 4        #  copy var:counter => REG_A
+1 12 6         #  copy REG_RES => REG_B
+1 154 10       #  write SYS_CALL_RENDER_BITMAP => REG_D
+1 128 2        #  write OP_SYS_CALL => REG_OP
+0              #  cpu_exec
+1 155 4        #  write "0.1" => REG_A
+1 156 10       #  write SYS_CALL_SLEEP => REG_D
+1 128 2        #  write OP_SYS_CALL => REG_OP
+0              #  cpu_exec
+1 167 4        #  copy var:counter => REG_A
+1 157 6        #  write "174" => REG_B
+1 158 2        #  write OP_CMP_NEQ => REG_OP
+0              #  cpu_exec
+4 57           #  jump_if lbl:loop_move_up
+1 167 4        #  copy var:counter => REG_A
+1 147 2        #  write OP_DECR => REG_OP
+0              #  cpu_exec
+1 12 167       #  copy REG_RES => var:counter
+1 167 4        #  copy var:counter => REG_A
+1 152 6        #  write "21" => REG_B
+1 153 2        #  write OP_ADD => REG_OP
+0              #  cpu_exec
+1 167 4        #  copy var:counter => REG_A
+1 12 6         #  copy REG_RES => REG_B
+1 154 10       #  write SYS_CALL_RENDER_BITMAP => REG_D
+1 128 2        #  write OP_SYS_CALL => REG_OP
+0              #  cpu_exec
+1 155 4        #  write "0.1" => REG_A
+1 156 10       #  write SYS_CALL_SLEEP => REG_D
+1 128 2        #  write OP_SYS_CALL => REG_OP
+0              #  cpu_exec
+1 150 4        #  write "170" => REG_A
+1 167 6        #  copy var:counter => REG_B
+1 159 2        #  write OP_CMP_LT => REG_OP
+0              #  cpu_exec
+4 79           #  jump_if lbl:loop_move_down
+1 150 167      #  write "170" => var:counter
+1 160 4        #  write "c" => REG_A
+1 *167 6       #  copy *var:counter => REG_B
+1 161 8        #  write "" => REG_C
+1 162 2        #  write OP_CONCAT_WITH => REG_OP
+0              #  cpu_exec
+1 12 *167      #  copy REG_RES => *var:counter
+1 167 4        #  copy var:counter => REG_A
+1 151 2        #  write OP_INCR => REG_OP
+0              #  cpu_exec
+1 12 167       #  copy REG_RES => var:counter
+1 167 4        #  copy var:counter => REG_A
+1 163 6        #  write "191" => REG_B
+1 159 2        #  write OP_CMP_LT => REG_OP
+0              #  cpu_exec
+4 102          #  jump_if lbl:shift_right
+3 47           #  jump lbl:start
+1 164 4        #  write COLOR_NO => REG_A
+1 127 10       #  write SYS_CALL_SET_BACKGROUND => REG_D
+1 128 2        #  write OP_SYS_CALL => REG_OP
+0              #  cpu_exec
+1 148 4        #  write "0" => REG_A
+1 165 10       #  write SYS_CALL_EXIT => REG_D
+1 128 2        #  write OP_SYS_CALL => REG_OP
+0              #  cpu_exec
+7
+9
+25
+cccccccccccccccccccccccccccc
+cccccccccccrrrrrcccccccccccc
+ccccccccccrrrrrrrrrccccccccc
+ccccccccccbbbyybyccccccccccc
+cccccccccbybyyybyyyccccccccc
+cccccccccbybbyyybyyycccccccc
+cccccccccbbyyyybbbbccccccccc
+cccccccccccyyyyyyycccccccccc
+ccccccccccbbrbbbcccccccccccc
+cccccccccbbbrbbrbbbccccccccc
+ccccccccbbbbrrrrbbbbcccccccc
+ccccccccyybryrryrbyycccccccc
+ccccccccyyyrrrrrryyycccccccc
+ccccccccyyrrrrrrrryycccccccc
+ccccccccccrrrccrrrcccccccccc
+cccccccccbbbccccbbbccccccccc
+ccccccccbbbbccccbbbbcccccccc
+cwwwwwwwwwwwwwwwwwwwwwwwwwwc
+3
+0
+8
+170
+2
+21
+0
+10
+0.1
+11
+174
+9
+10
+c
+
+17
+191
+0
+0
+
+
+1 25 4         #  write COLOR_NO => REG_A
+1 26 10        #  write SYS_CALL_SET_BACKGROUND => REG_D
+1 27 2         #  write OP_SYS_CALL => REG_OP
+0              #  cpu_exec
+1 28 4         #  write "0" => REG_A
+1 29 10        #  write SYS_CALL_EXIT => REG_D
+1 27 2         #  write OP_SYS_CALL => REG_OP
+0              #  cpu_exec
+0
+9
+25
+0
+0
+
+1 4 55         #  copy REG_A => var:arg
+1 55 4         #  copy var:arg => REG_A
+1 45 6         #  write "on" => REG_B
+1 46 2         #  write OP_CMP_EQ => REG_OP
+0              #  cpu_exec
+4 37           #  jump_if lbl:debug_command_on
+1 55 4         #  copy var:arg => REG_A
+1 47 6         #  write "off" => REG_B
+1 46 2         #  write OP_CMP_EQ => REG_OP
+0              #  cpu_exec
+4 39           #  jump_if lbl:debug_command_off
+1 48 4         #  write "Unknown argument. Expected: debug on/debug off" => REG_A
+1 49 6         #  write COLOR_RED => REG_B
+1 50 10        #  write SYS_CALL_PRINTLN => REG_D
+1 51 2         #  write OP_SYS_CALL => REG_OP
+0              #  cpu_exec
+1 52 4         #  write "1" => REG_A
+1 53 10        #  write SYS_CALL_EXIT => REG_D
+1 51 2         #  write OP_SYS_CALL => REG_OP
+0              #  cpu_exec
+DEBUG_ON       #  DEBUG_ON
+3 41           #  jump lbl:exit
+DEBUG_OFF      #  DEBUG_OFF
+3 41           #  jump lbl:exit
+1 54 4         #  write "0" => REG_A
+1 53 10        #  write SYS_CALL_EXIT => REG_D
+1 51 2         #  write OP_SYS_CALL => REG_OP
+0              #  cpu_exec
+on
+8
+off
+Unknown argument. Expected: debug on/debug off
+3
+1
+25
+1
+0
+0
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+FS_HEADER kagu_fs FIRST_USABLE_BLOCK 1021 LAST_USABLE_BLOCK 1500
+
+
+
+
+
 
 
 
@@ -27,37 +1019,7 @@ dir/1.txt 7 4 0 user user BLOCKS 51 60
 
 
 FS_HEADER_END
-Line 1 from file 1.txt
-Line 2 from file 1.txt
-Line 3 from file 1.txt
-1 file 2.txt
-2 file 2.txt
-3 file 2.txt
-4 file 2.txt
-5 file 2.txt
-6 file 2.txt
-7 file 2.txt
-Line 4 from file 1.txt
-Line 5 from file 1.txt
-Line 6 from file 1.txt
-8 file 2.txt
-9 file 2.txt
-10 file 2.txt
-some 1
-other 2
-another 3
-one more 4
-the last one 5
-Some string
-Up or down
-Post modernism
-Earth & Moon
-Round Robin
 
-Kotlin & Java
-Apple and banana
-Green color
-Union
 
 
 
@@ -197,8 +1159,6 @@ Union
 
 
 
-last block of partition1
-first block of partition2
 
 
 
@@ -397,8 +1357,6 @@ first block of partition2
 
 
 
-last block of partition2
-first block of partition3
 
 
 
@@ -541,6 +1499,7 @@ first block of partition3
 
 
 
+FS_HEADER kagu_fs FIRST_USABLE_BLOCK 1522 LAST_USABLE_BLOCK 1800
 
 
 
@@ -560,6 +1519,7 @@ first block of partition3
 
 
 
+FS_HEADER_END
 
 
 
@@ -697,8 +1657,6 @@ first block of partition3
 
 
 
-last block of partition3
-first block of partition4
 
 
 
@@ -841,6 +1799,7 @@ first block of partition4
 
 
 
+FS_HEADER kagu_fs FIRST_USABLE_BLOCK 1822 LAST_USABLE_BLOCK 2048
 
 
 
@@ -860,6 +1819,7 @@ first block of partition4
 
 
 
+FS_HEADER_END
 
 
 
@@ -1021,4 +1981,109 @@ first block of partition4
 
 
 
-last block of partition4
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -11,5 +11,6 @@ export GLOBAL_RAM_SIZE="1500"
 # Kernel constants:
 export GLOBAL_BUILD_DIR="build"
 export GLOBAL_KERNEL_DISK="${GLOBAL_BUILD_DIR}/kernel.disk"
+export GLOBAL_USER_DISK="${GLOBAL_BUILD_DIR}/user.disk"
 export INFO_KERNEL_START=40
 export KERNEL_START=41
