@@ -19,7 +19,7 @@ if [ ! -f "${BOOTLOADER}" ]; then
     exit 1
 fi
 
-for FILE in $(ls "${BASE_DIR}"/cpu/test_is_*.kga); do
+for FILE in $(ls "${BASE_DIR}"/cpu/test_*.kga); do
     echo "Testing $FILE"
     (DEBUG_INFO=0 "${ASM}" tests/kagu_test.kga $FILE && "${BOOTLOADER}" build/kernel.disk $FLAGS) | grep "Total tests\|Successful tests\|Failed tests" | ( (grep -B 2 "Failed tests" && echo -e "\e[41mFAILED\e[0m") || echo -e "\e[42mPASSED\e[0m")
     echo "---------------------------------------------"
