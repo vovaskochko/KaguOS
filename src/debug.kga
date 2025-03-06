@@ -1,0 +1,37 @@
+var arg
+copy REG_A to var:arg
+
+copy var:arg to REG_A
+write "on" to REG_B
+write OP_CMP_EQ to REG_OP
+cpu_exec
+jump_if label:debug_command_on
+
+copy var:arg to REG_A
+write "off" to REG_B
+write OP_CMP_EQ to REG_OP
+cpu_exec
+jump_if label:debug_command_off
+
+write "Unknown argument. Expected: debug on/debug off" to REG_A
+write COLOR_RED to REG_B
+write SYS_CALL_PRINTLN to REG_D
+write OP_SYS_CALL to REG_OP
+cpu_exec
+write 1 to REG_A
+write SYS_CALL_EXIT to REG_D
+write OP_SYS_CALL to REG_OP
+cpu_exec
+
+label debug_command_on
+    DEBUG_ON
+    jump label:exit
+label debug_command_off
+    DEBUG_OFF
+    jump label:exit
+
+label exit
+    write 0 to REG_A
+    write SYS_CALL_EXIT to REG_D
+    write OP_SYS_CALL to REG_OP
+    cpu_exec

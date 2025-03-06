@@ -1,0 +1,10 @@
+write COLOR_NO to REG_A
+write SYS_CALL_SET_BACKGROUND to REG_D
+write OP_SYS_CALL to REG_OP
+cpu_exec
+
+// exit with 0:
+write 0 to REG_A
+write SYS_CALL_EXIT to REG_D
+write OP_SYS_CALL to REG_OP
+cpu_exec

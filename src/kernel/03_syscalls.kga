@@ -1,0 +1,224 @@
+// System call table:
+// Call Number  |    Name           |         REG_A      |      REG_B      |      REG_C    |         REG_RES     |      REG_ERROR
+//      0       |  exit             |      exit code     |        -        |        -      |            -        |         -
+//      1       |  println          |        text        |  color code     |        -      |            -        |         -
+//      2       |  print            |        text        |  color code     |        -      |            -        |         -
+//      3       |  read_input       |     keyboard mode  |        -        |        -      |     input string    |         -
+//      4       |  open             |      file path     |        -        |        -      |   file descriptor   |     error
+//      5       |  descriptor_info  |  file descriptor   |        -        |        -      |      file info      |     error
+//      6       |  close            |  file descriptor   |        -        |        -      |            -        |     error
+//      7       |  read             |  file descriptor   | line number     |        -      |     read line       |  EOF / error
+//      8       |  write            |  file descriptor   | line number     |   new value   |            -        |     error
+//      9       |  set_background   |  background color  |        -        |        -      |            -        |         -
+//     10       |  render_bitmap    |  start address     |   end address   |        -      |            -        |         -
+//     11       |  sleep            |  sleep in seconds  |        -        |        -      |            -        |         -
+
+
+label sys_call_handler
+    var sys_call_arg1
+    var sys_call_arg2
+    var sys_call_arg3
+    var sys_call_number
+    copy REG_A to var:sys_call_arg1
+    copy REG_B to var:sys_call_arg2
+    copy REG_C to var:sys_call_arg3
+    copy REG_D to var:sys_call_number
+
+    copy var:sys_call_number to REG_A
+
+    write 0 to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec
+    jump_if label:sys_call_exit
+
+    write 1 to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec
+    jump_if label:sys_call_println
+
+    write 2 to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec
+    jump_if label:sys_call_print
+
+    write 3 to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec
+    jump_if label:sys_call_read_input
+
+    write 4 to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec
+    jump_if label:sys_call_fs_open
+
+    write 5 to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec
+    jump_if label:sys_call_fs_descriptor_info
+
+    write 6 to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec
+    jump_if label:sys_call_fs_close
+
+    write 7 to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec
+    jump_if label:sys_call_fs_read
+
+    write 8 to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec
+    jump_if label:sys_call_fs_write
+
+    write 9 to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec
+    jump_if label:sys_call_set_background
+
+    write 10 to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec
+    jump_if label:sys_call_render_bitmap
+
+    write 11 to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec
+    jump_if label:sys_call_sleep
+
+label sys_call_exit
+    // Let's clean the memory
+    var sys_call_exit_ptr
+    copy REG_PROC_START_ADDRESS to REG_A
+    copy REG_PROC_END_ADDRESS to REG_B
+    label sys_call_exit_loop
+        write "" to *REG_A
+
+        // increment pointer in REG_A
+        write OP_INCR to REG_OP
+        cpu_exec
+        copy REG_RES to REG_A
+
+        // check whether it is still <= REG_PROC_END_ADDRESS
+        write OP_CMP_LT to REG_OP
+        cpu_exec
+        jump_if label:sys_call_exit_loop
+
+    // let's mark the memory from the process as free
+    copy REG_PROC_START_ADDRESS to FREE_MEMORY_START
+    write "" to REG_PROC_START_ADDRESS
+    write "" to REG_PROC_END_ADDRESS
+    jump label:kernel_start
+
+
+
+label sys_call_println
+    copy var:sys_call_arg1 to DISPLAY_BUFFER
+    copy var:sys_call_arg2 to DISPLAY_COLOR
+    write OP_DISPLAY_LN to REG_OP
+    cpu_exec
+    jump label:sys_call_to_user_mode
+
+
+
+label sys_call_print
+    copy var:sys_call_arg1 to DISPLAY_BUFFER
+    copy var:sys_call_arg2 to DISPLAY_COLOR
+    write OP_DISPLAY to REG_OP
+    cpu_exec
+    jump label:sys_call_to_user_mode
+
+
+
+label sys_call_read_input
+    copy var:sys_call_arg1 to REG_A
+    write OP_READ_INPUT to REG_OP
+    cpu_exec
+    copy KEYBOARD_BUFFER to REG_RES
+    jump label:sys_call_to_user_mode
+
+
+
+label sys_call_fs_open
+    copy var:sys_call_arg1 to REG_A
+    copy PROGRAM_COUNTER to var:sys_return
+    jump label:sys_fs_open
+    jump label:sys_call_to_user_mode
+
+
+
+label sys_call_fs_descriptor_info
+    copy var:sys_call_arg1 to REG_A
+    copy PROGRAM_COUNTER to var:sys_return
+    jump label:sys_fs_descriptor_info
+    jump label:sys_call_to_user_mode
+
+
+
+label sys_call_fs_close
+    copy var:sys_call_arg1 to REG_A
+    copy PROGRAM_COUNTER to var:sys_return
+    jump label:sys_fs_close
+    jump label:sys_call_to_user_mode
+
+
+
+label sys_call_fs_read
+    copy var:sys_call_arg1 to REG_A
+    copy var:sys_call_arg2 to REG_B
+    copy PROGRAM_COUNTER to var:sys_return
+    jump label:sys_fs_read
+    jump label:sys_call_to_user_mode
+
+
+
+label sys_call_fs_write
+    copy var:sys_call_arg1 to REG_A
+    copy var:sys_call_arg2 to REG_B
+    copy var:sys_call_arg3 to REG_C
+    copy PROGRAM_COUNTER to var:sys_return
+    jump label:sys_fs_write
+    jump label:sys_call_to_user_mode
+
+
+
+label sys_call_set_background
+    copy var:sys_call_arg1 to DISPLAY_BACKGROUND
+    write OP_SET_BACKGROUND_COLOR to REG_OP
+    cpu_exec
+    jump label:sys_call_to_user_mode
+
+
+
+label sys_call_render_bitmap
+    // add offset of the process memory space to arguments:
+    copy var:sys_call_arg1 to REG_A
+    copy REG_PROC_START_ADDRESS to REG_B
+    write OP_ADD to REG_OP
+    cpu_exec
+    copy REG_RES to var:sys_call_arg1
+
+    copy var:sys_call_arg2 to REG_A
+    cpu_exec
+    copy REG_RES to var:sys_call_arg2
+
+    // Render bitmap:
+    copy var:sys_call_arg1 to REG_A
+    copy var:sys_call_arg2 to REG_B
+    write OP_RENDER_BITMAP to REG_OP
+    cpu_exec
+    jump label:sys_call_to_user_mode
+
+
+
+label sys_call_sleep
+    copy var:sys_call_arg1 to REG_A
+    write OP_NOP to REG_OP
+    cpu_exec
+    jump label:sys_call_to_user_mode
+
+
+
+label sys_call_to_user_mode
+    write OP_SYS_RETURN to REG_OP
+    cpu_exec

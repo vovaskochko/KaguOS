@@ -1,0 +1,63 @@
+var input_file
+var fd
+var counter
+
+copy REG_A to var:input_file
+
+write "" to REG_B
+write OP_CMP_EQ to REG_OP
+cpu_exec
+jump_if label:exit_error
+
+// let's open file:
+copy var:input_file to REG_A
+write SYS_CALL_OPEN to REG_D
+write OP_SYS_CALL to REG_OP
+cpu_exec
+jump_err label:exit_error
+copy REG_RES to var:fd
+
+
+// Read file line by line and display it:
+write 1 to var:counter
+label loop
+    copy var:fd to REG_A
+    copy var:counter to REG_B
+    write SYS_CALL_READ to REG_D
+    write OP_SYS_CALL to REG_OP
+    cpu_exec
+    jump_err label:close
+
+    // perform system call to display result of read
+    copy REG_RES to REG_A
+    write COLOR_NO to REG_B
+    write SYS_CALL_PRINTLN to REG_D
+    write OP_SYS_CALL to REG_OP
+    cpu_exec
+
+    copy var:counter to REG_A
+    write OP_INCR to REG_OP
+    cpu_exec
+    copy REG_RES to var:counter
+
+    jump label:loop
+
+label close
+    // Let's close file
+    copy var:fd to REG_A
+    write SYS_CALL_CLOSE to REG_D
+    write OP_SYS_CALL to REG_OP
+    cpu_exec
+    jump_err label:exit_error
+
+    // exit with 0:
+    write 0 to REG_A
+    write SYS_CALL_EXIT to REG_D
+    write OP_SYS_CALL to REG_OP
+    cpu_exec
+
+label exit_error
+    write 1 to REG_A
+    write SYS_CALL_EXIT to REG_D
+    write OP_SYS_CALL to REG_OP
+    cpu_exec

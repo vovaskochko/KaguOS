@@ -168,7 +168,22 @@ export OP_SET_BACKGROUND_COLOR=23
 # For example string ggyyrr will display a line with 2 green cells, 2 yellow cells and 2 red cells
 export OP_RENDER_BITMAP=24
 
-# OP codes from 25 to 26 are reserved for future use.
+# To perform a system call from user space:
+# - Place arguments in REG_A, REG_B, and REG_C.
+# - Set the system call number in REG_D.
+# - Write OP_SYS_CALL to REG_OP.
+# - Execute INSTR_CPU_EXEC.
+# After the system call returns:
+# - The result will be stored in REG_RES.
+# - Any error information will be stored in REG_ERROR.
+export OP_SYS_CALL=25
+
+# To return from a system call in kernel mode:
+# - Set REG_RES with the return value.
+# - Set REG_ERROR with any error information.
+# - Write OP_SYS_RETURN to REG_OP.
+# - Execute INSTR_CPU_EXEC.
+export OP_SYS_RETURN=26
 
 # To encrypt the data place it to REG_A, write OP_ENCRYPT_DATA to REG_OP.
 # Call INSTR_CPU_EXEC to encrypt the data.

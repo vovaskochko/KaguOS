@@ -584,7 +584,7 @@ label sys_fs_close
 
 // Use the following commands to run sys_fs_read instructions properly:
 //          REG_A should contain file descriptor obtained from sys_fs_open
-//          REG_B block number inside the file
+//          REG_B line number inside the file
 //          copy PROGRAM_COUNTER to var:sys_return
 //          jump label:sys_fs_read
 // RETURN:
