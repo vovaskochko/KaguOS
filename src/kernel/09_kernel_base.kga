@@ -246,6 +246,12 @@ label exec_file
         cpu_exec
         copy REG_RES to var:exec_file_counter
 
+        copy REG_PROC_END_ADDRESS to REG_A
+        copy var:exec_ptr to REG_B
+        write OP_CMP_LT to REG_OP
+        cpu_exec
+        jump_if label:exec_file_close
+
         jump label:exec_file_loop
 
     label exec_file_close

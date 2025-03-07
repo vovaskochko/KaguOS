@@ -1,6 +1,7 @@
 #include <fstream>
 #include <iostream>
 #include <optional>
+#include <stdexcept>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -163,8 +164,7 @@ std::string read_from_address(address_t reg) {
     int addr = static_cast<int>(reg);
 
     if (!is_kernel_mode && addr > static_cast<int>(address_t::user_space_regs_end)) {
-        std::cerr << "[ERROR] User mode tried to access restricted register: " << addr << std::endl;
-        throw 1;
+        throw std::runtime_error("Read access to an invalid address: " + std::to_string(addr));
     }
 
     return RAM_data[addr];
@@ -174,8 +174,7 @@ std::string read_from_address(const std::string& line_no_str) {
     auto line_no = static_cast<int>(std::stoi(line_no_str));
 
     if (line_no < 1 || line_no > RAM_data.size()) {
-        std::cerr << "[ERROR] Access to an invalid address: " << line_no << std::endl;
-        throw 1;
+        throw std::runtime_error("Read access to an invalid address: " + std::to_string(line_no));
     }
 
     if (!is_kernel_mode) {
@@ -187,8 +186,7 @@ std::string read_from_address(const std::string& line_no_str) {
             line_no += proc_start; // Shift to process memory range
 
             if (line_no > proc_end) {
-                std::cerr << "[ERROR] User mode access violation at adjusted address: " << line_no << std::endl;
-                throw 1;
+                throw std::runtime_error("User mode access violation at adjusted address: " + std::to_string(line_no));
             }
         }
     }
@@ -200,8 +198,7 @@ void write_to_address(address_t reg, const std::string& value) {
     int addr = static_cast<int>(reg);
 
     if (!is_kernel_mode && addr > static_cast<int>(address_t::user_space_regs_end)) {
-        std::cerr << "[ERROR] User mode tried to write to restricted register: " << addr << std::endl;
-        throw 1;
+        throw std::runtime_error("User mode attempted to write to an invalid address: " + std::to_string(addr));
     }
 
     RAM_data[addr] = value;
@@ -211,8 +208,7 @@ void write_to_address(const std::string& line_no_str, const std::string& value) 
     auto line_no = static_cast<int>(std::stoi(line_no_str));
 
     if (line_no < 1 || line_no > RAM_data.size()) {
-        std::cerr << "[ERROR] Access to an invalid address: " << line_no << std::endl;
-        throw 1;
+        throw std::runtime_error("User mode attempted to write to an invalid address: " + std::to_string(line_no));
     }
 
     if (!is_kernel_mode) {
@@ -224,8 +220,7 @@ void write_to_address(const std::string& line_no_str, const std::string& value) 
             line_no += proc_start; // Shift into process memory range
 
             if (line_no > proc_end) {
-                std::cerr << "[ERROR] User mode tried to write outside allowed memory: " << line_no << std::endl;
-                throw 1;
+                throw std::runtime_error("User mode attempted to write outside allowed memory: " + std::to_string(line_no));
             }
         }
     }
@@ -237,8 +232,7 @@ void copy_from_to_address(const std::string& src, const std::string& dest) {
     std::string src_addr = src;
     std::string dest_addr = dest;
     if (src.empty() || dest.empty()) {
-        std::cerr << "Invalid addresses for copy_from_to_address" << std::endl;
-        throw 1;
+        throw std::runtime_error("Invalid addresses for copy_from_to_address");
     }
 
     if (src[0] == '*') {
@@ -372,12 +366,11 @@ void render_bitmap(int start, int end) {
 
 std::string to_string_no_trailing_zeros(double value) {
     std::ostringstream out;
-    out.precision(10);  // Встановлюємо максимальну точність
+    out.precision(10);
     out << std::fixed << value;
 
     std::string result = out.str();
     
-    // Видаляємо зайві нулі та можливу десяткову крапку в кінці
     result.erase(result.find_last_not_of('0') + 1, std::string::npos);
     if (result.back() == '.') {
         result.pop_back();
@@ -410,8 +403,7 @@ void cpu_exec() {
     auto op_code = std::stoi(read_from_address(address_t::op));
     auto reg_op = static_cast<cpu_operation_t>(op_code);
     if (!is_kernel_mode && is_privileged_operation(reg_op)) {
-        std::cerr << "[ERROR] User mode cannot execute privileged operation: " << op_code << std::endl;
-        throw 1;
+        throw std::runtime_error("User mode cannot execute privileged operation: " + std::to_string(op_code));
     }
 
     auto reg_a = read_from_address(address_t::a);
@@ -421,7 +413,7 @@ void cpu_exec() {
     auto reg_res = read_from_address(address_t::res);
     auto reg_err = read_from_address(address_t::error);
 
-    write_to_address(address_t::error, ""); // Очистка REG_ERROR перед виконанням
+    write_to_address(address_t::error, "");
 
     switch (reg_op) {
         case cpu_operation_t::add:
@@ -659,6 +651,11 @@ void cpu_exec() {
             exit(0);
         case cpu_operation_t::sys_call:
         {
+            if (is_kernel_mode) {
+                std::cout << "System call is not allowed in kernel mode\n";
+                exit(1);
+            }
+
             if (debug_on) {
                 std::cout << "[DEBUG] Perform system call: switch to kernel mode.\n";
             }
@@ -705,7 +702,7 @@ void cpu_exec() {
         }
         default:
             std::cout << "[INFO] Executing " << static_cast<int>(reg_op) << ": Unknown command" << std::endl;
-            throw 1;
+            throw std::runtime_error("[INFO] Executing " + std::to_string(static_cast<int>(reg_op)) + ": Unknown command");
     }
 }
 
@@ -828,6 +825,9 @@ int main(int argc, char* argv[]) {
                 write_to_address(address_t::op, std::to_string(static_cast<size_t>(cpu_operation_t::sys_call)));
                 cpu_exec();
             }
+        } catch (...) {
+            std::cerr << "[CRITICAL] Unknown error occurred in KaguOS bootloader." << std::endl;
+            exit(1);
         }
 
         if (debug_on) {
