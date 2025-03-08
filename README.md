@@ -38,7 +38,13 @@ We are using Bash functions to emulate basic operations like CPU instructions an
    - 7.4 [Writing User Programs](#74-writing-user-programs)
    - 7.5 [User-Space Restrictions](#75-user-space-restrictions)
    - 7.6 [Running a User Program](#76-running-a-user-program)
-
+8. [KaguFS Filesystem and Disk Structure](#8-kagufs-filesystem-and-disk-structure)
+   - 8.1 [Overview of the Filesystem](#81-overview-of-the-filesystem)
+   - 8.2 [Disk Structure](#82-disk-structure)
+   - 8.3 [Partition Mounting Mechanism](#83-partition-mounting-mechanism)
+   - 8.4 [Organization of the Filesystem in Partitions](#84-organization-of-the-filesystem-in-partitions)
+   - 8.5 [Interaction with Files in KaguFS](#85-interaction-with-files-in-kagufs)
+   - 8.6 [Conclusion](#86-conclusion)
 
 ## 1. Environment
 
@@ -696,3 +702,161 @@ Once the program is compiled and loaded onto `main.disk`, it can be executed by 
 - Running `debug on` enables **tracing system calls** and **memory access**.
 - Errors in user space **do not crash the system**—only the affected process is terminated.
 
+
+### 8. KaguFS Filesystem and Disk Structure
+
+#### 8.1 Overview of the Filesystem
+
+The **KaguFS** filesystem provides fundamental file operations in **KaguOS**, such as opening, reading, writing, and closing files. It operates at the **block level**, where **one block corresponds to one line** in the disk file.
+
+Key features of **KaguFS**:
+- **File metadata is stored in the initial blocks of the disk**.
+- **Files are allocated in contiguous blocks**, and their headers contain size and location information.
+- **Supports mounting partitions**, allowing files to be stored in different disk sections.
+- **Structured file headers** include access permissions, ownership details, and block mappings.
+
+---
+
+#### 8.2 Disk Structure
+
+A disk in **KaguOS** consists of separate blocks, each storing **one line of data**. The first block contains the **total disk size**, followed by the partition table, and then the mounted filesystems.
+
+##### **Example of Initial Disk Structure:**
+```
+2048                         # Total disk size (number of blocks)
+START_PARTITION_TABLE
+PARTITION_ENTRIES 4
+NAME part1 START_BLOCK 10 END_BLOCK 1000
+NAME part2 START_BLOCK 1001 END_BLOCK 1500
+NAME part3 START_BLOCK 1501 END_BLOCK 1800
+NAME part4 START_BLOCK 1801 END_BLOCK 2048
+END_PARTITION_TABLE
+```
+- The first block (`2048`) – total size of the disk.
+- Blocks `2-8` – partition table:
+  - Defines partition names (`part1`, `part2`, etc.).
+  - Specifies **block ranges** for each partition.
+  - All file operations are **restricted** to these ranges.
+
+---
+
+#### 8.3 Partition Mounting Mechanism
+
+The filesystem supports **mounting partitions**, enabling files to be accessed across different sections of the disk.
+
+##### **Mount Configuration File (`mount.info`):**
+```
+6
+MOUNT dummy.disk dummyPart /dummy
+MOUNT main.disk part2 /home
+MOUNT main.disk part3 /usr
+MOUNT main.disk part4 /test
+MOUNT main.disk part1 /
+```
+- Specifies the **disk name** (`main.disk`) and **partition name** (`part1`, `part2`, etc.).
+- The **last argument** (`/`, `/home`) represents the **mount point**.
+- If there are **nested mount points** (e.g., `/dir1`, `/dir1/dir2`), they must be **listed in descending order of length**.
+
+##### **Algorithm for Finding a Partition for a File:**
+1. The file path is analyzed.
+2. The **longest matching mount point** from `mount.info` is found.
+3. The corresponding **partition** is determined.
+
+---
+
+#### 8.4 Organization of the Filesystem in Partitions
+
+Each partition contains an **filesystem header**, defining the range of usable blocks where files are stored.
+
+##### **Example of a Filesystem Header (`part1`):**
+```
+FS_HEADER kagu_fs FIRST_USABLE_BLOCK 31 LAST_USABLE_BLOCK 1000
+config.txt 14 14 755 user user BLOCKS 31 40
+cat 7 7 755 user user BLOCKS 41 100
+1.txt 4 4 644 user user BLOCKS 101 110
+mario 7 7 755 user user BLOCKS 111 261
+clear 7 7 755 user user BLOCKS 262 275
+debug 7 7 755 user user BLOCKS 276 320
+FS_HEADER_END
+```
+- **FS_HEADER** – Identifier of the filesystem.
+- **FIRST_USABLE_BLOCK / LAST_USABLE_BLOCK** – Defines the range of blocks where files can be stored.
+- **File list**:
+  - **Format**: `filename size blocks permissions owner group BLOCKS start end`
+  - **`BLOCKS`** – Indicates the **allocated blocks for the file**.
+
+##### **File Header Structure:**
+```
+1.txt 4 4 644 user user BLOCKS 101 110
+```
+- `1.txt` – File name.
+- `4 4` – File size and number of allocated blocks.
+- `644` – File permissions (read/write/execute flags).
+- `user user` – Owner and group.
+- `BLOCKS 101 110` – Blocks occupied by the file.
+
+---
+
+#### 8.5 Interaction with Files in KaguFS
+
+File operations in **KaguFS** are performed through **system calls**, which interact with file headers and block mappings.
+
+##### **File Descriptor Format**
+A file descriptor contains:
+```
+filename disk_name header_block file_size
+```
+Example descriptor for `config.txt`:
+```
+config.txt main.disk 4 14
+```
+
+##### **Opening a File (`SYS_CALL_OPEN`)**
+```assembly
+   write "config.txt" to REG_A  // File name
+   write SYS_CALL_OPEN to REG_D  // Open file system call
+   write OP_SYS_CALL to REG_OP  
+   cpu_exec
+```
+- **If successful** → The descriptor is stored in `REG_RES`.
+- **If an error occurs** → The error code is placed in `REG_ERROR`.
+
+##### **Reading a File (`SYS_CALL_READ`)**
+```assembly
+   write 0 to REG_B             // Line number to read
+   write SYS_CALL_READ to REG_D  
+   write OP_SYS_CALL to REG_OP  
+   cpu_exec
+```
+- **The read line** is stored in `REG_RES`.
+
+##### **Writing to a File (`SYS_CALL_WRITE`)**
+```assembly
+   write 2 to REG_B             // Line number to overwrite
+   write "Hello World!" to REG_C // Data to write
+   write SYS_CALL_WRITE to REG_D 
+   write OP_SYS_CALL to REG_OP  
+   cpu_exec
+```
+- If the **line exists**, it will be **overwritten**.
+- If the **line does not exist**, an **error is returned**.
+
+##### **Closing a File (`SYS_CALL_CLOSE`)**
+```assembly
+   write SYS_CALL_CLOSE to REG_D 
+   write OP_SYS_CALL to REG_OP  
+   cpu_exec
+```
+
+---
+
+#### 8.6 Conclusion
+
+The **KaguFS** filesystem provides an **efficient and modular approach** for file management in **KaguOS**, enabling dynamic storage management without modifying the kernel.
+
+Key features:
+- **Storage and retrieval of files using block mapping**.
+- **Dynamic partition mounting**.
+- **File operations via system calls**.
+
+With this system, users can add new programs, manage data, and organize file storage **without recompiling or restarting the kernel**.
