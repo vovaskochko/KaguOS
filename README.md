@@ -68,13 +68,17 @@ For educational purpose KaguOS has simplified computation scheme to make debug a
 Alternative version of hardware emulation is written as a C++ source file `bootloader.cpp`.
 
 ### Compilation
-For **MacOS and Linux**, compile it using:
+For **MacOS/Windows/Linux**, compile it using:
 ```sh
-clang++ bootloader.cpp -o bootloader
+clang++ bootloader.cpp -o bootloader -std=c++17
 ```
 or
 ```sh
-g++ bootloader.cpp -o bootloader
+g++ bootloader.cpp -o bootloader -std=c++17
+```
+or (Windows only)
+```ps1
+cl.exe bootloader.cpp -o bootloader.exe /std:c++17 /EHsc
 ```
 
 ### Running the Bootloader

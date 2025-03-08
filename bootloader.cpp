@@ -8,8 +8,13 @@
 #include <unordered_map>
 #include <thread>
 #include <regex>
+
+#ifdef _WIN32
+#include <windows.h>
+#else
 #include <termios.h>
 #include <unistd.h>
+#endif
 
 namespace {
     bool is_kernel_mode = true;
@@ -256,7 +261,6 @@ void jump_next() {
 }
 
 void jump(const std::string& address) {
-    std::string_view address_view(address);
     int address_int = std::stoi(address[0] == '*'
                                 ? read_from_address(address.substr(1))
                                 : address);
@@ -379,6 +383,23 @@ std::string to_string_no_trailing_zeros(double value) {
     return result;
 }
 
+
+#ifdef _WIN32
+char get_char_no_enter(bool echo = false) {
+    HANDLE hStdin = GetStdHandle(STD_INPUT_HANDLE);
+    DWORD mode = 0;
+    GetConsoleMode(hStdin, &mode);
+    SetConsoleMode(hStdin, mode & ~(ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT));
+
+    char ch = 0;
+    DWORD read;
+    ReadConsoleA(hStdin, &ch, 1, &read, NULL);
+
+    SetConsoleMode(hStdin, mode);
+    if (echo) std::cout << ch;
+    return ch;
+}
+#else
 char get_char_no_enter(bool echo = false) {
     struct termios oldt, newt;
     char ch = '\0';
@@ -398,6 +419,7 @@ char get_char_no_enter(bool echo = false) {
     if (echo) std::cout << ch;
     return ch;
 }
+#endif
 
 void cpu_exec() {
     auto op_code = std::stoi(read_from_address(address_t::op));
@@ -472,9 +494,11 @@ void cpu_exec() {
             }
             break;
         case cpu_operation_t::is_num:
+        {
             static const std::regex number_regex(R"(^-?\d*(\.\d+)?$)");
             write_to_address(address_t::bool_res, std::regex_match(reg_a, number_regex) ? "1" : "0");
             break;
+        }
         case cpu_operation_t::cmp_eq:
             write_to_address(address_t::bool_res, reg_a == reg_b ? "1" : "0");
             break;
