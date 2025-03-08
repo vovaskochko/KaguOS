@@ -10,7 +10,7 @@ We are using bash functions to emulate basic operations like cpu instructions an
 # Environment
 Bash shell of 5.2+ version is required to run the KaguOS emulation.
 
-The preffered way is to use Ubuntu multipass virtual machine. In case of Linux and MacOS you can also use an alternative way to run KaguOS without multipass.
+The preffered way is to use Ubuntu multipass virtual machine. You can run KaguOS directly on Linux and MacOS without multipass. For Windows you can use git-bash to compile and C++ emulation to run KaguOS in PowerShell.
 
 ## Installation for Linux, MacOS and Windows(with multipass)
 * Go to https://multipass.run/install and follow the instructions.
@@ -44,6 +44,9 @@ By default MacOS is delivered with an outdated version of bash. To update it you
 * Edit config file for shells with command **sudo nano /etc/shells** by adding the line **/usr/local/bin/bash** before other paths.
 * Press **Ctrl+O** and **Enter** to write your changes. Exit from editor with **Ctrl+X**.
 * Reopen Terminal and check version of bash **bash -v** .
+
+## MacOS(without multipass)
+Install `git-bash` to run `asm.sh`. Also compile C++ version of emulation from `bootloader.cpp`. 
 
 # General approach
 For educational purpose KaguOS has simplified computation scheme to make debug and monitoring easy. Some core principles we are using:
