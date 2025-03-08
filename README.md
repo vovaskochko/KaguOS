@@ -132,16 +132,16 @@ For educational purposes, KaguOS has a simplified computation scheme to make deb
    - Copying the operation code (`OP_*`) to `REG_OP`.
    - Executing the instruction via `cpu_exec`.
    - Storing the result in `REG_RES` or `REG_BOOL_RES`, depending on the operation type.
-   - For more details, refer to the next section **[How to Work with KaguOS](#how-to-work-with-kaguos)**.
+   - For more details, refer to the next section **[How to Work with KaguOS](#3-how-to-work-with-kaguos)**.
 
 6. **Instruction execution sequence**: By default, the system executes instructions sequentially. If execution starts from address `41`, the corresponding string in RAM is parsed and executed if possible (otherwise, a fatal error occurs). The program counter is then incremented, and address `42` is treated as the next instruction, and so on.
 
 7. **Control flow via jumps**: To change the execution order, KaguOS supports:
    - **Unconditional jumps (`jump`)**: Directly set the program counter to a new address.
-   - **Conditional jumps (`jump_if`)**: Change execution flow based on conditions.
+   - **Conditional jumps (`jump_if`, `jump_if_not`, `jump_err`)**: Change execution flow based on conditions.
    - The new address becomes the next instruction to be executed.
 
-8. **Kernel execution**: The kernel should be run using the `bootloader.sh` script. Debugging options like `-j -s` are available. Additionally, special instructions `DEBUG_ON` and `DEBUG_OFF` can enable or disable debugging functionality and RAM dumping into `tmp/RAM.txt`.
+8. **Kernel execution**: The kernel should be run using the `bootloader.sh` script or `bootloader` binary compiled from `bootloader.cpp`. Debugging options like `-j -s` are available. Additionally, special instructions `DEBUG_ON` and `DEBUG_OFF` can enable or disable debugging functionality and RAM dumping into `tmp/RAM.txt`.
 
 ### 2.2 C++ Hardware Emulation
 
@@ -178,11 +178,11 @@ CPP_BOOTLOADER=1 tests/test_cpu_emulation.sh
 
 The simplest way to run KaguOS is by using the command:
 ```sh
-./bootloader <path to kernel disk>
+./bootloader <path to kernel disk> <RAM size>
 ```
 The kernel disk contains a list of machine code instructions and constant data required for execution.
 
-To write an instruction, it is necessary to understand the format and machine codes. Basic instructions and CPU operations are listed in *instructionSet.html* and *include/operations.sh*. Register addresses are defined in `include/registers.sh`, with all registers mapped to the beginning of RAM for simplicity.
+To write an instruction, it is necessary to understand the format and machine codes. Basic instructions and CPU operations are listed in *include/operations.sh*. Register addresses are defined in `include/registers.sh`, with all registers mapped to the beginning of RAM for simplicity.
 
 By default, the kernel loads at an address defined by `KERNEL_START` in *include/system.sh* (default: 41). This means the first line of the kernel disk corresponds to address 41 in RAM.
 
@@ -208,11 +208,11 @@ The last instruction is at line 3 of the kernel disk, which loads at address 43 
 ```
 Save this to `kernels/simple`, then run:
 ```sh
-./bootloader.sh kernels/simple
+./bootloader kernels/simple 200
 ```
 This should output `CPU halt`. Running it with `-j` enables debugging:
 ```sh
-./bootloader.sh kernels/simple -j
+./bootloader kernels/simple 200 -j
 ```
 
 RAM state changes are logged in `tmp/RAM.txt`. Debugging can be enabled/disabled using `DEBUG_ON` and `DEBUG_OFF`.
@@ -419,7 +419,7 @@ Compile source files with:
 ```
 This merges input files into **build/kernel.disk**. Execute the compiled kernel with:
 ```sh
-./bootloader.sh build/kernel.disk
+./bootloader build/kernel.disk 500
 ```
 
 ### 4.3 VSCode Extension
@@ -445,7 +445,7 @@ cpu_exec
 Compile and run:
 ```sh
 ./asm.sh simple.kga
-./bootloader.sh build/kernel.disk -j
+./bootloader build/kernel.disk 200 -j
 ```
 
 #### Infinite Loop with Label
@@ -481,7 +481,7 @@ label exit // Jump here to exit
 
 1. The assembler processes all `.kga` files provided by the user, analyzing each line sequentially. Empty lines and comments are ignored immediately.
 
-2. For all other lines, the first word is read and analyzed. This word must be one of the supported commands (`write`, `copy`, `jump`, `jump_if`, `cpu_exec`, `DEBUG_ON`, `DEBUG_OFF`) or declarations (`var` in `var name` for variables or `label` in `label name` for labels). Based on this first word, the expected number of lexemes is determined. For example, the `write` command requires 4 lexemes, plus the possibility of a comment at the end of the line, so a total of 5 lexemes is checked. Valid patterns for these lexemes are predefined and will be explained later.
+2. For all other lines, the first word is read and analyzed. This word must be one of the supported commands (`write`, `copy`, `jump`, `jump_if`, `jump_if_not`, `jump_err`, `cpu_exec`, `DEBUG_ON`, `DEBUG_OFF`) or declarations (`var` in `var name` for variables or `label` in `label name` for labels). Based on this first word, the expected number of lexemes is determined. For example, the `write` command requires 4 lexemes, plus the possibility of a comment at the end of the line, so a total of 5 lexemes is checked. Valid patterns for these lexemes are predefined and will be explained later.
 
 3. Each lexeme undergoes analysis via the `parse_lexeme` function. This function determines the lexeme's data type and whether it has an additional prefix (`*` or `@`). If there is no prefix, the default `_` is added. Consequently, every lexeme is converted into a string format where:
    - The first character represents the prefix.
@@ -603,7 +603,7 @@ User-space programs rely on system calls to interact with the OS.
 User-space programs in KaguOS are compiled separately from the kernel and must be loaded onto the system disk before execution. This section explains how to use the tools `user_asm.sh` and `copy_file_to_disk.sh` to compile and install user programs.
 
 ### 7.2 Compiling User Programs
-KaguOS provides the script `user_asm.sh` for assembling user-space programs written in KaguASM.
+KaguOS provides the script `user_asm.sh` for assembling user-space programs written in KaguASM. This script is just a wrapper on top of `asm.sh` as instead of `KERNEL_START` shift we should rely on user space program layout.
 
 #### Usage
 ```sh
@@ -626,12 +626,11 @@ Once compiled, the user program must be added to `main.disk` so it can be execut
 
 #### Usage
 ```sh
-./copy_file_to_disk.sh source_file target_disk start_block end_block
+./copy_file_to_disk.sh source_file target_disk start_block_1 end_block_1 start_block_2 end_block_2 start_block_3 end_block_3
 ```
 - `source_file` – The compiled user program (`build/user.disk`).
 - `target_disk` – The system disk where the program will be stored (`main.disk`).
-- `start_block` – The block where the program begins.
-- `end_block` – The block where the program ends.
+- `start_block_*`, `end_block_*` – Defines a list of block intervals for file to be stored on the disk.
 
 #### Example
 ```sh
