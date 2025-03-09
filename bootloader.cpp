@@ -1,16 +1,24 @@
 #include <fstream>
 #include <iostream>
 #include <optional>
+#include <stdexcept>
 #include <sstream>
 #include <string>
 #include <vector>
 #include <unordered_map>
 #include <thread>
 #include <regex>
+
+#ifdef _WIN32
+#include <windows.h>
+#else
 #include <termios.h>
 #include <unistd.h>
+#endif
 
 namespace {
+    bool is_kernel_mode = true;
+
     bool debug_on = true;
     bool debug_print_jumps = false;
     std::optional<std::chrono::milliseconds> debug_sleep_interval = std::nullopt;
@@ -51,13 +59,18 @@ enum class cpu_operation_t {
     write_block = 22,
     set_background_color = 23,
     render_bitmap = 24,
-    // 25, 26 are reserved for future use
+    sys_call = 25,
+    sys_return = 26,
     encrypt_data = 27,
     decrypt_data = 28,
     nop = 29,
     halt = 30,
     unknown = 31
 };
+
+bool is_privileged_operation(cpu_operation_t op) {
+    return op >= cpu_operation_t::read_input && op != cpu_operation_t::sys_call;
+}
 
 enum class address_t {
     info_op = 1,
@@ -79,7 +92,10 @@ enum class address_t {
 
     info_error = 15,
     error = 16,
+// All registers after address 16 are not available for direct user space calls
+    user_space_regs_end = 16,
 
+// kernel space only access:
     info_display_buffer = 17,
     display_buffer = 18,
     info_display_color = 19,
@@ -100,6 +116,11 @@ enum class address_t {
     free_memory_end = 30,
     info_free_chunks = 31,
     free_chunks = 32,
+    proc_start_address = 33,
+    proc_end_address = 34,
+    sys_call_handler = 35,
+    sys_ret_address = 36,
+    sys_sched_handler = 37,
 
     info_kernel_start = 40,
     kernel_start = 41,
@@ -132,7 +153,7 @@ const std::unordered_map<std::string, std::string> background_color_map = {
 
 std::string get_background_color(const std::string& color) {
     auto it = background_color_map.find(color);
-    return (it != background_color_map.end()) ? it->second : "\033[40m";
+    return (it != background_color_map.end()) ? it->second : "\033[49m";
 }
 
 namespace keyboard_mode {
@@ -145,28 +166,68 @@ namespace keyboard_mode {
 std::vector<std::string> RAM_data;
 
 std::string read_from_address(address_t reg) {
-    return RAM_data[static_cast<int>(reg)];
+    int addr = static_cast<int>(reg);
+
+    if (!is_kernel_mode && addr > static_cast<int>(address_t::user_space_regs_end)) {
+        throw std::runtime_error("Read access to an invalid address: " + std::to_string(addr));
+    }
+
+    return RAM_data[addr];
 }
 
 std::string read_from_address(const std::string& line_no_str) {
     auto line_no = static_cast<int>(std::stoi(line_no_str));
+
     if (line_no < 1 || line_no > RAM_data.size()) {
-        std::cerr << "Access to an invalid address " << line_no << std::endl;
-        exit(1);
+        throw std::runtime_error("Read access to an invalid address: " + std::to_string(line_no));
+    }
+
+    if (!is_kernel_mode) {
+        int user_space_reg_end = static_cast<int>(address_t::user_space_regs_end);
+        int proc_start = std::stoi(RAM_data[static_cast<int>(address_t::proc_start_address)]);
+        int proc_end = std::stoi(RAM_data[static_cast<int>(address_t::proc_end_address)]);
+
+        if (line_no > user_space_reg_end) {
+            line_no += proc_start; // Shift to process memory range
+
+            if (line_no > proc_end) {
+                throw std::runtime_error("User mode access violation at adjusted address: " + std::to_string(line_no));
+            }
+        }
     }
 
     return RAM_data[line_no];
 }
 
 void write_to_address(address_t reg, const std::string& value) {
-    RAM_data[static_cast<int>(reg)] = value;
+    int addr = static_cast<int>(reg);
+
+    if (!is_kernel_mode && addr > static_cast<int>(address_t::user_space_regs_end)) {
+        throw std::runtime_error("User mode attempted to write to an invalid address: " + std::to_string(addr));
+    }
+
+    RAM_data[addr] = value;
 }
 
 void write_to_address(const std::string& line_no_str, const std::string& value) {
     auto line_no = static_cast<int>(std::stoi(line_no_str));
+
     if (line_no < 1 || line_no > RAM_data.size()) {
-        std::cerr << "Access to an invalid address " << line_no << std::endl;
-        exit(1);
+        throw std::runtime_error("User mode attempted to write to an invalid address: " + std::to_string(line_no));
+    }
+
+    if (!is_kernel_mode) {
+        int user_space_end = static_cast<int>(address_t::user_space_regs_end);
+        int proc_start = std::stoi(RAM_data[static_cast<int>(address_t::proc_start_address)]);
+        int proc_end = std::stoi(RAM_data[static_cast<int>(address_t::proc_end_address)]);
+
+        if (line_no > user_space_end) {
+            line_no += proc_start; // Shift into process memory range
+
+            if (line_no > proc_end) {
+                throw std::runtime_error("User mode attempted to write outside allowed memory: " + std::to_string(line_no));
+            }
+        }
     }
 
     RAM_data[line_no] = value;
@@ -176,8 +237,7 @@ void copy_from_to_address(const std::string& src, const std::string& dest) {
     std::string src_addr = src;
     std::string dest_addr = dest;
     if (src.empty() || dest.empty()) {
-        std::cerr << "Invalid addresses for copy_from_to_address" << std::endl;
-        exit(1);
+        throw std::runtime_error("Invalid addresses for copy_from_to_address");
     }
 
     if (src[0] == '*') {
@@ -196,17 +256,13 @@ void copy_from_to_address(const std::string& src, const std::string& dest) {
 }
 
 void jump_next() {
-    int program_counter = std::stoi(read_from_address(address_t::program_counter));
-    write_to_address(address_t::program_counter, std::to_string(program_counter + 1));
+    int program_counter = std::stoi(RAM_data[static_cast<int>(address_t::program_counter)]);
+    RAM_data[static_cast<int>(address_t::program_counter)] = std::to_string(program_counter + 1);
 }
 
 void jump(const std::string& address) {
-    std::string_view address_view(address);
-    if (address_view[0] == '*') {
-        address_view = read_from_address(address_view.substr(1).data());
-    }
     int address_int = std::stoi(address[0] == '*'
-                                ? read_from_address(address.substr(1)).data()
+                                ? read_from_address(address.substr(1))
                                 : address);
     RAM_data[static_cast<int>(address_t::program_counter)] = std::to_string(address_int - 1);
 }
@@ -230,10 +286,10 @@ void jump_err(const std::string& address) {
 }
 
 void jump_print_debug_info() {
-    int next_cmd_address = std::stoi(read_from_address(address_t::program_counter));
+    int next_cmd_address = std::stoi(RAM_data[static_cast<size_t>(address_t::program_counter)]);
     std::string next_cmd = read_from_address(std::to_string(next_cmd_address));
 
-    std::cout << "\033[34m[DEBUG] Command " << next_cmd_address 
+    std::cout << (is_kernel_mode ? "\033[34m" : "\033[32m") << "[DEBUG] Command " << next_cmd_address 
               << ":\033[35m " << next_cmd << "\033[0m" << std::endl;
 }
 
@@ -314,12 +370,11 @@ void render_bitmap(int start, int end) {
 
 std::string to_string_no_trailing_zeros(double value) {
     std::ostringstream out;
-    out.precision(10);  // Встановлюємо максимальну точність
+    out.precision(10);
     out << std::fixed << value;
 
     std::string result = out.str();
     
-    // Видаляємо зайві нулі та можливу десяткову крапку в кінці
     result.erase(result.find_last_not_of('0') + 1, std::string::npos);
     if (result.back() == '.') {
         result.pop_back();
@@ -328,6 +383,23 @@ std::string to_string_no_trailing_zeros(double value) {
     return result;
 }
 
+
+#ifdef _WIN32
+char get_char_no_enter(bool echo = false) {
+    HANDLE hStdin = GetStdHandle(STD_INPUT_HANDLE);
+    DWORD mode = 0;
+    GetConsoleMode(hStdin, &mode);
+    SetConsoleMode(hStdin, mode & ~(ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT));
+
+    char ch = 0;
+    DWORD read;
+    ReadConsoleA(hStdin, &ch, 1, &read, NULL);
+
+    SetConsoleMode(hStdin, mode);
+    if (echo) std::cout << ch;
+    return ch;
+}
+#else
 char get_char_no_enter(bool echo = false) {
     struct termios oldt, newt;
     char ch = '\0';
@@ -347,15 +419,23 @@ char get_char_no_enter(bool echo = false) {
     if (echo) std::cout << ch;
     return ch;
 }
+#endif
 
 void cpu_exec() {
-    auto reg_op = static_cast<cpu_operation_t>(std::stoi(read_from_address(address_t::op)));
+    auto op_code = std::stoi(read_from_address(address_t::op));
+    auto reg_op = static_cast<cpu_operation_t>(op_code);
+    if (!is_kernel_mode && is_privileged_operation(reg_op)) {
+        throw std::runtime_error("User mode cannot execute privileged operation: " + std::to_string(op_code));
+    }
+
     auto reg_a = read_from_address(address_t::a);
     auto reg_b = read_from_address(address_t::b);
     auto reg_c = read_from_address(address_t::c);
     auto reg_d = read_from_address(address_t::d);
+    auto reg_res = read_from_address(address_t::res);
+    auto reg_err = read_from_address(address_t::error);
 
-    write_to_address(address_t::error, ""); // Очистка REG_ERROR перед виконанням
+    write_to_address(address_t::error, "");
 
     switch (reg_op) {
         case cpu_operation_t::add:
@@ -414,9 +494,11 @@ void cpu_exec() {
             }
             break;
         case cpu_operation_t::is_num:
+        {
             static const std::regex number_regex(R"(^-?\d*(\.\d+)?$)");
             write_to_address(address_t::bool_res, std::regex_match(reg_a, number_regex) ? "1" : "0");
             break;
+        }
         case cpu_operation_t::cmp_eq:
             write_to_address(address_t::bool_res, reg_a == reg_b ? "1" : "0");
             break;
@@ -567,7 +649,7 @@ void cpu_exec() {
             write_to_address(address_t::error, write_disk_block(reg_a, std::stoi(reg_b), reg_c) ? "" : "Error during block write");
             break;
         case cpu_operation_t::set_background_color:
-            std::cout << get_background_color(read_from_address(address_t::display_background)) << std::flush;
+            std::cout << get_background_color(read_from_address(address_t::display_background)) << "\033[2J\033[H" << std::flush;
             break;
         case cpu_operation_t::render_bitmap:
             std::cout << "\033[2J\033[H" << std::flush;
@@ -591,9 +673,60 @@ void cpu_exec() {
         case cpu_operation_t::halt:
             std::cout << "CPU Halted" << std::endl;
             exit(0);
+        case cpu_operation_t::sys_call:
+        {
+            if (is_kernel_mode) {
+                std::cout << "System call is not allowed in kernel mode\n";
+                exit(1);
+            }
+
+            if (debug_on) {
+                std::cout << "[DEBUG] Perform system call: switch to kernel mode.\n";
+            }
+
+            // switch to kernel mode first to backup all the required data
+            is_kernel_mode = true;
+
+            // Let's backup the state of user space accessible registers to the process dedicated space
+            auto proc_memory_offset = std::stoi(read_from_address(address_t::proc_start_address));
+            for (size_t i = 1; i <= static_cast<size_t>(address_t::user_space_regs_end); i++)
+            {
+                copy_from_to_address(std::to_string(i), std::to_string(i + proc_memory_offset));
+            }
+
+            // backup program counter to sys_return address
+            auto program_counter = RAM_data[static_cast<size_t>(address_t::program_counter)];
+            write_to_address(address_t::sys_ret_address, program_counter);
+
+            // jump to the address specified as a system call handler code
+            jump(read_from_address(address_t::sys_call_handler));
+            break;
+        }
+        case cpu_operation_t::sys_return:
+        {
+            if (debug_on) {
+                std::cout << "[DEBUG] Switch from kernel mode to user mode.\n";
+            }
+            // Let's restore all registers from process memory except result and error registers:
+            auto proc_memory_offset = std::stoi(read_from_address(address_t::proc_start_address));
+            for (size_t i = 2; i <= static_cast<size_t>(address_t::user_space_regs_end); i += 2)
+            {
+                copy_from_to_address(std::to_string(i + proc_memory_offset), std::to_string(i));
+            }
+            write_to_address(address_t::res, reg_res);
+            write_to_address(address_t::error, reg_err);
+
+            // restore program counter for user space:
+            write_to_address(address_t::program_counter, read_from_address(address_t::sys_ret_address));
+            write_to_address(address_t::sys_ret_address, "");
+
+            // switch back to user space mode:
+            is_kernel_mode = false;
+            break;
+        }
         default:
             std::cout << "[INFO] Executing " << static_cast<int>(reg_op) << ": Unknown command" << std::endl;
-            exit(1);
+            throw std::runtime_error("[INFO] Executing " + std::to_string(static_cast<int>(reg_op)) + ": Unknown command");
     }
 }
 
@@ -635,6 +768,10 @@ int main(int argc, char* argv[]) {
         std::getline(kernel_file, line);
         RAM_data[i] = std::move(line);
         i++;
+        if (i >= ram_size) {
+            std::cerr << "Error: Kernel file is too big for the specified RAM size" << std::endl;
+            exit(1);
+        }
     }
 
     // Set free memory range:
@@ -651,7 +788,7 @@ int main(int argc, char* argv[]) {
             jump_print_debug_info();
         }
 
-        std::string next_cmd = read_from_address(address_t::program_counter);
+        std::string next_cmd = RAM_data[static_cast<int>(address_t::program_counter)];
         std::string cur_instruction = read_from_address(next_cmd);
         std::istringstream iss(cur_instruction);
         int instr_code;
@@ -666,39 +803,55 @@ int main(int argc, char* argv[]) {
         }
 
         iss >> instr_code;
-
-        switch (static_cast<cpu_instruction_t>(instr_code)) {
-            case cpu_instruction_t::cpu_exec:
-                cpu_exec();
-                break;
-            case cpu_instruction_t::copy_from_to_address:
-                {
-                    std::string src, dest;
-                    if (!(iss >> src >> dest)) {
-                        std::cerr << "Error: copy_from_to_address expects 2 arguments (src, dest)" << std::endl;
-                        exit(1);
+        try {
+            switch (static_cast<cpu_instruction_t>(instr_code)) {
+                case cpu_instruction_t::cpu_exec:
+                    cpu_exec();
+                    break;
+                case cpu_instruction_t::copy_from_to_address:
+                    {
+                        std::string src, dest;
+                        if (!(iss >> src >> dest)) {
+                            std::cerr << "Error: copy_from_to_address expects 2 arguments (src, dest)" << std::endl;
+                            exit(1);
+                        }
+                        copy_from_to_address(src, dest);
                     }
-                    copy_from_to_address(src, dest);
-                }
-                break;
-            case cpu_instruction_t::read_from_address:
-                read_from_address(iss.str().substr(cur_instruction.find(' ') + 1));
-                break;
-            case cpu_instruction_t::jump:
-                jump(iss.str().substr(cur_instruction.find(' ') + 1));
-                break;
-            case cpu_instruction_t::jump_if:
-                jump_if(iss.str().substr(cur_instruction.find(' ') + 1));
-                break;
-            case cpu_instruction_t::jump_if_not:
-                jump_if_not(iss.str().substr(cur_instruction.find(' ') + 1));
-                break;
-            case cpu_instruction_t::jump_err:
-                jump_err(iss.str().substr(cur_instruction.find(' ') + 1));
-                break;
-            default:
-                std::cerr << "Unknown instruction: " << cur_instruction << std::endl;
+                    break;
+                case cpu_instruction_t::read_from_address:
+                    read_from_address(iss.str().substr(cur_instruction.find(' ') + 1));
+                    break;
+                case cpu_instruction_t::jump:
+                    jump(iss.str().substr(cur_instruction.find(' ') + 1));
+                    break;
+                case cpu_instruction_t::jump_if:
+                    jump_if(iss.str().substr(cur_instruction.find(' ') + 1));
+                    break;
+                case cpu_instruction_t::jump_if_not:
+                    jump_if_not(iss.str().substr(cur_instruction.find(' ') + 1));
+                    break;
+                case cpu_instruction_t::jump_err:
+                    jump_err(iss.str().substr(cur_instruction.find(' ') + 1));
+                    break;
+                default:
+                    std::cerr << "Unknown instruction: " << cur_instruction << std::endl;
+                    exit(1);
+            }
+        }
+        catch (const std::exception& e) {
+            if (is_kernel_mode) {
+                std::cout << "[FATAL] Kernel mode error: " << e.what() << std::endl;
                 exit(1);
+            } else {
+                std::cout << "[ERROR] Segmentation fault (SIGSEGV): " << e.what() << ". Program stopped unexpectedly." << std::endl;
+                write_to_address(address_t::a, "139"); // segfault return code
+                write_to_address(address_t::d, "0");
+                write_to_address(address_t::op, std::to_string(static_cast<size_t>(cpu_operation_t::sys_call)));
+                cpu_exec();
+            }
+        } catch (...) {
+            std::cerr << "[CRITICAL] Unknown error occurred in KaguOS bootloader." << std::endl;
+            exit(1);
         }
 
         if (debug_on) {

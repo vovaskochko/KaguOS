@@ -100,6 +100,8 @@ function parse_lexeme() {
         fi
     elif [ "${CUR_LEXEME:0:3}" = "OP_" ]; then
         echo "$PREFIX opr $CUR_LEXEME"
+    elif [ "${CUR_LEXEME:0:9}" = "SYS_CALL_" ]; then
+        echo "$PREFIX sys $CUR_LEXEME"
     elif [ "${CUR_LEXEME:0:4}" = "REG_" ] || [ "${CUR_LEXEME:0:5}" = "INFO_" ] || [ "$CUR_LEXEME" = "DISPLAY_BUFFER" ] || [ "$CUR_LEXEME" = "DISPLAY_COLOR" ] || [ "$CUR_LEXEME" = "DISPLAY_BACKGROUND" ] || [ "$CUR_LEXEME" = "KEYBOARD_BUFFER" ] || [ "$CUR_LEXEME" = "PROGRAM_COUNTER" ] || [ "${CUR_LEXEME:0:5}" = "FREE_" ]; then
         echo "$PREFIX reg $CUR_LEXEME"
     elif [ "${CUR_LEXEME:0:6}" = "COLOR_" ]; then
@@ -138,7 +140,7 @@ function eval_lexeme() {
         esac
         ;;
     kto) FUNC_RESULT="";;
-    num|reg|opr|clr|mod)
+    num|reg|opr|sys|clr|mod)
         if [ "$POSITION" = "write_1" ]; then
             CUR_INDEX=$(find_index "$VALUE" "${CONSTANTS[@]}")
             FUNC_RESULT="${CONSTANTS_ADDRESSES[$CUR_INDEX]}"
@@ -160,11 +162,16 @@ function eval_lexeme() {
         FUNC_RESULT="${CONSTANTS_ADDRESSES[$CUR_INDEX]}"
         ;;
     lbl)
-        CUR_INDEX=$(find_index "${VALUE}" "${LABELS[@]}")
-        if [ "$CUR_INDEX" -eq -1 ]; then
-            compilation_error "" "Label $VALUE is not defined"
+        if [ "$POSITION" = "write_1" ]; then
+            CUR_INDEX=$(find_index "LABEL:$VALUE" "${CONSTANTS[@]}")
+            FUNC_RESULT="${CONSTANTS_ADDRESSES[$CUR_INDEX]}"
         else
-            FUNC_RESULT="${LABELS_ADDRESSES[$CUR_INDEX]}"
+            CUR_INDEX=$(find_index "${VALUE}" "${LABELS[@]}")
+            if [ "$CUR_INDEX" -eq -1 ]; then
+                compilation_error "" "Label $VALUE is not defined"
+            else
+                FUNC_RESULT="${LABELS_ADDRESSES[$CUR_INDEX]}"
+            fi
         fi
         ;;
     var)
@@ -208,6 +215,7 @@ function eval_debug_info_for_lexeme() {
 # Include files with definitions:
 INCLUDE_DIR="$(dirname "$0")"/include
 source "$INCLUDE_DIR"/operations.sh
+source "$INCLUDE_DIR"/syscalls.sh
 source "$INCLUDE_DIR"/other.sh
 source "$INCLUDE_DIR"/registers.sh
 source "$INCLUDE_DIR"/system.sh
@@ -236,8 +244,15 @@ if [ -z "$DEBUG_INFO" ]; then
     DEBUG_INFO=1
 fi
 
+if [ -z "$USER_SPACE" ]; then
+    FIRST_INSTRUCTION_NO="$KERNEL_START"
+    OUTPUT_FILE="$GLOBAL_KERNEL_DISK"
+else
+    FIRST_INSTRUCTION_NO=17
+    OUTPUT_FILE="$GLOBAL_USER_DISK"
+fi
+
 # Parse input list of source files:
-KERNEL_FILE="$GLOBAL_KERNEL_DISK"
 SRC_FILES=""
 for ARG in "$@"; do
     if [ ! -f "${ARG}" ]; then
@@ -248,7 +263,7 @@ for ARG in "$@"; do
 done
 
 # Go through the files and parse each line to the list of lexemes, store constants, variables and labels to calculate there addresses later:
-NEXT_INSTR_ADDRESS=$KERNEL_START
+NEXT_INSTR_ADDRESS=$FIRST_INSTRUCTION_NO
 for CUR_FILE in $SRC_FILES; do
     PARSED_LEXEMES+=( "file ${CUR_FILE}" )
     CUR_LINE_NO=0
@@ -269,8 +284,8 @@ for CUR_FILE in $SRC_FILES; do
         case $CUR_CMD in
         write)
             LEXEMES_COUNT=4
-            EXPECTED_PATTERN="^(_ cmd)(_ str|_ num|_ opr|_ clr|_ mod)(_ kto)(_ num|\* num|_ reg|\* reg|_ var|\* var)(_ cmt)$"
-            EXPECTED_SYNTAX="'write \"some string\" to address' or 'write 100 to address' or 'write OP_* to address' or 'write COLOR_* to address'"
+            EXPECTED_PATTERN="^(_ cmd)(_ str|_ num|_ opr|_ sys|_ clr|_ mod|_ lbl)(_ kto)(_ num|\* num|_ reg|\* reg|_ var|\* var)(_ cmt)$"
+            EXPECTED_SYNTAX="'write \"some string\" to address' or 'write 100 to address' or 'write OP_* to address' or 'write COLOR_* to address' or 'write SYS_CALL_* to address'"
             ;;
         copy)
             LEXEMES_COUNT=4
@@ -358,10 +373,18 @@ for CUR_FILE in $SRC_FILES; do
                 CUR_VALUE="\"${CUR_VALUE}\""
             fi
 
+            if [ "$LEX_TYPE" = lbl ]; then
+                CUR_INDEX=$(find_index "${CUR_VALUE}" "${LABELS[@]}")
+                CUR_VALUE="LABEL:$CUR_VALUE"
+                if [ "$CUR_INDEX" -eq -1 ]; then
+                    compilation_error "" "Label $CUR_VALUE can't be used for write operation. Define it prior to the operation."
+                fi
+            fi
+
             if ! contains_element "$CUR_VALUE" "${CONSTANTS[@]}"; then
                 CONSTANTS+=("${CUR_VALUE}")
                 case $LEX_TYPE in
-                    clr|reg|opr|mod)
+                    clr|reg|opr|sys|mod)
                         EVAL_VALUE=$(eval echo "\$$CUR_VALUE")
                         if [ -z "$EVAL_VALUE" ]; then
                             compilation_error "" "Symbol $CUR_VALUE is unknown"
@@ -369,6 +392,7 @@ for CUR_FILE in $SRC_FILES; do
                         ;;
                     num)                EVAL_VALUE="$CUR_VALUE";;
                     str)                EVAL_VALUE="${CUR_VALUE:1:-1}";;
+                    lbl)                EVAL_VALUE="${LABELS_ADDRESSES[$CUR_INDEX]}";;
                     *)                  EVAL_VALUE="";;
                 esac
                 CONSTANTS_EVALUATED+=("${EVAL_VALUE}")
@@ -395,9 +419,9 @@ for CUR_VAR in "${VARIABLES[@]}"; do
 done
 
 # Let's prepare folders and files to store compiled kernel:
-mkdir -p $(dirname "${KERNEL_FILE}")
-rm -rf "${KERNEL_FILE}"
-printf "%s\n" "${PARSED_LEXEMES[@]}" > "${KERNEL_FILE}.o"
+mkdir -p $(dirname "${OUTPUT_FILE}")
+rm -rf "${OUTPUT_FILE}"
+printf "%s\n" "${PARSED_LEXEMES[@]}" > "${OUTPUT_FILE}.o"
 
 
 function get_next_lexeme() {
@@ -407,7 +431,7 @@ function get_next_lexeme() {
 
 # Now we can go through the list of the parsed lexemes and substitute all the addresses
 LEXEME_INDEX=-1
-CUR_INSTRUCTION_NO=$((KERNEL_START - 1))
+CUR_INSTRUCTION_NO=$((FIRST_INSTRUCTION_NO - 1))
 while true; do
     get_next_lexeme
 
@@ -447,14 +471,14 @@ while true; do
     done
 
     if [ "$DEBUG_INFO" -eq 1 ]; then
-        echo "$RES_STR $DEBUG_STR" >> "$KERNEL_FILE"
+        echo "$RES_STR $DEBUG_STR" >> "$OUTPUT_FILE"
     else
-        echo "$RES_STR" >> "$KERNEL_FILE"
+        echo "$RES_STR" >> "$OUTPUT_FILE"
     fi
 done
 
 # Let's align all the # comments of the instructions to have more readability:
-if [ -s "$KERNEL_FILE" ]; then
+if [ -s "$OUTPUT_FILE" ]; then
     awk '{
         pos = index($0, "#")
         if (pos == 0) {
@@ -463,19 +487,19 @@ if [ -s "$KERNEL_FILE" ]; then
             spaces = 15 - (pos - 1)
             printf "%s%*s%s\n", substr($0, 1, pos - 1), spaces, "", substr($0, pos)
         }
-    }' "${KERNEL_FILE}" > "${KERNEL_FILE}".tmp && mv "${KERNEL_FILE}".tmp "${KERNEL_FILE}"
+    }' "${OUTPUT_FILE}" > "${OUTPUT_FILE}".tmp && mv "${OUTPUT_FILE}".tmp "${OUTPUT_FILE}"
 else
     compilation_error "" "Empty kernel file: no valid instructions present in the provided source files"
 fi
 
 # Append constants just after instructions
 for CUR_CONST in "${CONSTANTS_EVALUATED[@]}"; do
-    echo "$CUR_CONST" >> "$KERNEL_FILE"
+    echo "$CUR_CONST" >> "$OUTPUT_FILE"
 done
 
 # Append empty lines as a default value for memory allocated for variables
 for CUR_VAR in "${VARIABLES[@]}"; do
-    echo "" >> "$KERNEL_FILE"
+    echo "" >> "$OUTPUT_FILE"
 done
 
 # That's it - compilation finished. Let's report status to the user:
@@ -483,7 +507,7 @@ if [ $COMPILATION_ERROR_COUNT -ne 0 ]; then
     echo -e "\033[91mCompilation failed: $COMPILATION_ERROR_COUNT error(s).\033[0m"
     exit $COMPILATION_ERROR_COUNT
 else
-    echo -e "\033[92mCompilation succeeded. Kernel image: ${KERNEL_FILE}\033[0m"
+    echo -e "\033[92mCompilation succeeded. Output image: ${OUTPUT_FILE}\033[0m"
 fi
 
 if [ "$NEXT_INSTR_ADDRESS" -ge "$GLOBAL_RAM_SIZE" ]; then

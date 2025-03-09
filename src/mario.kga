@@ -1,0 +1,142 @@
+var iterations
+copy REG_A to var:iterations
+
+// Let's set background color to cyan:
+write COLOR_CYAN to REG_A
+write SYS_CALL_SET_BACKGROUND to REG_D
+write OP_SYS_CALL to REG_OP
+cpu_exec
+
+// Define a bitmap (based on https://pin.it/3WcsRt4xM )
+write "cccccccccccccccccccccccccccc" to 170
+write "cccccccccccccccccccccccccccc" to 171
+write "cccccccccccccccccccccccccccc" to 172
+write "cccccccccccccccccccccccccccc" to 173
+write "cccccccccccrrrrrcccccccccccc" to 174
+write "ccccccccccrrrrrrrrrccccccccc" to 175
+write "ccccccccccbbbyybyccccccccccc" to 176
+write "cccccccccbybyyybyyyccccccccc" to 177
+write "cccccccccbybbyyybyyycccccccc" to 178
+write "cccccccccbbyyyybbbbccccccccc" to 179
+write "cccccccccccyyyyyyycccccccccc" to 180
+write "ccccccccccbbrbbbcccccccccccc" to 181
+write "cccccccccbbbrbbrbbbccccccccc" to 182
+write "ccccccccbbbbrrrrbbbbcccccccc" to 183
+write "ccccccccyybryrryrbyycccccccc" to 184
+write "ccccccccyyyrrrrrryyycccccccc" to 185
+write "ccccccccyyrrrrrrrryycccccccc" to 186
+write "ccccccccccrrrccrrrcccccccccc" to 187
+write "cccccccccbbbccccbbbccccccccc" to 188
+write "ccccccccbbbbccccbbbbcccccccc" to 189
+write "cwwwwwwwwwwwwwwwwwwwwwwwwwwc" to 190
+write "cccccccccccccccccccccccccccc" to 191
+write "cccccccccccccccccccccccccccc" to 192
+write "cccccccccccccccccccccccccccc" to 193
+write "cccccccccccccccccccccccccccc" to 194
+
+label start
+    copy var:iterations to REG_A
+    write OP_DECR to REG_OP
+    cpu_exec
+    copy REG_RES to var:iterations
+    copy var:iterations to REG_A
+    write 0 to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec
+    jump_if label:exit
+
+    var counter
+
+    // Let's move up
+    write 170 to var:counter
+    label loop_move_up
+        copy var:counter to REG_A
+        write OP_INCR to REG_OP
+        cpu_exec
+        copy REG_RES to var:counter
+
+        copy var:counter to REG_A
+        write 21 to REG_B
+        write OP_ADD to REG_OP
+        cpu_exec
+
+        copy var:counter to REG_A
+        copy REG_RES to REG_B
+        write SYS_CALL_RENDER_BITMAP to REG_D
+        write OP_SYS_CALL to REG_OP
+        cpu_exec
+
+        write "0.1" to REG_A
+        write SYS_CALL_SLEEP to REG_D
+        write OP_SYS_CALL to REG_OP
+        cpu_exec
+
+        copy var:counter to REG_A
+        write 174 to REG_B
+        write OP_CMP_NEQ to REG_OP
+        cpu_exec
+        jump_if label:loop_move_up
+
+    // let's move down
+    label loop_move_down
+        copy var:counter to REG_A
+        write OP_DECR to REG_OP
+        cpu_exec
+        copy REG_RES to var:counter
+
+        copy var:counter to REG_A
+        write 21 to REG_B
+        write OP_ADD to REG_OP
+        cpu_exec
+
+        copy var:counter to REG_A
+        copy REG_RES to REG_B
+        write SYS_CALL_RENDER_BITMAP to REG_D
+        write OP_SYS_CALL to REG_OP
+        cpu_exec
+
+        write "0.1" to REG_A
+        write SYS_CALL_SLEEP to REG_D
+        write OP_SYS_CALL to REG_OP
+        cpu_exec
+
+        write 170 to REG_A
+        copy var:counter to REG_B
+        write OP_CMP_LT to REG_OP
+        cpu_exec
+        jump_if label:loop_move_down
+
+    // let's shift bitmap to the right
+        write 170 to var:counter
+    label shift_right
+        write "c" to REG_A
+        copy *var:counter to REG_B
+        write "" to REG_C
+        write OP_CONCAT_WITH to REG_OP
+        cpu_exec
+        copy REG_RES to *var:counter
+
+        copy var:counter to REG_A
+        write OP_INCR to REG_OP
+        cpu_exec
+        copy REG_RES to var:counter
+
+        copy var:counter to REG_A
+        write 191 to REG_B
+        write OP_CMP_LT to REG_OP
+        cpu_exec
+        jump_if label:shift_right
+
+jump label:start
+
+label exit
+    write COLOR_NO to REG_A
+    write SYS_CALL_SET_BACKGROUND to REG_D
+    write OP_SYS_CALL to REG_OP
+    cpu_exec
+
+    // exit with 0:
+    write 0 to REG_A
+    write SYS_CALL_EXIT to REG_D
+    write OP_SYS_CALL to REG_OP
+    cpu_exec
