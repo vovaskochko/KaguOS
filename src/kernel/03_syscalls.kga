@@ -13,6 +13,20 @@
 //     10       |  render_bitmap    |  start address     |   end address   |        -      |            -        |         -
 //     11       |  sleep            |  sleep in seconds  |        -        |        -      |            -        |         -
 
+var sys_call_count
+var sys_call_00
+var sys_call_01
+var sys_call_02
+var sys_call_03
+var sys_call_04
+var sys_call_05
+var sys_call_06
+var sys_call_07
+var sys_call_08
+var sys_call_09
+var sys_call_10
+var sys_call_11
+
 
 label sys_call_handler
     var sys_call_arg1
@@ -24,68 +38,49 @@ label sys_call_handler
     copy REG_C to var:sys_call_arg3
     copy REG_D to var:sys_call_number
 
+    // sys_call_number should be a number
     copy var:sys_call_number to REG_A
+    write OP_IS_NUM to REG_OP
+    cpu_exec
+    jump_if_not label:unknown_sys_call
 
+    // sys_call_number should be >= 0
+    // copy var:sys_call_number to REG_A  <= it's already there
     write 0 to REG_B
-    write OP_CMP_EQ to REG_OP
+    write OP_CMP_LT to REG_OP
     cpu_exec
-    jump_if label:sys_call_exit
+    jump_if label:unknown_sys_call
 
-    write 1 to REG_B
-    write OP_CMP_EQ to REG_OP
+    // sys_call_number should be < sys_call_count
+    // copy var:sys_call_number to REG_A  <= it's already there
+    copy var:sys_call_count to REG_B
+    // write OP_CMP_LT to REG_OP         <= it's already there
     cpu_exec
-    jump_if label:sys_call_println
+    jump_if_not label:unknown_sys_call
 
-    write 2 to REG_B
-    write OP_CMP_EQ to REG_OP
+    // If sys call number is valid then we should find handler in syscall table
+    // We should get the address of handler for call 0 and add offset to it for further jump
+    copy @var:sys_call_00 to REG_A
+    copy var:sys_call_number to REG_B
+    write OP_ADD to REG_OP
     cpu_exec
-    jump_if label:sys_call_print
 
-    write 3 to REG_B
-    write OP_CMP_EQ to REG_OP
+    var some_result
+    copy *REG_RES to var:some_result
+    jump *var:some_result
+
+label unknown_sys_call
+    write 38 to REG_A // ENOSYS exit code for missing system function implementation
+    write "Function not implemented" to REG_ERROR
+    write "" to REG_RES
+    jump label:sys_call_exit
+
+label sys_call_to_user_mode
+    write OP_SYS_RETURN to REG_OP
     cpu_exec
-    jump_if label:sys_call_read_input
 
-    write 4 to REG_B
-    write OP_CMP_EQ to REG_OP
-    cpu_exec
-    jump_if label:sys_call_fs_open
 
-    write 5 to REG_B
-    write OP_CMP_EQ to REG_OP
-    cpu_exec
-    jump_if label:sys_call_fs_descriptor_info
-
-    write 6 to REG_B
-    write OP_CMP_EQ to REG_OP
-    cpu_exec
-    jump_if label:sys_call_fs_close
-
-    write 7 to REG_B
-    write OP_CMP_EQ to REG_OP
-    cpu_exec
-    jump_if label:sys_call_fs_read
-
-    write 8 to REG_B
-    write OP_CMP_EQ to REG_OP
-    cpu_exec
-    jump_if label:sys_call_fs_write
-
-    write 9 to REG_B
-    write OP_CMP_EQ to REG_OP
-    cpu_exec
-    jump_if label:sys_call_set_background
-
-    write 10 to REG_B
-    write OP_CMP_EQ to REG_OP
-    cpu_exec
-    jump_if label:sys_call_render_bitmap
-
-    write 11 to REG_B
-    write OP_CMP_EQ to REG_OP
-    cpu_exec
-    jump_if label:sys_call_sleep
-
+// SYSTEM CALLS IMPLEMENTATION START
 label sys_call_exit
     // Let's clean the memory
     var sys_call_exit_ptr
@@ -217,8 +212,32 @@ label sys_call_sleep
     cpu_exec
     jump label:sys_call_to_user_mode
 
+// SYSTEM CALLS IMPLEMENTATION END
 
 
-label sys_call_to_user_mode
-    write OP_SYS_RETURN to REG_OP
-    cpu_exec
+// Use the following commands to init table with system calls and handler:
+//          copy PROGRAM_COUNTER to var:sys_return
+//          jump label:init_sys_call_table
+// RETURN:
+//      REG_ERROR contains error
+label sys_call_table_init
+    copy PROGRAM_COUNTER to var:sys_stack_return
+    jump label:sys_stack_push
+
+    write label:sys_call_handler to REG_SYS_CALL_HANDLER
+    write 12 to var:sys_call_count
+
+    write label:sys_call_exit to var:sys_call_00
+    write label:sys_call_println to var:sys_call_01
+    write label:sys_call_print to var:sys_call_02
+    write label:sys_call_read_input to var:sys_call_03
+    write label:sys_call_fs_open to var:sys_call_04
+    write label:sys_call_fs_descriptor_info to var:sys_call_05
+    write label:sys_call_fs_close to var:sys_call_06
+    write label:sys_call_fs_read to var:sys_call_07
+    write label:sys_call_fs_write to var:sys_call_08
+    write label:sys_call_set_background to var:sys_call_09
+    write label:sys_call_render_bitmap to var:sys_call_10
+    write label:sys_call_sleep to var:sys_call_11
+
+    jump label:sys_stack_pop

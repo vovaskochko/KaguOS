@@ -38,6 +38,10 @@ copy REG_RES to var:sys_stack_ptr
 copy PROGRAM_COUNTER to var:sys_return
 jump label:sys_fs_init
 
+// init system calls table and handler
+copy PROGRAM_COUNTER to var:sys_return
+jump label:sys_call_table_init
+
 var sys_proc_memory_size
     var config_fd
     var config_line
@@ -264,7 +268,6 @@ label exec_file
         write "" to REG_RES
         write "" to REG_ERROR
         write 16 to REG_SYS_RET_ADDRESS
-        write label:sys_call_handler to REG_SYS_CALL_HANDLER
         write OP_SYS_RETURN to REG_OP
         cpu_exec
 
