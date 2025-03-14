@@ -44,7 +44,6 @@ We are using Bash functions to emulate basic operations like CPU instructions an
    - 8.3 [Partition Mounting Mechanism](#83-partition-mounting-mechanism)
    - 8.4 [Organization of the Filesystem in Partitions](#84-organization-of-the-filesystem-in-partitions)
    - 8.5 [Interaction with Files in KaguFS](#85-interaction-with-files-in-kagufs)
-   - 8.6 [Conclusion](#86-conclusion)
 
 ## 1. Environment
 
