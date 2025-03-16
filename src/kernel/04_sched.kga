@@ -1,0 +1,680 @@
+// we should create PCB(process control block)
+// PID <pid> NAME <name> STATE <state> PRIORITY <priority> MEM_START <start> MEM_END <end> PC <program counter> FD_LIST <descriptor 1> <descriptor 2> <descriptor 3>
+
+var sys_proc_memory_size
+var sys_pcb_list_start
+var sys_pcb_list_end
+var sys_proc_max_count
+var sys_last_used_pid
+var sys_cur_pcb_ptr
+var sys_pcb_free_mem_list
+
+
+label sys_sched_run
+    var sys_sched_run_cur_pcb
+    write "" to var:sys_sched_run_cur_pcb
+
+    var sys_sched_run_ptr
+    copy var:sys_pcb_list_start to var:sys_sched_run_ptr
+    label sys_sched_check_ready_loop
+        // Get state and check whether it is ready:
+        copy *var:sys_sched_run_ptr to REG_A
+        write 6 to REG_B
+        write " " to REG_C
+        write OP_GET_COLUMN to REG_OP
+        cpu_exec
+        copy REG_RES to REG_PROC_START_ADDRESS
+
+        copy REG_RES to REG_A
+        write "ready" to REG_B
+        write OP_CMP_EQ to REG_OP
+        cpu_exec
+        jump_if label:sys_sched_found_ready
+
+        // If not, increment pointer and check whether we have other PCB
+        copy var:sys_sched_run_ptr to REG_A
+        write OP_INCR to REG_OP
+        cpu_exec
+        copy REG_RES to var:sys_sched_run_ptr
+
+        copy var:sys_sched_run_ptr to REG_A
+        copy var:sys_pcb_list_end to REG_B
+        write OP_CMP_EQ to REG_OP
+        cpu_exec
+        jump_if_not label:sys_sched_check_ready_loop
+
+        jump label:kernel_start
+
+
+    label sys_sched_found_ready
+        copy var:sys_sched_run_ptr to var:sys_cur_pcb_ptr
+        copy *var:sys_cur_pcb_ptr to var:sys_sched_run_cur_pcb
+
+    // Get memory start address:
+    copy var:sys_sched_run_cur_pcb to REG_A
+    write 10 to REG_B
+    write OP_GET_COLUMN to REG_OP
+    cpu_exec
+    copy REG_RES to REG_PROC_START_ADDRESS
+
+    // Get memory end address:
+    // copy var:sys_sched_run_cur_pcb to REG_A
+    write 12 to REG_B
+    // write OP_GET_COLUMN to REG_OP
+    cpu_exec
+    copy REG_RES to REG_PROC_END_ADDRESS
+
+    // Get program counter:
+    // copy var:sys_sched_run_cur_pcb to REG_A
+    write 14 to REG_B
+    // write OP_GET_COLUMN to REG_OP
+    cpu_exec
+    copy REG_RES to REG_SYS_RET_ADDRESS
+
+    write OP_SYS_RETURN to REG_OP
+    cpu_exec
+
+
+
+label sys_sched_print_all
+    copy PROGRAM_COUNTER to var:sys_stack_return
+    jump label:sys_stack_push
+
+    var sys_sched_print_all_ptr
+    copy var:sys_pcb_list_start to var:sys_sched_print_all_ptr
+    label sys_sched_check_print_all_loop
+        // Get state and check whether it is ready:
+        copy *var:sys_sched_print_all_ptr to REG_A
+        write 6 to REG_B
+        write " " to REG_C
+        write OP_GET_COLUMN to REG_OP
+        cpu_exec
+        copy REG_RES to REG_PROC_START_ADDRESS
+
+        copy REG_RES to REG_A
+        write "ready" to REG_B
+        write OP_CMP_EQ to REG_OP
+        cpu_exec
+        jump_if_not label:sys_sched_print_all_skip
+
+        copy *var:sys_sched_print_all_ptr to DISPLAY_BUFFER
+        write COLOR_CYAN to DISPLAY_COLOR
+        write OP_DISPLAY_LN to REG_OP
+        cpu_exec
+
+        label sys_sched_print_all_skip
+            copy var:sys_sched_print_all_ptr to REG_A
+            write OP_INCR to REG_OP
+            cpu_exec
+            copy REG_RES to var:sys_sched_print_all_ptr
+
+            copy var:sys_sched_print_all_ptr to REG_A
+            copy var:sys_pcb_list_end to REG_B
+            write OP_CMP_EQ to REG_OP
+            cpu_exec
+            jump_if label:sys_stack_pop
+            jump label:sys_sched_check_print_all_loop
+
+    jump label:sys_stack_pop
+
+
+
+
+label sys_sched_process_load
+    copy PROGRAM_COUNTER to var:sys_stack_return
+    jump label:sys_stack_push
+
+    var sys_sched_process_load_args
+    copy REG_A to var:sys_sched_process_load_args
+    var sys_sched_process_load_priority
+    copy REG_B to var:sys_sched_process_load_priority
+
+    var sys_sched_process_load_pcb
+    var sys_sched_process_load_mem_start
+    var sys_sched_process_load_mem_end
+    var sys_sched_process_load_pc
+
+    // Find free PCB
+    var sys_sched_process_load_ptr
+    copy var:sys_pcb_list_start to var:sys_sched_process_load_ptr
+    label sys_sched_load_loop
+        // Get state and check whether it is ready:
+        copy *var:sys_sched_process_load_ptr to REG_A
+        write "0" to REG_B
+        write OP_CMP_EQ to REG_OP
+        cpu_exec
+        jump_if label:sys_sched_load_found
+
+        // If not, increment pointer and check whether we have other PCB
+        copy var:sys_sched_process_load_ptr to REG_A
+        write OP_INCR to REG_OP
+        cpu_exec
+        copy REG_RES to var:sys_sched_process_load_ptr
+
+        copy var:sys_sched_process_load_ptr to REG_A
+        copy var:sys_pcb_list_end to REG_B
+        write OP_CMP_EQ to REG_OP
+        cpu_exec
+        jump_if_not label:sys_sched_load_loop
+
+        write "" to REG_RES
+        write "Max process count is reached. Failed to load new process" to REG_ERROR
+        jump label:sys_stack_pop
+
+
+    label sys_sched_load_found
+        copy var:sys_sched_process_load_ptr to var:sys_sched_process_load_pcb
+
+    // Set initial program counter:
+    write 16 to var:sys_sched_process_load_pc
+
+    // Let's allocate memory for the process:
+    copy var:sys_pcb_free_mem_list to REG_A
+    write 1 to REG_B
+    write " " to REG_C
+    write OP_GET_COLUMN to REG_OP
+    cpu_exec
+
+    copy REG_RES to REG_A
+    write "" to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec
+    jump_if label:sys_sched_process_load_no_mem_in_pool
+    copy REG_A to var:sys_sched_process_load_mem_start
+
+    copy var:sys_pcb_free_mem_list to REG_A
+    write 1 to REG_B
+    write " " to REG_C
+    write "" to REG_D
+    write OP_REPLACE_COLUMN to REG_OP
+    cpu_exec
+    copy REG_RES to var:sys_pcb_free_mem_list
+    copy REG_RES to REG_A
+    write " " to REG_B
+    write OP_STARTS_WITH to REG_OP
+    cpu_exec
+    jump_if_not label:sys_sched_process_load_free_mem_ok
+    copy REG_RES to var:sys_pcb_free_mem_list
+    label sys_sched_process_load_free_mem_ok
+        jump label:sys_sched_process_load_start_mem_done
+
+
+    label sys_sched_process_load_no_mem_in_pool
+        copy FREE_MEMORY_START to var:sys_sched_process_load_mem_start
+
+        copy var:sys_sched_process_load_mem_start to REG_A
+        copy var:sys_proc_memory_size to REG_B
+        write OP_ADD to REG_OP
+        cpu_exec
+        copy REG_RES to var:sys_sched_process_load_mem_end
+
+        copy FREE_MEMORY_END to REG_A
+        copy var:sys_sched_process_load_mem_end to REG_B
+        write OP_CMP_LT to REG_OP
+        cpu_exec
+        jump_if label:sys_sched_process_load_no_RAM
+
+        // Update start of free memory:
+        copy var:sys_sched_process_load_mem_end to REG_A
+        write OP_INCR to REG_OP
+        cpu_exec
+        copy REG_RES to FREE_MEMORY_START
+
+        jump label:sys_sched_process_load_parse_args
+
+    label sys_sched_process_load_no_RAM
+        write "" to REG_RES
+        write "Can't allocate RAM for the process" to REG_ERROR
+        jump label:sys_stack_pop
+
+    label sys_sched_process_load_start_mem_done
+        copy var:sys_sched_process_load_mem_start to REG_A
+        copy var:sys_proc_memory_size to REG_B
+        write OP_ADD to REG_OP
+        cpu_exec
+        copy REG_RES to var:sys_sched_process_load_mem_end
+
+    label sys_sched_process_load_parse_args
+    // Parse command line into arguments:
+    var sys_sched_process_load_arg0
+    var sys_sched_process_load_arg1
+    var sys_sched_process_load_arg2
+    var sys_sched_process_load_arg3
+
+    copy var:sys_sched_process_load_args to REG_A
+    copy PROGRAM_COUNTER to var:sys_return
+    jump label:sys_remove_unneeded_spaces
+    copy REG_RES to var:sys_sched_process_load_args
+
+    copy var:sys_sched_process_load_args to REG_A
+    write 1 to REG_B
+    write " " to REG_C
+    write OP_GET_COLUMN to REG_OP
+    cpu_exec
+    copy REG_RES to var:sys_sched_process_load_arg0
+
+    // copy var:sys_sched_process_load_args to REG_A
+    write 2 to REG_B
+    // write " " to REG_C
+    // write OP_GET_COLUMN to REG_OP
+    cpu_exec
+    copy REG_RES to var:sys_sched_process_load_arg1
+
+    // copy var:sys_sched_process_load_args to REG_A
+    write 3 to REG_B
+    // write " " to REG_C
+    // write OP_GET_COLUMN to REG_OP
+    cpu_exec
+    copy REG_RES to var:sys_sched_process_load_arg2
+
+    // copy var:sys_sched_process_load_args to REG_A
+    write 4 to REG_B
+    // write " " to REG_C
+    // write OP_GET_COLUMN to REG_OP
+    cpu_exec
+    copy REG_RES to var:sys_sched_process_load_arg3
+
+
+    // Copy arguments to process space of the process:
+
+    // add 4 to get REG_A address of process and set parameter 1
+    copy var:sys_sched_process_load_mem_start to REG_A
+    write 4 to REG_B
+    write OP_ADD to REG_OP
+    cpu_exec
+    copy var:sys_sched_process_load_arg1 to *REG_RES
+
+    // add 6 to get REG_B address of process and set parameter 2
+    // copy var:sys_sched_process_load_mem_start to REG_A
+    write 6 to REG_B
+    // write OP_ADD to REG_OP
+    cpu_exec
+    copy var:sys_sched_process_load_arg2 to *REG_RES
+
+    // add 8 to get REG_C address of process and set parameter 3
+    // copy var:sys_sched_process_load_mem_start to REG_A
+    write 8 to REG_B
+    // write OP_ADD to REG_OP
+    cpu_exec
+    copy var:sys_sched_process_load_arg3 to *REG_RES
+
+    // add 17 to the start address to get first address for instruction load
+    // copy var:sys_sched_process_load_mem_start to REG_A
+    write 17 to REG_B
+    // write OP_ADD to REG_OP
+    cpu_exec
+    var sys_sched_process_load_exec_ptr
+    copy REG_RES to var:sys_sched_process_load_exec_ptr
+
+    // let's open file:
+    var sys_sched_process_load_fd
+    copy var:sys_sched_process_load_arg0 to REG_A
+    copy PROGRAM_COUNTER to var:sys_return
+    jump label:sys_fs_open
+    jump_err label:sys_sched_process_load_err
+    copy REG_RES to var:sys_sched_process_load_fd
+
+    // Read it line by line:
+    var sys_sched_process_load_file_counter
+    write 1 to var:sys_sched_process_load_file_counter
+    label sys_sched_process_load_file_loop
+        copy var:sys_sched_process_load_fd to REG_A
+        copy var:sys_sched_process_load_file_counter to REG_B
+        copy PROGRAM_COUNTER to var:sys_return
+        jump label:sys_fs_read
+        jump_err label:sys_sched_process_load_success
+
+        // load to RAM
+        copy REG_RES to *var:sys_sched_process_load_exec_ptr
+        copy var:sys_sched_process_load_exec_ptr to REG_A
+        write OP_INCR to REG_OP
+        cpu_exec
+        copy REG_RES to var:sys_sched_process_load_exec_ptr
+
+        copy var:sys_sched_process_load_file_counter to REG_A
+        write OP_INCR to REG_OP
+        cpu_exec
+        copy REG_RES to var:sys_sched_process_load_file_counter
+
+        copy var:sys_sched_process_load_mem_end to REG_A
+        copy var:sys_sched_process_load_exec_ptr to REG_B
+        write OP_CMP_LT to REG_OP
+        cpu_exec
+        jump_if label:sys_sched_process_load_no_memory
+
+        jump label:sys_sched_process_load_file_loop
+
+    label sys_sched_process_load_no_memory
+        copy var:sys_sched_process_load_fd to REG_A
+        copy PROGRAM_COUNTER to var:sys_return
+        jump label:sys_fs_close
+        write "" to REG_RES
+        write "Program is too big to load the program. Change proc_memory in /config.txt and restart the system." to REG_ERROR
+        jump label:sys_stack_pop
+
+
+    label sys_sched_process_load_success
+        copy var:sys_sched_process_load_fd to REG_A
+        copy PROGRAM_COUNTER to var:sys_return
+        jump label:sys_fs_close
+
+        // Let's write meta information about free memory range to the start of memory
+        write 17 to REG_A
+        copy var:sys_sched_process_load_file_counter to REG_B
+        write OP_ADD to REG_OP
+        cpu_exec
+        var sys_sched_process_load_free_start
+        copy REG_RES to var:sys_sched_process_load_free_start
+
+        copy var:sys_last_used_pid to REG_A
+        write OP_INCR to REG_OP
+        cpu_exec
+        copy REG_RES to var:sys_last_used_pid
+
+        // Prepare process control block
+            write "PID" to REG_A
+            copy var:sys_last_used_pid to REG_B
+            write " " to REG_C
+            write OP_CONCAT_WITH to REG_OP
+            cpu_exec
+
+            copy REG_RES to REG_A
+            write "NAME" to REG_B
+            // write " " to REG_C
+            // write OP_CONCAT_WITH to REG_OP
+            cpu_exec
+
+            copy REG_RES to REG_A
+            copy var:sys_sched_process_load_arg0 to REG_B
+            // write " " to REG_C
+            // write OP_CONCAT_WITH to REG_OP
+            cpu_exec
+            copy REG_RES to REG_A
+            copy var:sys_sched_process_load_arg1 to REG_B
+            write "|" to REG_C
+            // write OP_CONCAT_WITH to REG_OP
+            cpu_exec
+            copy REG_RES to REG_A
+            copy var:sys_sched_process_load_arg2 to REG_B
+            // write "|" to REG_C
+            // write OP_CONCAT_WITH to REG_OP
+            cpu_exec
+            copy var:sys_sched_process_load_arg3 to REG_B
+            // write "|" to REG_C
+            // write OP_CONCAT_WITH to REG_OP
+            cpu_exec
+
+            copy REG_RES to REG_A
+            write "STATE ready" to REG_B
+            write " " to REG_C
+            // write OP_CONCAT_WITH to REG_OP
+            cpu_exec
+
+            copy REG_RES to REG_A
+            write "PRIORITY" to REG_B
+            // write " " to REG_C
+            // write OP_CONCAT_WITH to REG_OP
+            cpu_exec
+
+            copy REG_RES to REG_A
+            copy var:sys_sched_process_load_priority to REG_B
+            // write " " to REG_C
+            // write OP_CONCAT_WITH to REG_OP
+            cpu_exec
+
+            copy REG_RES to REG_A
+            write "MEM_START" to REG_B
+            // write " " to REG_C
+            // write OP_CONCAT_WITH to REG_OP
+            cpu_exec
+
+            copy REG_RES to REG_A
+            copy var:sys_sched_process_load_mem_start to REG_B
+            // write " " to REG_C
+            // write OP_CONCAT_WITH to REG_OP
+            cpu_exec
+
+            copy REG_RES to REG_A
+            write "MEM_END" to REG_B
+            // write " " to REG_C
+            // write OP_CONCAT_WITH to REG_OP
+            cpu_exec
+
+            copy REG_RES to REG_A
+            copy var:sys_sched_process_load_mem_end to REG_B
+            // write " " to REG_C
+            // write OP_CONCAT_WITH to REG_OP
+            cpu_exec
+
+            copy REG_RES to REG_A
+            write "PC" to REG_B
+            // write " " to REG_C
+            // write OP_CONCAT_WITH to REG_OP
+            cpu_exec
+
+            copy REG_RES to REG_A
+            copy var:sys_sched_process_load_pc to REG_B
+            // write " " to REG_C
+            // write OP_CONCAT_WITH to REG_OP
+            cpu_exec
+
+            copy REG_RES to REG_A
+            write "FD_LIST" to REG_B
+            // write " " to REG_C
+            // write OP_CONCAT_WITH to REG_OP
+            cpu_exec
+
+            copy REG_RES to *var:sys_sched_process_load_pcb
+
+        // Prepare meta info for process address space:
+            // Append PID
+            write "PID" to REG_A
+            copy var:sys_last_used_pid to REG_B
+            write " " to REG_C
+            write OP_CONCAT_WITH to REG_OP
+            cpu_exec
+
+            // Append free memory start
+            copy REG_RES to REG_A
+            write "FREE" to REG_B
+            // write " " to REG_C
+            // write OP_CONCAT_WITH to REG_OP
+            cpu_exec
+
+            copy REG_RES to REG_A
+            copy var:sys_sched_process_load_free_start to REG_B
+            // write " " to REG_C
+            // write OP_CONCAT_WITH to REG_OP
+            cpu_exec
+
+            // Append free memory end:
+            copy REG_RES to REG_A
+            copy var:sys_proc_memory_size to REG_B
+            // write " " to REG_C
+            // write OP_CONCAT_WITH to REG_OP
+            cpu_exec
+
+            copy REG_RES to *var:sys_sched_process_load_mem_start
+
+        copy var:sys_last_used_pid to REG_RES
+        jump label:sys_stack_pop
+
+    label sys_sched_process_load_err
+        write "" to REG_RES
+        write "Failed to execute command" to REG_ERROR
+        jump label:sys_stack_pop
+
+
+label sys_sched_process_stop
+    // Let's clean the memory
+    copy REG_PROC_START_ADDRESS to REG_A
+    copy REG_PROC_END_ADDRESS to REG_B
+    label sys_sched_process_stop_loop
+        write "" to *REG_A
+
+        // Increment pointer in REG_A
+        // address that was just cleaned is already in REG_A
+        write OP_INCR to REG_OP
+        cpu_exec
+
+        // check whether it is still <= REG_PROC_END_ADDRESS
+        copy REG_RES to REG_A
+        // copy REG_PROC_END_ADDRESS to REG_B
+        write OP_CMP_LT to REG_OP
+        cpu_exec
+        jump_if label:sys_sched_process_stop_loop
+
+    // File descriptors cleanup
+    var sys_sched_process_stop_cur_pcb
+    var sys_sched_process_stop_counter
+    copy *var:sys_cur_pcb_ptr to var:sys_sched_process_stop_cur_pcb
+    write 16 to var:sys_sched_process_stop_counter
+    label sys_sched_process_stop_fd_loop
+        copy var:sys_sched_process_stop_cur_pcb to REG_A
+        copy var:sys_sched_process_stop_counter to REG_B
+        write " " to REG_C
+        write OP_GET_COLUMN to REG_OP
+        cpu_exec
+
+        copy REG_RES to REG_A
+        write "" to REG_B
+        write OP_CMP_EQ to REG_OP
+        cpu_exec
+        jump_if label:sys_sched_process_stop_finalize
+
+        // copy REG_RES to REG_A
+        copy PROGRAM_COUNTER to var:sys_return
+        jump label:sys_fs_close
+
+        copy var:sys_sched_process_stop_counter to REG_A
+        write OP_INCR to REG_OP
+        cpu_exec
+        copy REG_RES to var:sys_sched_process_stop_counter
+
+        jump label:sys_sched_process_stop_fd_loop
+
+    label sys_sched_process_stop_finalize
+        // let's mark the memory from the process as free for further reuse
+        copy REG_PROC_START_ADDRESS to REG_A
+        copy var:sys_pcb_free_mem_list to REG_B
+        write " " to REG_C
+        write OP_CONCAT_WITH to REG_OP
+        cpu_exec
+        copy REG_RES to var:sys_pcb_free_mem_list
+
+        write "" to REG_PROC_START_ADDRESS
+        write "" to REG_PROC_END_ADDRESS
+        write "0" to *var:sys_cur_pcb_ptr
+
+        jump label:sys_sched_run
+
+
+
+label sys_sched_process_add_fd
+    // input REG_A = fd
+    copy PROGRAM_COUNTER to var:sys_stack_return
+    jump label:sys_stack_push
+
+    copy REG_A to REG_B
+    copy *var:sys_cur_pcb_ptr to REG_A
+    write " " to REG_C
+    write OP_CONCAT_WITH to REG_OP
+    cpu_exec
+    copy REG_RES to *var:sys_cur_pcb_ptr
+
+    jump label:sys_stack_pop
+
+
+
+label sys_sched_process_rm_fd
+    // input REG_A = fd
+    copy PROGRAM_COUNTER to var:sys_stack_return
+    jump label:sys_stack_push
+
+    var sys_sched_process_rm_fd_value
+    copy REG_A to var:sys_sched_process_rm_fd_value
+
+    var sys_sched_process_rm_fd_counter
+    write 16 to var:sys_sched_process_rm_fd_counter
+    label sys_sched_process_rm_fd_loop
+        copy *var:sys_cur_pcb_ptr to REG_A
+        copy var:sys_sched_process_rm_fd_counter to REG_B
+        write " " to REG_C
+        write OP_GET_COLUMN to REG_OP
+        cpu_exec
+
+        copy REG_RES to REG_A
+        copy var:sys_sched_process_rm_fd_value to REG_C
+        write OP_CMP_EQ to REG_OP
+        cpu_exec
+        jump_if label:sys_sched_process_rm_fd_found
+
+        // copy REG_A to REG_A
+        write "" to REG_B
+        // write OP_CMP_EQ to REG_OP
+        cpu_exec
+        jump_if label:sys_sched_process_rm_fd_not_found
+
+        copy var:sys_sched_process_rm_fd_counter to REG_A
+        write OP_INCR to REG_OP
+        cpu_exec
+        copy REG_RES to var:sys_sched_process_rm_fd_counter
+
+        jump label:sys_sched_process_rm_fd_loop
+
+    label sys_sched_process_rm_fd_found
+        copy *var:sys_cur_pcb_ptr to REG_A
+        copy var:sys_sched_process_rm_fd_counter to REG_B
+        write " " to REG_C
+        write "" to REG_D
+        write OP_REPLACE_COLUMN to REG_OP
+        cpu_exec
+
+        copy REG_RES to REG_A
+        copy PROGRAM_COUNTER to var:sys_return
+        jump label:sys_remove_unneeded_spaces
+
+        copy REG_RES to *var:sys_cur_pcb_ptr
+        jump label:sys_stack_pop
+
+    label sys_sched_process_rm_fd_not_found
+        jump label:sys_stack_pop
+
+label sys_remove_unneeded_spaces
+    copy PROGRAM_COUNTER to var:sys_stack_return
+    jump label:sys_stack_push
+
+    // REG_A contains the input string for cleanup so we can use it directly from register
+    write OP_STARTS_WITH to REG_OP
+    write " " to REG_B
+    label sys_remove_unneeded_spaces_leading
+        // copy REG_A to REG_A
+        // write OP_STARTS_WITH to REG_OP
+        // write " " to REG_B
+        cpu_exec
+        jump_if_not label:sys_remove_unneeded_spaces_duplicated
+
+        copy REG_RES to REG_A
+        jump label:sys_remove_unneeded_spaces_leading
+
+    // Now we should remove duplicated spaces
+    label sys_remove_unneeded_spaces_duplicated
+        // copy REG_A to REG_A
+        write "  " to REG_B
+        write OP_CONTAINS to REG_OP
+        cpu_exec
+        jump_if_not label:sys_remove_unneeded_spaces_done
+
+        // copy REG_A to REG_A
+        copy REG_RES to REG_B
+        write " " to REG_C
+        write "" to REG_D
+        write OP_REPLACE_COLUMN to REG_OP
+        cpu_exec
+        copy REG_RES to REG_A
+
+        jump label:sys_remove_unneeded_spaces_duplicated
+
+    label sys_remove_unneeded_spaces_done
+        copy REG_A to REG_RES
+        jump label:sys_stack_pop

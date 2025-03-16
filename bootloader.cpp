@@ -19,9 +19,14 @@
 namespace {
     bool is_kernel_mode = true;
 
-    bool debug_on = true;
+    bool debug_on = false;
+    bool debug_user_only_on = false;
     bool debug_print_jumps = false;
     std::optional<std::chrono::milliseconds> debug_sleep_interval = std::nullopt;
+}
+
+bool debug_print_flag() {
+    return debug_on || (debug_user_only_on && !is_kernel_mode);
 }
 enum class cpu_instruction_t {
     cpu_exec = 0,
@@ -120,7 +125,9 @@ enum class address_t {
     proc_end_address = 34,
     sys_call_handler = 35,
     sys_ret_address = 36,
-    sys_sched_handler = 37,
+    sys_interrupt_handler = 37,
+    sys_interrupt_data = 37,
+    sys_hw_timer = 39,
 
     info_kernel_start = 40,
     kernel_start = 41,
@@ -178,6 +185,12 @@ std::string read_from_address(address_t reg) {
 std::string read_from_address(const std::string& line_no_str) {
     auto line_no = static_cast<int>(std::stoi(line_no_str));
 
+    // User space address 0 contains meta information about process:
+    if (line_no == 0 && !is_kernel_mode) {
+        int proc_start = std::stoi(RAM_data[static_cast<int>(address_t::proc_start_address)]);
+        return RAM_data[proc_start];
+    }
+
     if (line_no < 1 || line_no > RAM_data.size()) {
         throw std::runtime_error("Read access to an invalid address: " + std::to_string(line_no));
     }
@@ -212,8 +225,15 @@ void write_to_address(address_t reg, const std::string& value) {
 void write_to_address(const std::string& line_no_str, const std::string& value) {
     auto line_no = static_cast<int>(std::stoi(line_no_str));
 
+    // User space address 0 contains meta information about process:
+    if (line_no == 0 && !is_kernel_mode) {
+        int proc_start = std::stoi(RAM_data[static_cast<int>(address_t::proc_start_address)]);
+        RAM_data[proc_start] = value;
+        return;
+    }
+
     if (line_no < 1 || line_no > RAM_data.size()) {
-        throw std::runtime_error("User mode attempted to write to an invalid address: " + std::to_string(line_no));
+        throw std::runtime_error(is_kernel_mode ? "Kernel mode" : "User mode" + std::string(" attempted to write to an invalid address: ") + std::to_string(line_no));
     }
 
     if (!is_kernel_mode) {
@@ -288,22 +308,51 @@ void jump_err(const std::string& address) {
 void jump_print_debug_info() {
     int next_cmd_address = std::stoi(RAM_data[static_cast<size_t>(address_t::program_counter)]);
     std::string next_cmd = read_from_address(std::to_string(next_cmd_address));
-
-    std::cout << (is_kernel_mode ? "\033[34m" : "\033[32m") << "[DEBUG] Command " << next_cmd_address 
+    std::string prefix;
+    if (is_kernel_mode) {
+        prefix = "\033[34m[KERNEL]";
+    } else {
+        std::string pid_info = read_from_address("0").substr(4);
+        std::string pid = pid_info.substr(0, pid_info.find(' '));
+        prefix = "\033[32m[PID "+ pid + "]";
+    }
+    std::cout << prefix << "[DEBUG] Command " << next_cmd_address 
               << ":\033[35m " << next_cmd << "\033[0m" << std::endl;
 }
 
 constexpr const char* RAM_DUMP_FILE = "tmp/RAM.txt";
+constexpr const char* USER_RAM_DUMP_FILE = "tmp/RAM_user.txt";
 
 void dump_RAM_to_file() {
-    std::ofstream file(RAM_DUMP_FILE);
-    if (!file) {
-        std::cerr << "Error: Unable to open " << RAM_DUMP_FILE << " for writing!" << std::endl;
-        return;
-    }
+    if (is_kernel_mode) {
+        std::ofstream file(RAM_DUMP_FILE);
+        if (!file) {
+            std::cerr << "Error: Unable to open " << RAM_DUMP_FILE << " for writing!" << std::endl;
+            return;
+        }
 
-    for (auto it = RAM_data.begin() + 1; it != RAM_data.end(); it++) {
-        file << *it << '\n';
+        for (auto it = RAM_data.begin() + 1; it != RAM_data.end(); it++) {
+            file << *it << '\n';
+        }
+    } else {
+        std::ofstream file(USER_RAM_DUMP_FILE);
+        if (!file) {
+            std::cerr << "Error: Unable to open " << USER_RAM_DUMP_FILE << " for writing!" << std::endl;
+            return;
+        }
+
+        int proc_start = std::stoi(RAM_data[static_cast<size_t>(address_t::proc_start_address)]);
+        int proc_end = std::stoi(RAM_data[static_cast<size_t>(address_t::proc_end_address)]);
+        file << "PC " << RAM_data[static_cast<size_t>(address_t::program_counter)] 
+                << " " << RAM_data[proc_start] << '\n' << "Operation register: ";
+        for (int i = 2; i <= 16; i++) {
+            file << RAM_data[i] << '\n';
+        }
+        for (int i = proc_start + 17; i <= proc_end; ++i) {
+            file << RAM_data[i] << '\n';
+        }
+        file << "PC" << RAM_data[static_cast<size_t>(address_t::program_counter)] 
+                << "OTHER_INFO:" << RAM_data[proc_start] << '\n';
     }
 }
 
@@ -512,8 +561,12 @@ void cpu_exec() {
             write_to_address(address_t::bool_res, std::stoi(reg_a) <= std::stoi(reg_b) ? "1" : "0");
             break;
         case cpu_operation_t::contains:
-            write_to_address(address_t::bool_res, reg_a.find(reg_b) != std::string::npos ? "1" : "0");
+        {
+            auto pos = reg_a.find(reg_b);
+            write_to_address(address_t::res, pos != std::string::npos ? std::to_string(pos + 1) : "");
+            write_to_address(address_t::bool_res, pos != std::string::npos ? "1" : "0");
             break;
+        }
         case cpu_operation_t::get_length:
             write_to_address(address_t::res, std::to_string(reg_a.length()));
             break;
@@ -680,7 +733,7 @@ void cpu_exec() {
                 exit(1);
             }
 
-            if (debug_on) {
+            if (debug_print_flag()) {
                 std::cout << "[DEBUG] Perform system call: switch to kernel mode.\n";
             }
 
@@ -704,9 +757,6 @@ void cpu_exec() {
         }
         case cpu_operation_t::sys_return:
         {
-            if (debug_on) {
-                std::cout << "[DEBUG] Switch from kernel mode to user mode.\n";
-            }
             // Let's restore all registers from process memory except result and error registers:
             auto proc_memory_offset = std::stoi(read_from_address(address_t::proc_start_address));
             for (size_t i = 2; i <= static_cast<size_t>(address_t::user_space_regs_end); i += 2)
@@ -722,6 +772,9 @@ void cpu_exec() {
 
             // switch back to user space mode:
             is_kernel_mode = false;
+            if (debug_print_flag()) {
+                std::cout << "[DEBUG] Switch from kernel mode to user mode.\n";
+            }
             break;
         }
         default:
@@ -732,9 +785,9 @@ void cpu_exec() {
 
 
 int main(int argc, char* argv[]) {
-    if (argc < 3 || argc > 5) {
+    if (argc < 3 || argc > 6) {
         std::cerr << "Usage: " << argv[0] << " <kernel_file_name> <ram_size> <options>" << std::endl;
-        std::cerr << "Options:\n -j print jump information\n -s=0.1 add delay 0.1 second between command execution" << std::endl;
+        std::cerr << "Options:\n -u enable debug only for user space\n-j print jump information\n -s=0.1 add delay 0.1 second between command execution" << std::endl;
         return 1;
     }
 
@@ -743,16 +796,22 @@ int main(int argc, char* argv[]) {
     int ram_size = std::stoi(argv[2]);
     RAM_data.resize(ram_size + 1, "0");
     std::vector<std::string> args;
-    if (argc == 4) {
+    if (argc > 3) {
         args.emplace_back(argv[3]);
-    } else if (argc == 5) {
-        args.emplace_back(argv[3]);
+    }
+    if (argc > 4) {
         args.emplace_back(argv[4]);
+    }
+    if (argc > 5) {
+        args.emplace_back(argv[5]);
     }
 
     for (auto cur_arg : args) {
         if (cur_arg == "-j") {
             debug_print_jumps = true;
+        }
+        if (cur_arg == "-u") {
+            debug_user_only_on = true;
         }
         if (cur_arg.substr(0, 3) == "-s=") {
             std::string delay_str = cur_arg.substr(3);
@@ -784,7 +843,7 @@ int main(int argc, char* argv[]) {
     // Main execution loop
     while (true) {
         jump_next();
-        if (debug_on && debug_print_jumps) {
+        if (debug_print_flag() && debug_print_jumps) {
             jump_print_debug_info();
         }
 
@@ -793,11 +852,20 @@ int main(int argc, char* argv[]) {
         std::istringstream iss(cur_instruction);
         int instr_code;
         if (cur_instruction.substr(0, 8) == "DEBUG_ON") {
-            debug_on = true;
+            if (is_kernel_mode) {
+                debug_on = true;
+            } else {
+                debug_on = false;
+                debug_user_only_on = true;
+            }
             std::cout << "DEBUG ON" << std::endl;
             continue;
         } else if (cur_instruction.substr(0, 9) == "DEBUG_OFF") {
-            debug_on = false;
+            if (is_kernel_mode) {
+                debug_on = false;
+            } else {
+                debug_user_only_on = false;
+            }
             std::cout << "DEBUG OFF" << std::endl;
             continue;
         }
@@ -840,21 +908,24 @@ int main(int argc, char* argv[]) {
         }
         catch (const std::exception& e) {
             if (is_kernel_mode) {
-                std::cout << "[FATAL] Kernel mode error: " << e.what() << std::endl;
+                std::cout << "[FATAL] Kernel mode error: " << e.what() << ". RAM dumped to " << RAM_DUMP_FILE << std::endl;
+                dump_RAM_to_file();
                 exit(1);
             } else {
-                std::cout << "[ERROR] Segmentation fault (SIGSEGV): " << e.what() << ". Program stopped unexpectedly." << std::endl;
+                std::cout << "[ERROR] Segmentation fault (SIGSEGV): " << e.what() << ". Program stopped unexpectedly. RAM dumped to " << RAM_DUMP_FILE << std::endl;
+                dump_RAM_to_file();
                 write_to_address(address_t::a, "139"); // segfault return code
                 write_to_address(address_t::d, "0");
                 write_to_address(address_t::op, std::to_string(static_cast<size_t>(cpu_operation_t::sys_call)));
                 cpu_exec();
             }
         } catch (...) {
-            std::cerr << "[CRITICAL] Unknown error occurred in KaguOS bootloader." << std::endl;
+            std::cerr << "[CRITICAL] Unknown error occurred in KaguOS bootloader. RAM dumped to " << RAM_DUMP_FILE << std::endl;
+            dump_RAM_to_file();
             exit(1);
         }
 
-        if (debug_on) {
+        if (debug_print_flag()) {
             dump_RAM_to_file();
             if (debug_sleep_interval) {
                 std::this_thread::sleep_for(debug_sleep_interval.value());

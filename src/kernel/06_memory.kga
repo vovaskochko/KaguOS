@@ -1,0 +1,51 @@
+// The main purpose of this function is to allocate system memory for file descriptors and process control blocks
+// Usage:
+//      copy PROGRAM_COUNTER to var:sys_return
+//      jump label:sys_prepare_memory
+// RETURN: no return, KERNEL_PANIC can be triggered in case of insufficient amount of resources
+label sys_prepare_memory
+    copy PROGRAM_COUNTER to var:sys_stack_return
+    jump label:sys_stack_push
+
+    // Let's allocate memory to store file descriptors for open files.
+    // Note, that the error will be returned if open files count is equal to this value
+    copy FREE_MEMORY_START to var:sys_fs_desc_start
+    copy var:sys_fs_desc_start to REG_A
+    copy var:sys_fs_desc_max_count to REG_B
+    write OP_ADD to REG_OP
+    cpu_exec
+
+    // Let's allocate memory to store process control blocks.
+    // Note, that the error will be returned if count of running processes is equal to this value
+    copy REG_RES to var:sys_pcb_list_start
+    copy var:sys_pcb_list_start to REG_A
+    copy var:sys_proc_max_count to REG_B
+    // write OP_ADD to REG_OP
+    cpu_exec
+    copy REG_RES to var:sys_pcb_list_end
+
+    // Update value of current free memory start
+    copy REG_RES to FREE_MEMORY_START
+
+    // Check that at least some free memory left, otherwise 
+    copy FREE_MEMORY_START to REG_A
+    write 50 to REG_B
+    // write OP_ADD to REG_OP
+    cpu_exec
+
+    copy REG_RES to REG_A
+    copy FREE_MEMORY_END to REG_B
+    write OP_CMP_LT to REG_OP
+    cpu_exec
+    jump_if_not label:kernel_panic
+
+    jump label:sys_stack_pop
+
+label kernel_panic
+    write "KERNEL PANIC!" to DISPLAY_BUFFER
+    write COLOR_RED to DISPLAY_COLOR
+    write OP_DISPLAY_LN to REG_OP
+    cpu_exec
+
+    write OP_HALT to REG_OP
+    cpu_exec

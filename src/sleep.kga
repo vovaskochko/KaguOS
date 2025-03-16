@@ -1,0 +1,14 @@
+// copy REG_A to REG_A
+write OP_IS_NUM to REG_OP
+cpu_exec
+jump_if_not label:exit
+
+write SYS_CALL_SLEEP to REG_D
+write OP_SYS_CALL to REG_OP
+cpu_exec
+
+label exit
+    write 0 to REG_A
+    write SYS_CALL_EXIT to REG_D
+    write OP_SYS_CALL to REG_OP
+    cpu_exec

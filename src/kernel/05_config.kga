@@ -1,0 +1,110 @@
+// The main purpose of this function is to parse system config and set system variables
+// Usage:
+//      copy PROGRAM_COUNTER to var:sys_return
+//      jump label:sys_read_config
+// RETURN: no return
+label sys_read_config
+    copy PROGRAM_COUNTER to var:sys_stack_return
+    jump label:sys_stack_push
+
+    write 0 to var:sys_last_used_pid
+    write "" to var:sys_cur_pcb_ptr
+    write "" to var:sys_pcb_free_mem_list
+
+    // Set default values - if some value is present in config we will set it during parsing 
+    write 250 to var:sys_proc_memory_size
+    write 10 to var:sys_proc_max_count
+    write 50 to var:sys_fs_desc_max_count
+
+    // Open config file:
+    var sys_read_config_fd
+    write "/config.txt" to REG_A
+    copy PROGRAM_COUNTER to var:sys_return
+    jump label:sys_fs_open
+    jump_err label:sys_stack_pop
+    copy REG_RES to var:sys_read_config_fd
+
+    // Read config line by line
+    var sys_read_config_line
+    var sys_read_config_counter
+    write 0 to var:sys_read_config_counter
+    label sys_read_config_loop
+        // Increment counter:
+        copy var:sys_read_config_counter to REG_A
+        write OP_INCR to REG_OP
+        cpu_exec
+        copy REG_RES to var:sys_read_config_counter
+
+        // Read line:
+        copy var:sys_read_config_fd to REG_A
+        copy var:sys_read_config_counter to REG_B
+        copy PROGRAM_COUNTER to var:sys_return
+        jump label:sys_fs_read
+        jump_err label:sys_read_config_close
+        copy REG_RES to var:sys_read_config_line
+
+        var sys_read_config_name
+        var sys_read_config_value
+
+        // Get property name:
+        copy var:sys_read_config_line to REG_A
+        write 1 to REG_B
+        write " " to REG_C
+        write OP_GET_COLUMN to REG_OP
+        cpu_exec
+        copy REG_RES to var:sys_read_config_name
+
+        // Get property value:
+        // copy var:sys_read_config_line to REG_A
+        write 2 to REG_B
+        // write " " to REG_C
+        // write OP_GET_COLUMN to REG_OP
+        cpu_exec
+        copy REG_RES to var:sys_read_config_value
+
+        // Check property value to be a number:
+        copy var:sys_read_config_value to REG_A
+        write OP_IS_NUM to REG_OP
+        cpu_exec
+        jump_if_not label:sys_read_config_loop
+
+        // Compare name with possible properties:
+        copy var:sys_read_config_name to REG_A
+        write "proc_memory" to REG_B
+        write OP_CMP_EQ to REG_OP
+        cpu_exec
+        jump_if label:sys_read_config_proc_memory
+
+        // copy var:sys_read_config_name to REG_A
+        write "max_proc_count" to REG_B
+        // write OP_CMP_EQ to REG_OP
+        cpu_exec
+        jump_if label:sys_read_config_max_proc_count
+
+        // copy var:sys_read_config_name to REG_A
+        write "max_fd_count" to REG_B
+        // write OP_CMP_EQ to REG_OP
+        cpu_exec
+        jump_if label:sys_read_config_max_fd_count
+
+        jump label:sys_read_config_loop // return to the start of the loop
+
+        label sys_read_config_proc_memory
+            copy var:sys_read_config_value to var:sys_proc_memory_size
+            jump label:sys_read_config_loop
+
+        label sys_read_config_max_proc_count
+            copy var:sys_read_config_value to var:sys_proc_max_count
+            jump label:sys_read_config_loop
+
+        label sys_read_config_max_fd_count
+            copy var:sys_read_config_value to var:sys_fs_desc_max_count
+            jump label:sys_read_config_loop
+
+    // close config and return from the function
+    label sys_read_config_close
+        copy var:sys_read_config_fd to REG_A
+        copy PROGRAM_COUNTER to var:sys_return
+        jump label:sys_fs_close
+        jump label:sys_stack_pop
+

@@ -1,4 +1,6 @@
 tmp/RAM.txt
+tmp/RAM_user.txt
+
 build
 **/build
 

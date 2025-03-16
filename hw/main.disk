@@ -14,8 +14,8 @@ cat 7 7 7 user user BLOCKS 41 100
 mario 7 7 7 user user BLOCKS 111 261
 clear 7 7 7 user user BLOCKS 262 275
 debug 7 7 7 user user BLOCKS 276 320
-
-
+sleep 7 7 7 user user BLOCKS 321 335
+user_sched 7 7 7 user group BLOCKS 336 395
 
 
 
@@ -28,9 +28,9 @@ debug 7 7 7 user user BLOCKS 276 320
 
 
 FS_HEADER_END
-proc_memory 250
-
-
+proc_memory 250     // memory allocated for one process
+max_proc_count 10   // max count of active processes
+max_fd_count 50     // max count of files open at the same time
 
 
 
@@ -318,76 +318,76 @@ Unknown argument. Expected: debug on/debug off
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+1 27 2         #  write OP_IS_NUM => REG_OP
+0              #  cpu_exec
+5 23           #  jump_if_not lbl:exit
+1 28 10        #  write SYS_CALL_SLEEP => REG_D
+1 29 2         #  write OP_SYS_CALL => REG_OP
+0              #  cpu_exec
+1 30 4         #  write "0" => REG_A
+1 31 10        #  write SYS_CALL_EXIT => REG_D
+1 29 2         #  write OP_SYS_CALL => REG_OP
+0              #  cpu_exec
+7
+11
+25
+0
+0
+1 56 4         #  write "Enter command to schedule or command exit to quit:" => REG_A
+1 57 6         #  write COLOR_NO => REG_B
+1 58 10        #  write SYS_CALL_PRINTLN => REG_D
+1 59 2         #  write OP_SYS_CALL => REG_OP
+0              #  cpu_exec
+1 60 4         #  write KEYBOARD_READ_LINE => REG_A
+1 61 10        #  write SYS_CALL_READ_INPUT => REG_D
+1 59 2         #  write OP_SYS_CALL => REG_OP
+0              #  cpu_exec
+1 12 4         #  copy REG_RES => REG_A
+1 62 6         #  write "exit" => REG_B
+1 63 2         #  write OP_CMP_EQ => REG_OP
+0              #  cpu_exec
+4 46           #  jump_if lbl:exit
+1 64 6         #  write "50" => REG_B
+1 65 10        #  write SYS_CALL_SCHED_PROGRAM => REG_D
+1 59 2         #  write OP_SYS_CALL => REG_OP
+0              #  cpu_exec
+6 50           #  jump_err lbl:error
+1 12 72        #  copy REG_RES => var:pid
+1 66 4         #  write "Program loaded with PID " => REG_A
+1 67 6         #  write COLOR_GREEN => REG_B
+1 68 10        #  write SYS_CALL_PRINT => REG_D
+1 59 2         #  write OP_SYS_CALL => REG_OP
+0              #  cpu_exec
+1 72 4         #  copy var:pid => REG_A
+1 58 10        #  write SYS_CALL_PRINTLN => REG_D
+0              #  cpu_exec
+3 17           #  jump lbl:start
+1 69 4         #  write "0" => REG_A
+1 70 10        #  write SYS_CALL_EXIT => REG_D
+1 59 2         #  write OP_SYS_CALL => REG_OP
+0              #  cpu_exec
+1 16 4         #  copy REG_ERROR => REG_A
+1 71 6         #  write COLOR_RED => REG_B
+1 58 10        #  write SYS_CALL_PRINTLN => REG_D
+1 59 2         #  write OP_SYS_CALL => REG_OP
+0              #  cpu_exec
+3 17           #  jump lbl:start
+Enter command to schedule or command exit to quit:
+0
+1
+25
+KeyboardReadLine
+3
+exit
+8
+50
+14
+Program loaded with PID 
+1
+2
+0
+0
+3
 
 
 

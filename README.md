@@ -44,6 +44,12 @@ We are using Bash functions to emulate basic operations like CPU instructions an
    - 8.3 [Partition Mounting Mechanism](#83-partition-mounting-mechanism)
    - 8.4 [Organization of the Filesystem in Partitions](#84-organization-of-the-filesystem-in-partitions)
    - 8.5 [Interaction with Files in KaguFS](#85-interaction-with-files-in-kagufs)
+9. [Scheduler](#9-scheduler)  
+   - 9.1 [Approach to Process Scheduling](#91-approach-to-process-scheduling)  
+   - 9.2 [Scheduling Commands](#92-scheduling-commands)  
+   - 9.3 [System Call for Scheduling Programs](#93-system-call-for-scheduling-programs)  
+   - 9.4 [Debugging and Memory Dumping](#94-debugging-and-memory-dumping)  
+   - 9.5 [Process Memory Management](#95-process-memory-management)  
 
 ## 1. Environment
 
@@ -548,20 +554,23 @@ KaguOS supports user-space programs that operate within restricted memory region
 
 ### 6.2 System Call Table
 
-| Call Number | System Call Name     | REG_A               | REG_B             | REG_C        | REG_RES            | REG_ERROR  |
-|------------|---------------------|---------------------|------------------|-------------|------------------|------------|
-| 0          | SYS_CALL_EXIT        | Exit code          | -                | -           | -                | -          |
-| 1          | SYS_CALL_PRINTLN     | Text               | Color code       | -           | -                | -          |
-| 2          | SYS_CALL_PRINT       | Text               | Color code       | -           | -                | -          |
-| 3          | SYS_CALL_READ_INPUT  | Keyboard mode      | -                | -           | Input string     | -          |
-| 4          | SYS_CALL_OPEN        | File path          | -                | -           | File descriptor  | Error      |
-| 5          | SYS_CALL_DESCRIPTOR_INFO | File descriptor | -                | -           | File info        | Error      |
-| 6          | SYS_CALL_CLOSE       | File descriptor    | -                | -           | -                | Error      |
-| 7          | SYS_CALL_READ        | File descriptor    | Line number      | -           | Read line        | EOF/Error  |
-| 8          | SYS_CALL_WRITE       | File descriptor    | Line number      | New value   | -                | Error      |
-| 9          | SYS_CALL_SET_BACKGROUND | Background color | -                | -           | -                | -          |
-| 10         | SYS_CALL_RENDER_BITMAP | Start address    | End address      | -           | -                | -          |
-| 11         | SYS_CALL_SLEEP       | Sleep in seconds   | -                | -           | -                | -          |
+| Call Number | System Call Name          | REG_A                | REG_B                | REG_C       | REG_RES                | REG_ERROR  |
+|------------|--------------------------|----------------------|---------------------|------------|----------------------|------------|
+| 0          | SYS_CALL_EXIT             | Exit code           | -                   | -          | -                    | -          |
+| 1          | SYS_CALL_PRINTLN          | Text                | Color code          | -          | -                    | -          |
+| 2          | SYS_CALL_PRINT            | Text                | Color code          | -          | -                    | -          |
+| 3          | SYS_CALL_READ_INPUT       | Keyboard mode       | -                   | -          | Input string         | -          |
+| 4          | SYS_CALL_OPEN             | File path           | -                   | -          | File descriptor      | Error      |
+| 5          | SYS_CALL_DESCRIPTOR_INFO  | File descriptor     | -                   | -          | File info            | Error      |
+| 6          | SYS_CALL_CLOSE            | File descriptor     | -                   | -          | -                    | Error      |
+| 7          | SYS_CALL_READ             | File descriptor     | Line number         | -          | Read line            | EOF/Error  |
+| 8          | SYS_CALL_WRITE            | File descriptor     | Line number         | New value  | -                    | Error      |
+| 9          | SYS_CALL_SET_BACKGROUND   | Background color    | -                   | -          | -                    | -          |
+| 10         | SYS_CALL_RENDER_BITMAP    | Start address       | End address         | -          | -                    | -          |
+| 11         | SYS_CALL_SLEEP            | Sleep in seconds    | -                   | -          | -                    | -          |
+| 12 (not impl)| SYS_CALL_GET_FILE_ATTR    | File descriptor     | -                   | -          | "7 7 7 user group"   | Error      |
+| 13 (not impl)| SYS_CALL_SET_FILE_ATTR    | File descriptor     | "4 4 0 user group"  | -          | -                    | Error      |
+| 14         | SYS_CALL_SCHED_PROGRAM    | Command line        | Priority            | -          | Process ID  | Error      |
 
 ### 6.3 User Space Memory Management
 User-space programs execute within predefined memory regions. Process-related information is stored in:
@@ -848,3 +857,91 @@ config.txt main.disk 11 10
    write OP_SYS_CALL to REG_OP  
    cpu_exec
 ```
+
+## 9. Scheduler
+
+### 9.1 Approach to Process Scheduling
+In current version KaguOS schedules programs for execution by loading them into memory and executing them sequentially, one by one. Each process is allocated a predefined memory size, and the system ensures that processes do not exceed the configured limit.
+
+The process control block (PCB) maintains process metadata, including memory allocation and execution state. The structure of a PCB entry is as follows:
+```
+PID <pid> NAME <name> STATE <state> PRIORITY <priority> MEM_START <start> MEM_END <end> PC <program counter> FD_LIST <descriptor 1> <descriptor 2> <descriptor 3>
+```
+The configuration file `config.txt` allows the user to define key scheduling parameters:
+```
+proc_memory 250     // Memory allocated for each process
+max_proc_count 10   // Maximum number of active processes
+```
+
+### 9.2 Scheduling Commands
+To schedule a program for execution from console, use the `sched --` command followed by the program name and its arguments:
+```
+sched -- file_on_disk arg1 arg2 arg3
+```
+This command loads the program into memory and prepares it for execution. Multiple programs can be scheduled before running them.
+
+To execute the scheduled programs, use:
+```
+sched run
+```
+This prints the list of scheduled processes and starts their execution.
+
+#### Example Execution
+```
+/ :) sched -- debug off
+Successfully loaded: sched -- debug off
+/ :) sched -- debug off
+Successfully loaded: sched -- debug off
+/ :) sched -- cat /1.txt
+Successfully loaded: sched -- cat /1.txt
+/ :) sched -- sleep 10
+Successfully loaded: sched -- sleep 10
+/ :) sched run
+List of scheduled processes:
+PID 5 NAME debug|off| STATE ready PRIORITY 50 MEM_START 2496 MEM_END 2746 PC 16 FD_LIST
+PID 6 NAME debug|off| STATE ready PRIORITY 50 MEM_START 2747 MEM_END 2997 PC 16 FD_LIST
+PID 7 NAME cat|/1.txt| STATE ready PRIORITY 50 MEM_START 2998 MEM_END 3248 PC 16 FD_LIST
+PID 8 NAME sleep|10| STATE ready PRIORITY 50 MEM_START 3249 MEM_END 3499 PC 16 FD_LIST
+DEBUG OFF
+DEBUG OFF
+Some line 1
+Line 2
+The end
+/ :)
+```
+
+### 9.3 System Call for Scheduling Programs
+A new system call `sched_program` allows user-space programs to schedule other processes for execution. The system call is defined as follows:
+```
+SYS_CALL_SCHED_PROGRAM = 14
+```
+#### Usage
+- `REG_A`: Contains the command line for execution, e.g., `mario 10` or `cat 1.txt`
+- `REG_B`: Contains the priority of the scheduled process
+- Output:
+  - `REG_RES`: Process ID
+  - `REG_ERROR`: Error code if scheduling fails
+
+#### Implementation
+```assembly
+write "cat 1.txt" to REG_A
+write 100 to REG_B
+write SYS_CALL_SCHED_PROGRAM to REG_D
+write OP_SYS_CALL to REG_OP
+cpu_exec
+```
+This call enables user-space programs to interact with the scheduler, dynamically adding new tasks to the execution queue.
+
+### 9.4 Debugging and Memory Dumping
+Debugging behavior has been adjusted in the new scheduling implementation. If `debug on` is enabled via the console, only user-space memory will be dumped and printed. The memory dump is now stored in `tmp/RAM_user.txt`. Additionally, the system can be launched with the `-u` flag to enable user-space-only memory dumping automatically.
+
+Example system launch with increased memory:
+```
+./bootloader build/kernel.disk 4600 -u -j
+```
+
+### 9.5 Process Memory Management
+- Each scheduled process is assigned a free memory block in RAM.
+- When a process terminates, its memory is released and can be used for new processes.
+- The `sched run` command displays process memory locations, aiding in debugging and analysis.
+

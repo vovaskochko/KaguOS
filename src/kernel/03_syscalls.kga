@@ -1,17 +1,20 @@
 // System call table:
-// Call Number  |    Name           |         REG_A      |      REG_B      |      REG_C    |         REG_RES     |      REG_ERROR
-//      0       |  exit             |      exit code     |        -        |        -      |            -        |         -
-//      1       |  println          |        text        |  color code     |        -      |            -        |         -
-//      2       |  print            |        text        |  color code     |        -      |            -        |         -
-//      3       |  read_input       |     keyboard mode  |        -        |        -      |     input string    |         -
-//      4       |  open             |      file path     |        -        |        -      |   file descriptor   |     error
-//      5       |  descriptor_info  |  file descriptor   |        -        |        -      |      file info      |     error
-//      6       |  close            |  file descriptor   |        -        |        -      |            -        |     error
-//      7       |  read             |  file descriptor   | line number     |        -      |     read line       |  EOF / error
-//      8       |  write            |  file descriptor   | line number     |   new value   |            -        |     error
-//      9       |  set_background   |  background color  |        -        |        -      |            -        |         -
-//     10       |  render_bitmap    |  start address     |   end address   |        -      |            -        |         -
-//     11       |  sleep            |  sleep in seconds  |        -        |        -      |            -        |         -
+// Call Number  |       Name        |         REG_A      |        REG_B      |        REG_C    |         REG_RES       |      REG_ERROR
+//      0       |  exit             |      exit code     |        -          |        -        |            -          |         -
+//      1       |  println          |        text        |    color code     |        -        |            -          |         -
+//      2       |  print            |        text        |    color code     |        -        |            -          |         -
+//      3       |  read_input       |    keyboard mode   |        -          |        -        |     input string      |         -
+//      4       |  open             |     file path      |        -          |        -        |   file descriptor     |     error
+//      5       |  descriptor_info  |  file descriptor   |        -          |        -        |      file info        |     error
+//      6       |  close            |  file descriptor   |        -          |        -        |            -          |     error
+//      7       |  read             |  file descriptor   |   line number     |        -        |     read line         |  EOF / error
+//      8       |  write            |  file descriptor   |   line number     |   new value     |            -          |     error
+//      9       |  set_background   |  background color  |        -          |        -        |            -          |         -
+//     10       |  render_bitmap    |  start address     |    end address    |        -        |            -          |         -
+//     11       |  sleep            |  sleep in seconds  |        -          |        -        |            -          |         -
+//     12       |  get_file_attr    |  file descriptor   |        -          |        -        |  "7 7 7 user group"   |     error
+//     13       |  set_file_attr    |  file descriptor   |  "4 4 0 user grp" |        -        |            -          |     error
+//     14       |  sched_program    |  command line      |    priority       |        -        |  process ID           |     error
 
 var sys_call_count
 var sys_call_00
@@ -26,6 +29,9 @@ var sys_call_08
 var sys_call_09
 var sys_call_10
 var sys_call_11
+var sys_call_12
+var sys_call_13
+var sys_call_14
 
 
 label sys_call_handler
@@ -70,6 +76,11 @@ label sys_call_handler
     jump *var:some_result
 
 label unknown_sys_call
+    write "Unknown system call!!!" to DISPLAY_BUFFER
+    write COLOR_RED to DISPLAY_COLOR
+    write OP_DISPLAY_LN to REG_OP
+    cpu_exec
+
     write 38 to REG_A // ENOSYS exit code for missing system function implementation
     write "Function not implemented" to REG_ERROR
     write "" to REG_RES
@@ -82,29 +93,8 @@ label sys_call_to_user_mode
 
 // SYSTEM CALLS IMPLEMENTATION START
 label sys_call_exit
-    // Let's clean the memory
-    var sys_call_exit_ptr
-    copy REG_PROC_START_ADDRESS to REG_A
-    copy REG_PROC_END_ADDRESS to REG_B
-    label sys_call_exit_loop
-        write "" to *REG_A
-
-        // increment pointer in REG_A
-        write OP_INCR to REG_OP
-        cpu_exec
-        copy REG_RES to REG_A
-
-        // check whether it is still <= REG_PROC_END_ADDRESS
-        write OP_CMP_LT to REG_OP
-        cpu_exec
-        jump_if label:sys_call_exit_loop
-
-    // let's mark the memory from the process as free
-    copy REG_PROC_START_ADDRESS to FREE_MEMORY_START
-    write "" to REG_PROC_START_ADDRESS
-    write "" to REG_PROC_END_ADDRESS
-    jump label:kernel_start
-
+    copy PROGRAM_COUNTER to var:sys_return
+    jump label:sys_sched_process_stop
 
 
 label sys_call_println
@@ -138,6 +128,17 @@ label sys_call_fs_open
     copy var:sys_call_arg1 to REG_A
     copy PROGRAM_COUNTER to var:sys_return
     jump label:sys_fs_open
+    jump_err label:sys_call_to_user_mode
+
+    var sys_call_fs_open_fd
+    copy REG_RES to var:sys_call_fs_open_fd
+
+    // Add newly alocated file descriptor to fd list of active process 
+    copy var:sys_call_fs_open_fd to REG_A
+    copy PROGRAM_COUNTER to var:sys_return
+    jump label:sys_sched_process_add_fd
+
+    copy var:sys_call_fs_open_fd to REG_RES
     jump label:sys_call_to_user_mode
 
 
@@ -154,6 +155,17 @@ label sys_call_fs_close
     copy var:sys_call_arg1 to REG_A
     copy PROGRAM_COUNTER to var:sys_return
     jump label:sys_fs_close
+    jump_err label:sys_call_to_user_mode
+
+    var sys_call_fs_close_fd
+    copy REG_RES to var:sys_call_fs_close_fd
+
+    // Remove file descriptor from fd list of active process 
+    copy var:sys_call_fs_close_fd to REG_A
+    copy PROGRAM_COUNTER to var:sys_return
+    jump label:sys_sched_process_rm_fd
+
+    copy var:sys_call_fs_close_fd to REG_RES
     jump label:sys_call_to_user_mode
 
 
@@ -212,6 +224,29 @@ label sys_call_sleep
     cpu_exec
     jump label:sys_call_to_user_mode
 
+
+
+label sys_call_get_file_attr
+    // var:sys_call_arg1 => fd
+    jump label:sys_call_to_user_mode
+
+
+
+label sys_call_set_file_attr
+    // var:sys_call_arg1 => fd
+    // var:sys_call_arg2 => new attr
+    jump label:sys_call_to_user_mode
+
+
+
+label sys_call_sched_program
+    copy var:sys_call_arg1 to REG_A
+    copy var:sys_call_arg2 to REG_B
+    copy PROGRAM_COUNTER to var:sys_return
+    jump label:sys_sched_process_load
+
+    jump label:sys_call_to_user_mode
+
 // SYSTEM CALLS IMPLEMENTATION END
 
 
@@ -225,7 +260,7 @@ label sys_call_table_init
     jump label:sys_stack_push
 
     write label:sys_call_handler to REG_SYS_CALL_HANDLER
-    write 12 to var:sys_call_count
+    write 15 to var:sys_call_count
 
     write label:sys_call_exit to var:sys_call_00
     write label:sys_call_println to var:sys_call_01
@@ -239,5 +274,7 @@ label sys_call_table_init
     write label:sys_call_set_background to var:sys_call_09
     write label:sys_call_render_bitmap to var:sys_call_10
     write label:sys_call_sleep to var:sys_call_11
-
+    write label:sys_call_get_file_attr to var:sys_call_12
+    write label:sys_call_set_file_attr to var:sys_call_13
+    write label:sys_call_sched_program to var:sys_call_14
     jump label:sys_stack_pop

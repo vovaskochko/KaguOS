@@ -5,8 +5,6 @@
 // ##########################################
 label kernel_entry_point
 
-DEBUG_OFF
-
 write "Operation register:" to INFO_REG_OP
 write "A register:" to INFO_REG_A
 write "B register:" to INFO_REG_B
@@ -42,59 +40,15 @@ jump label:sys_fs_init
 copy PROGRAM_COUNTER to var:sys_return
 jump label:sys_call_table_init
 
-var sys_proc_memory_size
-    var config_fd
-    var config_line
+// Read system variables from config file
+copy PROGRAM_COUNTER to var:sys_return
+jump label:sys_read_config
 
-    write "/config.txt" to REG_A
-    copy PROGRAM_COUNTER to var:sys_return
-    jump label:sys_fs_open
-    jump_err label:no_config
-    copy REG_RES to var:config_fd
+// Allocate memory for system resources like file descriptors and process control blocks
+copy PROGRAM_COUNTER to var:sys_return
+jump label:sys_prepare_memory
 
-    copy var:config_fd to REG_A
-    write 1 to REG_B
-    copy PROGRAM_COUNTER to var:sys_return
-    jump label:sys_fs_read
-    jump_err label:no_config
-    copy REG_RES to var:config_line
 
-    copy var:config_line to REG_A
-    write 1 to REG_B
-    write " " to REG_C
-    write OP_GET_COLUMN to REG_OP
-    cpu_exec
-
-    copy REG_RES to REG_A
-    write "proc_memory" to REG_B
-    write OP_CMP_EQ to REG_OP
-    cpu_exec
-    jump_if_not label:no_config
-
-    copy var:config_line to REG_A
-    write 2 to REG_B
-    write " " to REG_C
-    write OP_GET_COLUMN to REG_OP
-    cpu_exec
-
-    copy REG_RES to REG_A
-    write OP_IS_NUM to REG_OP
-    cpu_exec
-    jump_if_not label:no_config
-    copy REG_RES to var:sys_proc_memory_size
-
-label config_close
-    copy var:config_fd to REG_A
-    write 1 to REG_B
-    copy PROGRAM_COUNTER to var:sys_return
-    jump label:sys_fs_read
-    jump label:config_ok
-
-label no_config
-    write 200 to var:sys_proc_memory_size
-    jump label:config_close
-
-label config_ok
 // Print welcome message
 write "RAMFS init - done." to DISPLAY_BUFFER
 write COLOR_GREEN to DISPLAY_COLOR
@@ -118,6 +72,9 @@ cpu_exec
     var exitStr
     write "exit" to var:exitStr
 
+    var schedStr
+    write "sched" to var:schedStr
+
 label kernel_start
     // Display prompt to enter the value:
     copy var:sys_work_dir to DISPLAY_BUFFER
@@ -132,42 +89,36 @@ label kernel_start
     write KEYBOARD_READ_LINE to REG_A
     cpu_exec
 
-    // split into command and arguments:
+    // remove leading and duplicated spaces:
     copy KEYBOARD_BUFFER to REG_A
+    copy PROGRAM_COUNTER to var:sys_return
+    jump label:sys_remove_unneeded_spaces
+    copy REG_RES to KEYBOARD_BUFFER
+
+    // Get command name:
+    var parsedCmd
+    copy KEYBOARD_BUFFER to REG_A
+    write 1 to REG_B
     write " " to REG_C
     write OP_GET_COLUMN to REG_OP
-
-    // get the command name
-    var parsedCmd
-    write "1" to REG_B
     cpu_exec
     copy REG_RES to var:parsedCmd
 
-    // Get the first argument of the command
-    var parsedArg1
-    write 2 to REG_B
-    cpu_exec
-    copy REG_RES to var:parsedArg1
 
-    // Get the second argument of the command
-    var parsedArg2
-    write 3 to REG_B
-    cpu_exec
-    copy REG_RES to var:parsedArg2
-
-    // Get the third argument of the command
-    var parsedArg3
-    write 4 to REG_B
-    cpu_exec
-    copy REG_RES to var:parsedArg3
-
-    // Check if command is exit if not then jump to the start of the loop
+    // Check whether command is exit if not then jump to the start of the loop
     // otherwise we will go to the next instruction which is exit
     copy var:parsedCmd to REG_A
     copy var:exitStr to REG_B
     write OP_CMP_EQ to REG_OP
     cpu_exec
     jump_if label:kernel_end
+
+    // Check whether command is sched, if so then handle it to either load a program for further execution or run already scheduled programs
+    copy var:parsedCmd to REG_A
+    copy var:schedStr to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec
+    jump_if label:sched_cmd
 
     // Check that command is not empty and exec corresponding file :
     copy var:parsedCmd to REG_A
@@ -179,106 +130,93 @@ label kernel_start
     jump label:kernel_start
 
 
-label exec_file
-    copy var:parsedCmd to REG_A
 
-    // let's open file:
-    var exec_file_desc
-    copy var:parsedCmd to REG_A
-    copy PROGRAM_COUNTER to var:sys_return
-    jump label:sys_fs_open
-    jump_err label:exec_file_error
-    copy REG_RES to var:exec_file_desc
 
-    // Read it line by line:
-    var exec_file_counter
-    write 1 to var:exec_file_counter
-
-    copy FREE_MEMORY_START to REG_PROC_START_ADDRESS
-    copy FREE_MEMORY_START to REG_A
-    copy var:sys_proc_memory_size to REG_B
-    write OP_ADD to REG_OP
+label sched_cmd
+    copy KEYBOARD_BUFFER to REG_A
+    write "sched -- " to REG_B
+    write OP_STARTS_WITH to REG_OP
     cpu_exec
-    copy REG_RES to REG_PROC_END_ADDRESS
+    jump_if label:do_sched_load
 
-    copy REG_PROC_END_ADDRESS to REG_A
-    write OP_INCR to REG_OP
+    // copy KEYBOARD_BUFFER to REG_A
+    write "sched run" to REG_B
+    write OP_CMP_EQ to REG_OP
     cpu_exec
-    copy REG_RES to FREE_MEMORY_START
+    jump_if label:do_sched_run
 
-    // We will perform multiple add operations in row so we can set REG_A and REG_OP only once
-    copy REG_PROC_START_ADDRESS to REG_A
-    write OP_ADD to REG_OP
+    jump label:do_sched_incorrect_arg
 
-    // add 4 to get REG_A address of process and set parameter 1
-    write 4 to REG_B
-    cpu_exec
-    copy var:parsedArg1 to *REG_RES
-
-    // add 6 to get REG_B address of process and set parameter 2
-    write 6 to REG_B
-    cpu_exec
-    copy var:parsedArg2 to *REG_RES
-
-    // add 8 to get REG_C address of process and set parameter 3
-    write 8 to REG_C
-    cpu_exec
-    copy var:parsedArg3 to *REG_RES
-
-    // add 17 to the start address to get first address for instruction load
-    write 17 to REG_B
-    cpu_exec
-    var exec_ptr
-    copy REG_RES to var:exec_ptr
-
-    label exec_file_loop
-        copy var:exec_file_desc to REG_A
-        copy var:exec_file_counter to REG_B
+    label do_sched_load
+        var do_sched_load_cmdline
+        copy REG_RES to var:do_sched_load_cmdline
+    
+        // Load program for further execution:
+        copy var:do_sched_load_cmdline to REG_A
+        write 50 to REG_B // set priority of the process
         copy PROGRAM_COUNTER to var:sys_return
-        jump label:sys_fs_read
-        jump_err label:exec_file_close
+        jump label:sys_sched_process_load
+        jump_err label:do_sched_file_error
 
-        // load to RAM
-        copy REG_RES to *var:exec_ptr
-        copy var:exec_ptr to REG_A
-        write OP_INCR to REG_OP
-        cpu_exec
-        copy REG_RES to var:exec_ptr
-
-        copy var:exec_file_counter to REG_A
-        write OP_INCR to REG_OP
-        cpu_exec
-        copy REG_RES to var:exec_file_counter
-
-        copy REG_PROC_END_ADDRESS to REG_A
-        copy var:exec_ptr to REG_B
-        write OP_CMP_LT to REG_OP
-        cpu_exec
-        jump_if label:exec_file_close
-
-        jump label:exec_file_loop
-
-    label exec_file_close
-        // Let's close file
-        copy var:exec_file_desc to REG_A
-        copy PROGRAM_COUNTER to var:sys_return
-        jump label:sys_fs_close
-
-        // let's exec the file
-        write "" to REG_RES
-        write "" to REG_ERROR
-        write 16 to REG_SYS_RET_ADDRESS
-        write OP_SYS_RETURN to REG_OP
+        write "Successfully loaded: " to DISPLAY_BUFFER
+        write COLOR_GREEN to DISPLAY_COLOR
+        write OP_DISPLAY to REG_OP
         cpu_exec
 
+        copy KEYBOARD_BUFFER to DISPLAY_BUFFER
+        // write COLOR_GREEN to DISPLAY_COLOR
+        write OP_DISPLAY_LN to REG_OP
+        cpu_exec
         jump label:kernel_start
 
-        label exec_file_error
-            copy REG_ERROR to DISPLAY_BUFFER
-            write COLOR_RED to DISPLAY_COLOR
-            write OP_DISPLAY_LN to REG_OP
-            cpu_exec
-            jump label:kernel_start
+    label do_sched_run
+        write "List of scheduled processes:" to DISPLAY_BUFFER
+        write COLOR_NO to DISPLAY_COLOR
+        write OP_DISPLAY_LN to REG_OP
+        cpu_exec
+
+        copy PROGRAM_COUNTER to var:sys_return
+        jump label:sys_sched_print_all
+
+        copy PROGRAM_COUNTER to var:sys_return
+        jump label:sys_sched_run
+        jump label:kernel_start
+
+    label do_sched_incorrect_arg
+        write "Incorrect parameters for sched:" to DISPLAY_BUFFER
+        write COLOR_RED to DISPLAY_COLOR
+        write OP_DISPLAY_LN to REG_OP
+        cpu_exec
+        write "Load program:          sched -- cmd arg1 arg2 arg3" to DISPLAY_BUFFER
+        cpu_exec
+        write "Run loaded tasks:      sched run" to DISPLAY_BUFFER
+        cpu_exec
+        jump label:kernel_start
+
+    label do_sched_file_error
+        copy REG_ERROR to DISPLAY_BUFFER
+        write COLOR_RED to DISPLAY_COLOR
+        write OP_DISPLAY_LN to REG_OP
+        cpu_exec
+        jump label:kernel_start
+
+label exec_file
+    // Load program for further execution:
+    copy KEYBOARD_BUFFER to REG_A
+    write 100 to REG_B // set process priority
+    copy PROGRAM_COUNTER to var:sys_return
+    jump label:sys_sched_process_load
+    jump_err label:exec_file_error
+
+    copy PROGRAM_COUNTER to var:sys_return
+    jump label:sys_sched_run
+
+    label exec_file_error
+        copy REG_ERROR to DISPLAY_BUFFER
+        write COLOR_RED to DISPLAY_COLOR
+        write OP_DISPLAY_LN to REG_OP
+        cpu_exec
+        jump label:kernel_start
 
 
 label kernel_end

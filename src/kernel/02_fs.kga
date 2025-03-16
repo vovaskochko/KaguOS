@@ -22,7 +22,7 @@
 var sys_work_dir // current working dir in the filesystem, should be always end with /
 
 var sys_fs_desc_start // first address to be used for file descriptors
-var sys_fs_desc_max_count // maximal count of descriptors
+var sys_fs_desc_max_count // max count of descriptors
 
 var sys_fs_mounts_start // first address which will contain information about mount point and mounted partition on the disk
 var sys_fs_mounts_count // mount points count
@@ -39,15 +39,12 @@ label sys_fs_init
     // Set default work dir to /
     write "/" to var:sys_work_dir
 
-    // Let's allocate some memory to store file descriptors for open files.
-    // Note, that the error will be returned sys if open files count is equal to this value
-    write 10 to var:sys_fs_desc_max_count
-    copy FREE_MEMORY_START to var:sys_fs_desc_start
-    copy var:sys_fs_desc_start to REG_A
-    copy var:sys_fs_desc_max_count to REG_B
-    write OP_ADD to REG_OP
-    cpu_exec
-    copy REG_RES to FREE_MEMORY_START
+    // At the earlier stage of boot we don't know the real count of descriptors
+    // as they are stored inside config file. But to open the file we need a memory for descriptor
+    // Let's temporary allocate address of one variable for that purpose
+    var sys_fs_init_helper_mem
+    write 1 to var:sys_fs_desc_max_count
+    copy @var:sys_fs_init_helper_mem to var:sys_fs_desc_start
 
     // Allocate memory for mount point information and parse it
     copy FREE_MEMORY_START to var:sys_fs_mounts_start

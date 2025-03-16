@@ -2,10 +2,10 @@
 
 BASE_DIR="$(dirname "$0")"
 ASM=$(realpath "${BASE_DIR}/../asm.sh")
-if [ "$CPP_BOOTLOADER" = 1 ]; then
-    BOOTLOADER=$(realpath "${BASE_DIR}/../bootloader")
-    FLAGS="500"
-else
+BOOTLOADER=$(realpath "${BASE_DIR}/../bootloader")
+FLAGS="500"
+
+if [ "$CPP_BOOTLOADER" = 0 ]; then
     BOOTLOADER=$(realpath "${BASE_DIR}/../bootloader.sh")
     FLAGS=""
 fi
