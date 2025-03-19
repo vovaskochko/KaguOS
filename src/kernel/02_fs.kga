@@ -39,13 +39,6 @@ label sys_fs_init
     // Set default work dir to /
     write "/" to var:sys_work_dir
 
-    // At the earlier stage of boot we don't know the real count of descriptors
-    // as they are stored inside config file. But to open the file we need a memory for descriptor
-    // Let's temporary allocate address of one variable for that purpose
-    var sys_fs_init_helper_mem
-    write 1 to var:sys_fs_desc_max_count
-    copy @var:sys_fs_init_helper_mem to var:sys_fs_desc_start
-
     // Allocate memory for mount point information and parse it
     copy FREE_MEMORY_START to var:sys_fs_mounts_start
     write 0 to var:sys_fs_mounts_count
@@ -291,6 +284,12 @@ label sys_fs_init
         write OP_ADD to REG_OP
         cpu_exec
         copy REG_RES to FREE_MEMORY_START
+
+        // At the earlier stage of boot we don't know the real count of descriptors
+        // as they are stored inside config file. But to open the file we need a memory for descriptor
+        // Let's temporary allocate address in free memory for that purpose
+        write 2 to var:sys_fs_desc_max_count
+        copy FREE_MEMORY_START to var:sys_fs_desc_start
 
         jump label:sys_stack_pop
 

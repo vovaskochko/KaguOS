@@ -18,6 +18,7 @@
 
 namespace {
     bool is_kernel_mode = true;
+    bool is_interrupted = false;
 
     bool debug_on = false;
     bool debug_user_only_on = false;
@@ -126,7 +127,7 @@ enum class address_t {
     sys_call_handler = 35,
     sys_ret_address = 36,
     sys_interrupt_handler = 37,
-    sys_interrupt_data = 37,
+    sys_interrupt_data = 38,
     sys_hw_timer = 39,
 
     info_kernel_start = 40,
@@ -224,13 +225,6 @@ void write_to_address(address_t reg, const std::string& value) {
 
 void write_to_address(const std::string& line_no_str, const std::string& value) {
     auto line_no = static_cast<int>(std::stoi(line_no_str));
-
-    // User space address 0 contains meta information about process:
-    if (line_no == 0 && !is_kernel_mode) {
-        int proc_start = std::stoi(RAM_data[static_cast<int>(address_t::proc_start_address)]);
-        RAM_data[proc_start] = value;
-        return;
-    }
 
     if (line_no < 1 || line_no > RAM_data.size()) {
         throw std::runtime_error(is_kernel_mode ? "Kernel mode" : "User mode" + std::string(" attempted to write to an invalid address: ") + std::to_string(line_no));
@@ -351,8 +345,6 @@ void dump_RAM_to_file() {
         for (int i = proc_start + 17; i <= proc_end; ++i) {
             file << RAM_data[i] << '\n';
         }
-        file << "PC" << RAM_data[static_cast<size_t>(address_t::program_counter)] 
-                << "OTHER_INFO:" << RAM_data[proc_start] << '\n';
     }
 }
 
@@ -757,14 +749,20 @@ void cpu_exec() {
         }
         case cpu_operation_t::sys_return:
         {
-            // Let's restore all registers from process memory except result and error registers:
+            // Let's restore all registers from process memory:
             auto proc_memory_offset = std::stoi(read_from_address(address_t::proc_start_address));
             for (size_t i = 2; i <= static_cast<size_t>(address_t::user_space_regs_end); i += 2)
             {
                 copy_from_to_address(std::to_string(i + proc_memory_offset), std::to_string(i));
             }
-            write_to_address(address_t::res, reg_res);
-            write_to_address(address_t::error, reg_err);
+            // If it was interrupt handler execution, we should reset flag as we return back to user space
+            // Otherwise it was a system call, thus we should set proper result and error registers
+            if (is_interrupted) {
+                is_interrupted = false;
+            } else {
+                write_to_address(address_t::res, reg_res);
+                write_to_address(address_t::error, reg_err);
+            }
 
             // restore program counter for user space:
             write_to_address(address_t::program_counter, read_from_address(address_t::sys_ret_address));
@@ -785,7 +783,7 @@ void cpu_exec() {
 
 
 int main(int argc, char* argv[]) {
-    if (argc < 3 || argc > 6) {
+    if (argc < 3 || argc > 7) {
         std::cerr << "Usage: " << argv[0] << " <kernel_file_name> <ram_size> <options>" << std::endl;
         std::cerr << "Options:\n -u enable debug only for user space\n-j print jump information\n -s=0.1 add delay 0.1 second between command execution" << std::endl;
         return 1;
@@ -805,6 +803,9 @@ int main(int argc, char* argv[]) {
     if (argc > 5) {
         args.emplace_back(argv[5]);
     }
+    if (argc > 6) {
+        args.emplace_back(argv[6]);
+    }
 
     for (auto cur_arg : args) {
         if (cur_arg == "-j") {
@@ -812,6 +813,9 @@ int main(int argc, char* argv[]) {
         }
         if (cur_arg == "-u") {
             debug_user_only_on = true;
+        }
+        if (cur_arg == "-d") {
+            debug_on = true;
         }
         if (cur_arg.substr(0, 3) == "-s=") {
             std::string delay_str = cur_arg.substr(3);
@@ -847,7 +851,7 @@ int main(int argc, char* argv[]) {
             jump_print_debug_info();
         }
 
-        std::string next_cmd = RAM_data[static_cast<int>(address_t::program_counter)];
+        std::string next_cmd = RAM_data[static_cast<size_t>(address_t::program_counter)];
         std::string cur_instruction = read_from_address(next_cmd);
         std::istringstream iss(cur_instruction);
         int instr_code;
@@ -855,7 +859,6 @@ int main(int argc, char* argv[]) {
             if (is_kernel_mode) {
                 debug_on = true;
             } else {
-                debug_on = false;
                 debug_user_only_on = true;
             }
             std::cout << "DEBUG ON" << std::endl;
@@ -929,6 +932,23 @@ int main(int argc, char* argv[]) {
             dump_RAM_to_file();
             if (debug_sleep_interval) {
                 std::this_thread::sleep_for(debug_sleep_interval.value());
+            }
+        }
+
+        if (!is_kernel_mode) {
+            auto& hw_timer = RAM_data[static_cast<size_t>(address_t::sys_hw_timer)];
+            int timer_ticks = std::stoi(hw_timer);
+            if (timer_ticks == 0) {
+                is_interrupted = true;
+                hw_timer = "-1";
+                RAM_data[static_cast<size_t>(address_t::sys_interrupt_data)] = "0 " + RAM_data[static_cast<size_t>(address_t::program_counter)];
+                is_kernel_mode = true;
+                dump_RAM_to_file();
+
+                jump(read_from_address(address_t::sys_interrupt_handler));
+            } else if (timer_ticks > 0) {
+                timer_ticks--;
+                hw_timer = std::to_string(timer_ticks);
             }
         }
     }

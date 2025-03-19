@@ -31,7 +31,7 @@ FS_HEADER_END
 proc_memory 250     // memory allocated for one process
 max_proc_count 10   // max count of active processes
 max_fd_count 50     // max count of files open at the same time
-
+schedule_quantum 100 // instruction count before rescheduling
 
 
 
