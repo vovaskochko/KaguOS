@@ -571,6 +571,10 @@ KaguOS supports user-space programs that operate within restricted memory region
 | 12 (not impl)| SYS_CALL_GET_FILE_ATTR    | File descriptor     | -                   | -          | "7 7 7 user group"   | Error      |
 | 13 (not impl)| SYS_CALL_SET_FILE_ATTR    | File descriptor     | "4 4 0 user group"  | -          | -                    | Error      |
 | 14         | SYS_CALL_SCHED_PROGRAM    | Command line        | Priority            | -          | Process ID  | Error      |
+|     15       | SYS_CALL_IS_PROCESS_ACTIVE |   pid to check     |                   |                 |  process info         |  error if not active
+|     16       |   SYS_CALL_KILL_PROCESS |   pid to kill      |         -         |         -       |         -             |  error if no process
+|     17       | SYS_CALL_SKIP_SCHED     |         -          |         -         |         -       |         -             |   error if skip request was failed
+|     18       |    SYS_CALL_WAIT_SCHED     |         -          |         -         |         -       |         -             |    error if wait request failed
 
 ### 6.3 User Space Memory Management
 User-space programs execute within predefined memory regions. Process-related information is stored in:
@@ -861,7 +865,7 @@ config.txt main.disk 11 10
 ## 9. Scheduler
 
 ### 9.1 Approach to Process Scheduling
-In current version KaguOS schedules programs for execution by loading them into memory and executing them sequentially, one by one. Each process is allocated a predefined memory size, and the system ensures that processes do not exceed the configured limit.
+In current version KaguOS schedules programs for execution by loading them into memory and executing them with round robin. Each process is allocated a predefined memory size, and the system ensures that processes do not exceed the configured limit.
 
 The process control block (PCB) maintains process metadata, including memory allocation and execution state. The structure of a PCB entry is as follows:
 ```
@@ -931,6 +935,10 @@ write OP_SYS_CALL to REG_OP
 cpu_exec
 ```
 This call enables user-space programs to interact with the scheduler, dynamically adding new tasks to the execution queue.
+
+**NOTE**: You can use *SYS_CALL_IS_PROCESS_ACTIVE* and *SYS_CALL_KILL_PROCESS* to manage the process you scheduled. 
+You can use *SYS_CALL_SKIP_SCHED* to skip current quantum from scheduler. 
+Also you can use *SYS_CALL_WAIT_SCHED* to pause your process until other processes with state ready will be completed.
 
 ### 9.4 Debugging and Memory Dumping
 Debugging behavior has been adjusted in the new scheduling implementation. If `debug on` is enabled via the console, only user-space memory will be dumped and printed. The memory dump is now stored in `tmp/RAM_user.txt`. Additionally, the system can be launched with the `-u` flag to enable user-space-only memory dumping automatically.

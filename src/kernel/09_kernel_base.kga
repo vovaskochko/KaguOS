@@ -48,6 +48,10 @@ jump label:sys_read_config
 copy PROGRAM_COUNTER to var:sys_return
 jump label:sys_prepare_memory
 
+// Setup interrupt handler:
+write label:sys_interrupt_handler to REG_SYS_INTERRUPT_HANDLER
+write "" to REG_SYS_INTERRUPT_DATA
+write "-1" to REG_SYS_HW_TIMER
 
 // Print welcome message
 write "RAMFS init - done." to DISPLAY_BUFFER

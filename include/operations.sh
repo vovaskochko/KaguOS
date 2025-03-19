@@ -164,7 +164,7 @@ export OP_SET_BACKGROUND_COLOR=23
 # To draw bitmap specify address of first line with bitmap representation to REG_A,
 # first address after the last line of bitmap to REG_B, and OP_RENDER_BITMAP to REG_OP.
 # Call INSTR_CPU_EXEC to render the bitmap.
-# Each line should contain letters B(black), g(green), y(yellow), r(red), b(blue), m(magenta), c(cyan), w(white)
+# Each line should contain letters B(black), g(green), y(yellow), r(red), b(blue), m(magenta), c(cyan), w(white), o(orange), n(no color)
 # For example string ggyyrr will display a line with 2 green cells, 2 yellow cells and 2 red cells
 export OP_RENDER_BITMAP=24
 

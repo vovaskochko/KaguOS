@@ -15,6 +15,10 @@
 //     12       |  get_file_attr    |  file descriptor   |        -          |        -        |  "7 7 7 user group"   |     error
 //     13       |  set_file_attr    |  file descriptor   |  "4 4 0 user grp" |        -        |            -          |     error
 //     14       |  sched_program    |  command line      |    priority       |        -        |  process ID           |     error
+//     15       | is_process_active |   pid to check     |                   |                 |  process info         |  error if not active
+//     16       |   kill_process    |   pid to kill      |         -         |         -       |         -             |  error if no process
+//     17       |    skip_sched     |         -          |         -         |         -       |         -             |  error if skip failed
+//     18       |    wait_sched     |         -          |         -         |         -       |         -             |  error if wait failed
 
 var sys_call_count
 var sys_call_00
@@ -32,6 +36,10 @@ var sys_call_11
 var sys_call_12
 var sys_call_13
 var sys_call_14
+var sys_call_15
+var sys_call_16
+var sys_call_17
+var sys_call_18
 
 
 label sys_call_handler
@@ -93,6 +101,17 @@ label sys_call_to_user_mode
 
 // SYSTEM CALLS IMPLEMENTATION START
 label sys_call_exit
+    // As this system call stops the process, we should adjust interrupt data to set ignore custom result registers
+    // This will ensure that the next running process will not be impacted by any results of this system call
+    // NOTE: interrupt data format <id> <program counter> <ignore result registers flag>
+    copy REG_SYS_INTERRUPT_DATA to REG_A
+    write 3 to REG_B
+    write " " to REG_C
+    write 1 to REG_D
+    write OP_REPLACE_COLUMN to REG_OP
+    cpu_exec
+    copy REG_RES to REG_SYS_INTERRUPT_DATA
+
     copy PROGRAM_COUNTER to var:sys_return
     jump label:sys_sched_process_stop
 
@@ -244,8 +263,40 @@ label sys_call_sched_program
     copy var:sys_call_arg2 to REG_B
     copy PROGRAM_COUNTER to var:sys_return
     jump label:sys_sched_process_load
-
     jump label:sys_call_to_user_mode
+
+
+
+label sys_call_is_active_pid
+    copy var:sys_call_arg1 to REG_A
+    copy PROGRAM_COUNTER to var:sys_return
+    jump label:sys_sched_is_active_pid
+    jump label:sys_call_to_user_mode
+
+
+
+label sys_call_kill_process
+    copy var:sys_call_arg1 to REG_A
+    copy PROGRAM_COUNTER to var:sys_return
+    jump label:sys_sched_kill_pid
+    jump label:sys_call_to_user_mode
+
+
+
+
+label sys_call_skip_sched
+    copy PROGRAM_COUNTER to var:sys_return
+    jump label:sys_sched_skip_sched
+    jump label:sys_call_to_user_mode
+
+
+
+
+label sys_call_wait_sched
+    copy PROGRAM_COUNTER to var:sys_return
+    jump label:sys_sched_wait_sched
+    jump label:sys_call_to_user_mode
+
 
 // SYSTEM CALLS IMPLEMENTATION END
 
@@ -260,7 +311,7 @@ label sys_call_table_init
     jump label:sys_stack_push
 
     write label:sys_call_handler to REG_SYS_CALL_HANDLER
-    write 15 to var:sys_call_count
+    write 19 to var:sys_call_count
 
     write label:sys_call_exit to var:sys_call_00
     write label:sys_call_println to var:sys_call_01
@@ -277,4 +328,9 @@ label sys_call_table_init
     write label:sys_call_get_file_attr to var:sys_call_12
     write label:sys_call_set_file_attr to var:sys_call_13
     write label:sys_call_sched_program to var:sys_call_14
+    write label:sys_call_is_active_pid to var:sys_call_15
+    write label:sys_call_kill_process to var:sys_call_16
+    write label:sys_call_skip_sched to var:sys_call_17
+    write label:sys_call_wait_sched to var:sys_call_18
+
     jump label:sys_stack_pop

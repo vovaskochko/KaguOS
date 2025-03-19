@@ -15,6 +15,7 @@ label sys_read_config
     write 250 to var:sys_proc_memory_size
     write 10 to var:sys_proc_max_count
     write 50 to var:sys_fs_desc_max_count
+    write 50 to var:sys_sched_time_quantum
 
     // Open config file:
     var sys_read_config_fd
@@ -87,6 +88,12 @@ label sys_read_config
         cpu_exec
         jump_if label:sys_read_config_max_fd_count
 
+        // copy var:sys_read_config_name to REG_A
+        write "schedule_quantum" to REG_B
+        // write OP_CMP_EQ to REG_OP
+        cpu_exec
+        jump_if label:sys_read_config_sched_quantum
+
         jump label:sys_read_config_loop // return to the start of the loop
 
         label sys_read_config_proc_memory
@@ -99,6 +106,10 @@ label sys_read_config
 
         label sys_read_config_max_fd_count
             copy var:sys_read_config_value to var:sys_fs_desc_max_count
+            jump label:sys_read_config_loop
+
+        label sys_read_config_sched_quantum
+            copy var:sys_read_config_value to var:sys_sched_time_quantum
             jump label:sys_read_config_loop
 
     // close config and return from the function
