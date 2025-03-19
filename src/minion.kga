@@ -7,29 +7,29 @@ write SYS_CALL_SET_BACKGROUND to REG_D
 write OP_SYS_CALL to REG_OP
 cpu_exec
 
-// Define a bitmap (based on https://pin.it/3WcsRt4xM )
+// Define a bitmap (based on https://pin.it/2NMEPwMLh )
 write "cccccccccccccccccccccccccccc" to 170
 write "cccccccccccccccccccccccccccc" to 171
 write "cccccccccccccccccccccccccccc" to 172
 write "cccccccccccccccccccccccccccc" to 173
-write "cccccccccccrrrrrcccccccccccc" to 174
-write "ccccccccccrrrrrrrrrccccccccc" to 175
-write "ccccccccccbbbyybyccccccccccc" to 176
-write "cccccccccbybyyybyyyccccccccc" to 177
-write "cccccccccbybbyyybyyycccccccc" to 178
-write "cccccccccbbyyyybbbbccccccccc" to 179
-write "cccccccccccyyyyyyycccccccccc" to 180
-write "ccccccccccbbrbbbcccccccccccc" to 181
-write "cccccccccbbbrbbrbbbccccccccc" to 182
-write "ccccccccbbbbrrrrbbbbcccccccc" to 183
-write "ccccccccyybryrryrbyycccccccc" to 184
-write "ccccccccyyyrrrrrryyycccccccc" to 185
-write "ccccccccyyrrrrrrrryycccccccc" to 186
-write "ccccccccccrrrccrrrcccccccccc" to 187
-write "cccccccccbbbccccbbbccccccccc" to 188
-write "ccccccccbbbbccccbbbbcccccccc" to 189
-write "cBBBBBBBBBBBBBBBBBBBBBBBBBBc" to 190
-write "cccccccccccccccccccccccccccc" to 191
+write "ccccccccccyyyyyyycccccccccccc" to 174
+write "cccccccccyyyyyyyyyccccccccccc" to 175
+write "ccccccccyybbyyybbyyccccccccc" to 176
+write "ccccccccBbwBbBbwBbBccccccccc" to 177
+write "ccccccccBbwwbBbwwbBccccccccc" to 178
+write "ccccccccyybbyyybbyyccccccccc" to 179
+write "ccccccccyyyyyyyyyyycccccccccc" to 180
+write "ccccccccyyByyyyyByycccccccccc" to 181
+write "ccccccccyyyBBBBByyycccccccccc" to 182
+write "ccccccccbyyyyyyyyybcccccccccc" to 183
+write "ccccccccybbbbbbbbbycccccccccc" to 184
+write "ccccccccyybbbbbbbyycccccccccc" to 185
+write "ccccccccyybbbbbbbyycccccccccc" to 186
+write "ccccccccybbbbbbbbbycccccccccc" to 187
+write "cccccccBBbbbbbbbbbBBccccccccc" to 188
+write "ccccccccBbbbbbbbbbBcccccccccc" to 189
+write "ccccccccccBBcccBBcccccccccccc" to 190
+write "cccccccccBBBcccBBBccccccccccc" to 191
 write "cccccccccccccccccccccccccccc" to 192
 write "cccccccccccccccccccccccccccc" to 193
 write "cccccccccccccccccccccccccccc" to 194
@@ -122,7 +122,7 @@ label start
         copy REG_RES to var:counter
 
         copy var:counter to REG_A
-        write 191 to REG_B
+        write 192 to REG_B
         write OP_CMP_LT to REG_OP
         cpu_exec
         jump_if label:shift_right

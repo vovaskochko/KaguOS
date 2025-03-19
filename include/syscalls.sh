@@ -47,3 +47,20 @@ export SYS_CALL_SET_FILE_ATTR=13
 # Schedules a program for execution
 # REG_A contains command line to execute for example mario 10 or cat 1.txt, REG_B contains priority of the process
 export SYS_CALL_SCHED_PROGRAM=14
+
+# Check whether process with given pid exists
+# REG_A contains the pid of the process to be checked, REG_RES pcb info and REG_ERROR empty if active, error in REG_ERROR otherwise
+export SYS_CALL_IS_PROCESS_ACTIVE=15
+
+# Kill the process with the provided PID
+# REG_A contains the pid of the process to be killed, REG_ERROR if no process with pid
+export SYS_CALL_KILL_PROCESS=16
+
+# Ask scheduler to skip current quantum allocated for the process
+export SYS_CALL_SKIP_SCHED=17
+
+# Ask scheduler to postpone execution of the process untill all other processes will be completed
+export SYS_CALL_WAIT_SCHED=18
+
+
+
