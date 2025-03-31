@@ -16,8 +16,8 @@ clear 7 7 7 user user BLOCKS 262 275
 debug 7 7 7 user user BLOCKS 276 320
 sleep 7 7 7 user user BLOCKS 321 335
 user_sched 7 7 7 user group BLOCKS 336 395
-
-
+happy 7 7 7 user group BLOCKS 396 407
+sad 7 7 7 user group BLOCKS 408 419
 
 
 
@@ -393,17 +393,30 @@ Program loaded with PID
 
 
 
-
-
-
-
-
-
-
-
-
-
-
+rrrrgcmmmmmm
+rgggBBBBcccm
+rggByyyyBccm
+rgByyyyyyBcm
+gByyByyByyBm
+gByyByyByyBm
+cByyyyyyyyBm
+cByByyyyByBm
+ccByBBBByBrc
+cccByyyyBrrc
+ccccBBBBrrrc
+cccccccccccc
+rrrrgcmmmmmm
+rgggBBBBcccm
+rggByyyyBccm
+rgByyyyyyBcm
+gByBByyBByBm
+gByBByyBByBm
+cByyyyyyyyBm
+cByyyyyyyyBm
+ccByBBBByBrc
+cccByrryBrrc
+ccccBBBBrrrc
+cccccccccccc
 
 
 
