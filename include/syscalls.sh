@@ -47,3 +47,5 @@ export SYS_CALL_SET_FILE_ATTR=13
 # Schedules a program for execution
 # REG_A contains command line to execute for example mario 10 or cat 1.txt, REG_B contains priority of the process
 export SYS_CALL_SCHED_PROGRAM=14
+
+export SYS_CALL_EMOJI=15

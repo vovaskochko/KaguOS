@@ -18,7 +18,7 @@ sleep 7 7 7 user user BLOCKS 321 335
 user_sched 7 7 7 user group BLOCKS 336 395
 happy 7 7 7 user group BLOCKS 396 407
 sad 7 7 7 user group BLOCKS 408 419
-
+emoji 7 7 7 user user BLOCKS 420 549
 
 
 
@@ -28,7 +28,7 @@ sad 7 7 7 user group BLOCKS 408 419
 
 
 FS_HEADER_END
-proc_memory 250     // memory allocated for one process
+proc_memory 500     // memory allocated for one process
 max_proc_count 10   // max count of active processes
 max_fd_count 50     // max count of files open at the same time
 
@@ -417,6 +417,107 @@ ccByBBBByBrc
 cccByrryBrrc
 ccccBBBBrrrc
 cccccccccccc
+1 4 117        #  copy REG_A => var:flag
+1 88 4         #  write COLOR_BLACK => REG_A
+1 89 10        #  write SYS_CALL_SET_BACKGROUND => REG_D
+1 90 2         #  write OP_SYS_CALL => REG_OP
+0              #  cpu_exec
+1 117 4        #  copy var:flag => REG_A
+1 91 6         #  write "1" => REG_B
+1 92 2         #  write OP_CMP_EQ => REG_OP
+0              #  cpu_exec
+4 28           #  jump_if lbl:happy
+3 50           #  jump lbl:sad
+1 93 175       #  write "rrrrgcmmmmmm" => 175
+1 94 176       #  write "rgggBBBBcccm" => 176
+1 95 177       #  write "rggByyyyBccm" => 177
+1 96 178       #  write "rgByyyyyyBcm" => 178
+1 97 179       #  write "gByyByyByyBm" => 179
+1 97 180       #  write "gByyByyByyBm" => 180
+1 98 181       #  write "cByyyyyyyyBm" => 181
+1 99 182       #  write "cByByyyyByBm" => 182
+1 100 183      #  write "ccByBBBByBrc" => 183
+1 101 184      #  write "cccByyyyBrrc" => 184
+1 102 185      #  write "ccccBBBBrrrc" => 185
+1 103 186      #  write "cccccccccccc" => 186
+1 104 4        #  write "175" => REG_A
+1 105 6        #  write "186" => REG_B
+1 106 10       #  write SYS_CALL_RENDER_BITMAP => REG_D
+1 90 2         #  write OP_SYS_CALL => REG_OP
+0              #  cpu_exec
+1 107 4        #  write "5" => REG_A
+1 108 10       #  write SYS_CALL_SLEEP => REG_D
+1 90 2         #  write OP_SYS_CALL => REG_OP
+0              #  cpu_exec
+3 72           #  jump lbl:exit
+1 93 187       #  write "rrrrgcmmmmmm" => 187
+1 94 188       #  write "rgggBBBBcccm" => 188
+1 95 189       #  write "rggByyyyBccm" => 189
+1 96 190       #  write "rgByyyyyyBcm" => 190
+1 109 191      #  write "gByBByyBByBm" => 191
+1 109 192      #  write "gByBByyBByBm" => 192
+1 98 193       #  write "cByyyyyyyyBm" => 193
+1 98 194       #  write "cByyyyyyyyBm" => 194
+1 100 195      #  write "ccByBBBByBrc" => 195
+1 110 196      #  write "cccByrryBrrc" => 196
+1 102 197      #  write "ccccBBBBrrrc" => 197
+1 103 198      #  write "cccccccccccc" => 198
+1 111 4        #  write "187" => REG_A
+1 112 6        #  write "198" => REG_B
+1 106 10       #  write SYS_CALL_RENDER_BITMAP => REG_D
+1 90 2         #  write OP_SYS_CALL => REG_OP
+0              #  cpu_exec
+1 107 4        #  write "5" => REG_A
+1 108 10       #  write SYS_CALL_SLEEP => REG_D
+1 90 2         #  write OP_SYS_CALL => REG_OP
+0              #  cpu_exec
+3 72           #  jump lbl:exit
+1 113 4        #  write COLOR_NO => REG_A
+1 89 10        #  write SYS_CALL_SET_BACKGROUND => REG_D
+1 90 2         #  write OP_SYS_CALL => REG_OP
+0              #  cpu_exec
+1 114 4        #  write "0" => REG_A
+1 115 10       #  write SYS_CALL_EXIT => REG_D
+1 90 2         #  write OP_SYS_CALL => REG_OP
+0              #  cpu_exec
+1 113 4        #  write COLOR_NO => REG_A
+1 89 10        #  write SYS_CALL_SET_BACKGROUND => REG_D
+1 90 2         #  write OP_SYS_CALL => REG_OP
+0              #  cpu_exec
+1 116 4        #  write "1" => REG_A
+1 115 10       #  write SYS_CALL_EXIT => REG_D
+1 90 2         #  write OP_SYS_CALL => REG_OP
+0              #  cpu_exec
+4
+9
+25
+1
+8
+rrrrgcmmmmmm
+rgggBBBBcccm
+rggByyyyBccm
+rgByyyyyyBcm
+gByyByyByyBm
+cByyyyyyyyBm
+cByByyyyByBm
+ccByBBBByBrc
+cccByyyyBrrc
+ccccBBBBrrrc
+cccccccccccc
+175
+186
+10
+5
+11
+gByBByyBByBm
+cccByrryBrrc
+187
+198
+0
+0
+0
+1
+
 
 
 
@@ -431,114 +532,13 @@ cccccccccccc
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+11
+186
+16
+0
+0
+0
+0
 
 
 

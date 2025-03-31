@@ -1,0 +1,141 @@
+label sys_emoji
+    var flag
+    copy REG_A to var:flag
+
+    write COLOR_BLACK to REG_A
+    write SYS_CALL_SET_BACKGROUND to REG_D
+    write OP_SYS_CALL to REG_OP
+    cpu_exec
+
+    copy var:flag to REG_A
+    write "1" to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec
+    jump_if label:happy
+    jump label:sad
+
+    // var size
+    // write 12 to var:size
+    // var fd
+    // var free_start
+    // copy 0 to REG_A
+    // write 4 to REG_B
+    // write " " to REG_C
+    // write OP_GET_COLUMN to REG_OP
+    // cpu_exec
+    // copy REG_RES to var:free_start
+    // copy var:free_start to REG_A
+    // write COLOR_RED to REG_B
+    // write SYS_CALL_PRINTLN to REG_D
+    // write OP_SYS_CALL to REG_OP
+    // cpu_exec
+    label happy
+        write "rrrrgcmmmmmm" to 175
+        write "rgggBBBBcccm" to 176
+        write "rggByyyyBccm" to 177
+        write "rgByyyyyyBcm" to 178
+        write "gByyByyByyBm" to 179
+        write "gByyByyByyBm" to 180
+        write "cByyyyyyyyBm" to 181
+        write "cByByyyyByBm" to 182
+        write "ccByBBBByBrc" to 183
+        write "cccByyyyBrrc" to 184
+        write "ccccBBBBrrrc" to 185
+        write "cccccccccccc" to 186
+        // write "happy" to REG_A
+        // write SYS_CALL_OPEN to REG_D
+        // write OP_SYS_CALL to REG_OP
+        // cpu_exec
+        // copy REG_RES to var:fd
+
+        // var happy_counter
+        // write 1 to var:happy_counter
+        // label happy_loop
+        //     copy var:happy_counter to REG_A
+        //     copy var:size to REG_B
+        //     write OP_CMP_LE to REG_OP
+        //     cpu_exec
+        //     jump_if_not label:happy_loop_end
+        //     copy var:fd to REG_A
+        //     copy var:happy_counter to REG_B
+        //     write SYS_CALL_READ to REG_D
+        //     write OP_SYS_CALL to REG_OP
+        //     cpu_exec
+        //     copy REG_RES to *var:free_start
+        //     copy var:free_start to REG_A
+        //     write OP_INCR to REG_OP
+        //     cpu_exec
+        //     copy REG_RES to var:free_start
+        //     copy var:happy_counter to REG_A
+        //     write OP_INCR to REG_OP
+        //     cpu_exec
+        //     copy REG_RES to var:happy_counter
+        //     jump label:happy_loop
+        // label happy_loop_end
+        // var happy_size_buffer
+        // copy var:free_start to REG_A
+        // copy var:size to REG_B
+        // write OP_SUB to REG_OP
+        // cpu_exec
+        // copy REG_RES to var:happy_size_buffer
+        write 175 to REG_A
+        write 186 to REG_B
+        write SYS_CALL_RENDER_BITMAP to REG_D
+        write OP_SYS_CALL to REG_OP
+        cpu_exec
+
+        write "5" to REG_A
+        write SYS_CALL_SLEEP to REG_D
+        write OP_SYS_CALL to REG_OP
+        cpu_exec
+
+        jump label:exit
+
+    label sad
+        write "rrrrgcmmmmmm" to 187
+        write "rgggBBBBcccm" to 188
+        write "rggByyyyBccm" to 189
+        write "rgByyyyyyBcm" to 190
+        write "gByBByyBByBm" to 191
+        write "gByBByyBByBm" to 192
+        write "cByyyyyyyyBm" to 193
+        write "cByyyyyyyyBm" to 194
+        write "ccByBBBByBrc" to 195
+        write "cccByrryBrrc" to 196
+        write "ccccBBBBrrrc" to 197
+        write "cccccccccccc" to 198
+
+        write 187 to REG_A
+        write 198 to REG_B
+        write SYS_CALL_RENDER_BITMAP to REG_D
+        write OP_SYS_CALL to REG_OP
+        cpu_exec
+
+        write "5" to REG_A
+        write SYS_CALL_SLEEP to REG_D
+        write OP_SYS_CALL to REG_OP
+        cpu_exec
+
+        jump label:exit
+
+label exit
+    write COLOR_NO to REG_A
+    write SYS_CALL_SET_BACKGROUND to REG_D
+    write OP_SYS_CALL to REG_OP
+    cpu_exec
+
+    write 0 to REG_A
+    write SYS_CALL_EXIT to REG_D
+    write OP_SYS_CALL to REG_OP
+    cpu_exec
+
+label exit_error
+    write COLOR_NO to REG_A
+    write SYS_CALL_SET_BACKGROUND to REG_D
+    write OP_SYS_CALL to REG_OP
+    cpu_exec
+
+    write 1 to REG_A
+    write SYS_CALL_EXIT to REG_D
+    write OP_SYS_CALL to REG_OP
+    cpu_exec
