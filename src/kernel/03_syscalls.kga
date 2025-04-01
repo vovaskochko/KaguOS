@@ -252,9 +252,79 @@ label sys_call_sched_program
 
 label sys_call_emoji
     copy var:sys_call_arg1 to REG_A
-    copy PROGRAM_COUNTER to var:sys_return
-    jump label:sys_emoji
-    jump label:sys_call_to_user_mode
+    write 1 to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec
+    var sys_call_emoji_file_name
+    jump_if label:sys_call_emoji_happy
+    jump label:sys_call_emoji_sad
+
+    label sys_call_emoji_happy
+        write "happy" to var:sys_call_emoji_file_name
+        jump label:sys_call_emoji_display
+    label sys_call_emoji_sad
+        write "sad" to var:sys_call_emoji_file_name
+        jump label:sys_call_emoji_display
+
+    label sys_call_emoji_display
+        copy var:sys_call_emoji_file_name to REG_A
+        copy PROGRAM_COUNTER to var:sys_return
+        jump label:sys_fs_open
+        var fd
+        copy REG_RES to var:fd
+
+        var happy_counter
+        write 0 to var:happy_counter
+        var sys_call_emoji_happy_size
+        write 12 to var:sys_call_emoji_happy_size
+
+        label happy_loop
+            copy var:happy_counter to REG_A
+            write "12" to REG_B
+            write OP_CMP_LT to REG_OP
+            cpu_exec
+            jump_if_not label:happy_loop_end
+            copy var:fd to REG_A
+            copy var:happy_counter to REG_B
+            copy PROGRAM_COUNTER to var:sys_return
+            jump label:sys_fs_read
+
+            copy REG_RES to *FREE_MEMORY_START
+            copy FREE_MEMORY_START to REG_A
+            write OP_INCR to REG_OP
+            cpu_exec
+            copy REG_RES to FREE_MEMORY_START
+            copy var:happy_counter to REG_A
+            write OP_INCR to REG_OP
+            cpu_exec
+            copy REG_RES to var:happy_counter
+            jump label:happy_loop
+        
+        label happy_loop_end
+        var happy_size_buffer
+        copy FREE_MEMORY_START to REG_A
+        copy var:sys_call_emoji_happy_size to REG_B
+        write OP_SUB to REG_OP
+        cpu_exec
+        copy REG_RES to REG_A
+        write OP_INCR to REG_OP
+        cpu_exec
+        copy REG_RES to var:happy_size_buffer
+
+
+        write COLOR_BLUE to DISPLAY_BACKGROUND
+        write OP_SET_BACKGROUND_COLOR to REG_OP
+        cpu_exec
+        copy var:happy_size_buffer to REG_A
+        copy FREE_MEMORY_START to REG_B
+        write OP_RENDER_BITMAP to REG_OP
+        cpu_exec
+
+        write "5" to REG_A
+        write OP_NOP to REG_OP
+        cpu_exec
+
+        jump label:sys_call_to_user_mode
 
 // SYSTEM CALLS IMPLEMENTATION END
 
