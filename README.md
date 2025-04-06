@@ -1,3 +1,7 @@
+<p align="center">
+<img src="kaguos_logo.png" alt="Image Description" width="300"/>
+</p>
+
 # Welcome!
 Welcome to KaguOS - learning framework for operating system design.
 
