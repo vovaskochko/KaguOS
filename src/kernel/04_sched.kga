@@ -152,6 +152,7 @@ label sys_sched_run
     copy REG_SYS_INTERRUPT_DATA to REG_A
     write "" to REG_B
     write OP_CMP_EQ to REG_OP
+    cpu_exec
     jump_if_not label:sys_sched_run_adjust_interrupt_data
     write "0 0 1" to REG_SYS_INTERRUPT_DATA // set default interrupt data for further adjustment
 
