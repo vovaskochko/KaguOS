@@ -130,6 +130,7 @@ label sys_sched_run
     // Get memory start address:
     copy var:sys_sched_run_cur_pcb to REG_A
     write 10 to REG_B
+    write " " to REG_C
     write OP_GET_COLUMN to REG_OP
     cpu_exec
     copy REG_RES to REG_PROC_START_ADDRESS
@@ -137,6 +138,7 @@ label sys_sched_run
     // Get memory end address:
     // copy var:sys_sched_run_cur_pcb to REG_A
     write 12 to REG_B
+    // write " " to REG_C
     // write OP_GET_COLUMN to REG_OP
     cpu_exec
     copy REG_RES to REG_PROC_END_ADDRESS
@@ -144,6 +146,7 @@ label sys_sched_run
     // Get program counter:
     // copy var:sys_sched_run_cur_pcb to REG_A
     write 14 to REG_B
+    // write " " to REG_C
     // write OP_GET_COLUMN to REG_OP
     cpu_exec
     var sys_sched_run_pc
