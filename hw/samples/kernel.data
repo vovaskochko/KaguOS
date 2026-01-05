@@ -1,0 +1,10 @@
+1 47 12 # [DISPLAY_MESSAGE] Copy "Kernel started!" (addr 47, line 7) to DISPLAY_BUFFER
+1 48 13 # [DISPLAY_MESSAGE] Copy color green (addr 48, line 8, code 1) to DISPLAY_COLOR
+1 49 7  # [DISPLAY_MESSAGE] Set REG_OP = OP_DISPLAY_LN (addr 49, line 9, code 20)
+0       # [DISPLAY_MESSAGE] Execute display with newline
+1 50 7  # [HALT] Set REG_OP = OP_HALT (addr 50, line 10, code 30)
+0       # [HALT] Execute halt
+Kernel started!
+1
+20
+30

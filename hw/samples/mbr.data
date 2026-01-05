@@ -1,0 +1,50 @@
+1 75 12 # [INIT] Copy "Kagu MBR execution started" (addr 75, line 35) to DISPLAY_BUFFER
+1 76 7  # [INIT] Set REG_OP = OP_DISPLAY_LN (addr 76, line 36, code 20)
+0       # [INIT] Execute displayln
+1 88 1  # [READ_BOOTLOADER_SIG] Copy disk name (addr 88, line 48) to REG_A
+1 89 2  # [READ_BOOTLOADER_SIG] Copy bootloader start block (addr 89, line 49) to REG_B
+1 79 7  # [READ_BOOTLOADER_SIG] Set REG_OP = OP_READ_BLOCK (addr 79, line 39, code 21)
+0       # [READ_BOOTLOADER_SIG] Execute read block
+5 75    # [READ_BOOTLOADER_SIG] JumpErr to crash (addr 75) if read failed
+1 8 1   # [VERIFY_BOOTLOADER_SIG] Copy REG_RES to REG_A for comparison
+1 80 2  # [VERIFY_BOOTLOADER_SIG] Copy "KAGU BOOTLOADER" (addr 80, line 40) to REG_B
+1 81 7  # [VERIFY_BOOTLOADER_SIG] Set REG_OP = OP_CMP_EQ (addr 81, line 41, code 8)
+0       # [VERIFY_BOOTLOADER_SIG] Execute comparison
+4 75    # [VERIFY_BOOTLOADER_SIG] JumpIfNot to crash (addr 75) if signature mismatch
+1 89 1  # [INC_BLOCK_INDEX] Copy bootloader start block (addr 89, line 49) to REG_A
+1 77 7  # [INC_BLOCK_INDEX] Set REG_OP = OP_INCR (addr 77, line 37, code 2)
+0       # [INC_BLOCK_INDEX] Execute increment
+1 8 89  # [INC_BLOCK_INDEX] Save incremented value back to addr 89
+1 88 1  # [READ_BOOTLOADER_SIZE] Copy disk name (addr 88, line 48) to REG_A
+1 89 2  # [READ_BOOTLOADER_SIZE] Copy incremented block index (addr 89, line 49) to REG_B
+1 79 7  # [READ_BOOTLOADER_SIZE] Set REG_OP = OP_READ_BLOCK (addr 79, line 39, code 21)
+0       # [READ_BOOTLOADER_SIZE] Execute read block
+5 75    # [READ_BOOTLOADER_SIZE] JumpErr to crash (addr 75) if read failed
+1 8 1   # [CALC_END_BLOCK] Copy REG_RES (bootloader size) to REG_A
+1 89 2  # [CALC_END_BLOCK] Copy current block index (addr 89, line 49) to REG_B
+1 82 7  # [CALC_END_BLOCK] Set REG_OP = OP_ADD (addr 82, line 42, code 0)
+0       # [CALC_END_BLOCK] Execute add: end_block = current_block + size
+1 8 6   # [CALC_END_BLOCK] Copy REG_RES to REG_F (end block for firmware)
+1 78 5  # [SETUP_DISK_COPY] Copy target address 41 (addr 78, line 38) to REG_E
+1 89 1  # [SETUP_DISK_COPY] Copy current block index (addr 89, line 49) to REG_A
+1 77 7  # [SETUP_DISK_COPY] Set REG_OP = OP_INCR (addr 77, line 37, code 2)
+0       # [SETUP_DISK_COPY] Execute increment to get first data block
+1 8 4   # [SETUP_DISK_COPY] Copy REG_RES to REG_D (start block for firmware)
+1 88 3  # [SETUP_DISK_COPY] Copy disk name (addr 88, line 48) to REG_C
+2 23    # [JUMP_TO_FIRMWARE] Jump to firmware disk copy routine (line 23)
+Kagu MBR execution started
+20
+2
+41
+21
+KAGU BOOTLOADER
+8
+0
+
+
+
+
+
+bootable.disk
+52
+===== DUMMY DATA ON MBR END - SIZE OF MBR IS FIXED AND EQUALS TO 50. Set BOOTLOADER location disk and start block before this line

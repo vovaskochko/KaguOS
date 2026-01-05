@@ -1,0 +1,151 @@
+/**
+ * @file main.cpp
+ * @brief KaguOS Emulator entry point (Bare Metal Edition)
+ * 
+ * Loads a single disk image and executes it starting from address 31 (KernelStart).
+ * No user space, no syscalls, no interrupts - direct hardware access.
+ */
+
+#include "cpu.hpp"
+#include "ram.hpp"
+#include "disk.hpp"
+#include "display.hpp"
+#include "input.hpp"
+
+#include <kagu/kagu.hpp>
+
+#include <iostream>
+#include <fstream>
+#include <string>
+#include <filesystem>
+
+namespace fs = std::filesystem;
+
+void printUsage(const char* progName)
+{
+    std::cerr << "KaguOS Emulator - Bare Metal Edition\n";
+    std::cerr << "Usage: " << progName << " <cpu_firmware> <ram_size> [options]\n";
+    std::cerr << "\n";
+    std::cerr << "Arguments:\n";
+    std::cerr << "  cpu_firmware    Path to cpu reset vector firmware\n";
+    std::cerr << "  ram_size      RAM size in cells (minimum: " 
+              << kagu::config::MIN_RAM_SIZE << ")\n";
+    std::cerr << "\n";
+    std::cerr << "Options:\n";
+    std::cerr << "  -d            Enable debug mode (dump RAM after each step)\n";
+    std::cerr << "  -j            Print jump/instruction info during execution\n";
+    std::cerr << "  -s <ms>       Sleep between steps in debug mode (milliseconds)\n";
+    std::cerr << "\n";
+    std::cerr << "Note: Debug mode (RAM dump) is enabled by default.\n";
+    std::cerr << "\n";
+    std::cerr << "Examples:\n";
+    std::cerr << "  " << progName << " hw/cpu_firmware.bin 1000\n";
+    std::cerr << "  " << progName << " hw/cpu_firmware.bin 1000 -j\n";
+    std::cerr << "  " << progName << " hw/cpu_firmware.bin 500 -j -s 100\n";
+}
+
+
+int main(int argc, char* argv[])
+{
+    if (argc < 3)
+    {
+        printUsage(argv[0]);
+        return 1;
+    }
+    
+    // Parse required arguments
+    std::string cpuFirmware = argv[1];
+    int ramSize = 0;
+    
+    try
+    {
+        ramSize = std::stoi(argv[2]);
+    }
+    catch (const std::exception&)
+    {
+        std::cerr << "Error: Invalid RAM size: " << argv[2] << "\n";
+        return 1;
+    }
+    
+    if (ramSize < kagu::config::MIN_RAM_SIZE)
+    {
+        std::cerr << "Error: RAM size must be at least " 
+                  << kagu::config::MIN_RAM_SIZE << "\n";
+        return 1;
+    }
+    
+    if (!fs::exists(cpuFirmware))
+    {
+        std::cerr << "Error: File not found: " << cpuFirmware << "\n";
+        return 1;
+    }
+    
+    // Parse options (after required arguments)
+    bool debugMode = true;  // Default: dump RAM after each step
+    bool printJumps = false;
+    int debugSleepMs = 0;
+    
+    for (int i = 3; i < argc; i++)
+    {
+        std::string opt = argv[i];
+        
+        if (opt == "-d")
+        {
+            debugMode = true;
+        }
+        else if (opt == "-j")
+        {
+            printJumps = true;
+        }
+        else if (opt == "-s")
+        {
+            if (i + 1 >= argc)
+            {
+                std::cerr << "Error: -s requires an argument\n";
+                return 1;
+            }
+            try
+            {
+                debugSleepMs = std::stoi(argv[i + 1]);
+            }
+            catch (const std::exception&)
+            {
+                std::cerr << "Error: Invalid sleep value: " << argv[i + 1] << "\n";
+                return 1;
+            }
+            i++;
+        }
+        else
+        {
+            std::cerr << "Error: Unknown option: " << opt << "\n";
+            printUsage(argv[0]);
+            return 1;
+        }
+    }
+    
+    // Initialize hardware components
+    kagu_boot::RAM ram(ramSize);
+    kagu_boot::Display display;
+    kagu_boot::Keyboard keyboard;
+    kagu_boot::Disk disk;
+
+    // Create CPU and configure debug settings
+    kagu_boot::CPU cpu(ram, display, keyboard, disk);
+    cpu.setDebugMode(debugMode);
+    cpu.setDebugPrintJumps(printJumps);
+    cpu.setDebugSleep(debugSleepMs);
+    
+
+    try
+    {
+        // Now we can use reset vector to initiate execution of the instructions
+        cpu.resetVector(cpuFirmware);
+    }
+    catch (const std::exception& e)
+    {
+        std::cerr << "\n[FATAL] " << e.what() << "\n";
+        return 1;
+    }
+    
+    return 0;
+}

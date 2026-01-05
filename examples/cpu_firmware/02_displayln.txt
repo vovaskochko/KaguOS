@@ -1,0 +1,50 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+40
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+1 47 12 # Copy value from line 47(which contains "Demo text") to DISPLAY_BUFFER register
+1 48 13 # Copy value from line 48(which contains 1 = COLOR_GREEN) to DISPLAY_COLOR register
+1 49 7  # Copy value from address 49(which contains 20 = OP_DISPLAY_LN) to REG_OP
+0       # Call cpu_exec to execute the operation e.g. displayln based on the set registers
+1 50 7  # Copy value from address 50(which contains 30 = OP_HALT) to REG_OP
+0       # Call cpu_exec to execute the halt operation
+Demo text
+1
+20
+30
