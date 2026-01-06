@@ -101,6 +101,39 @@ namespace ansi
 } // namespace ansi
 
 // ============================================================================
+// Canvas Color Characters
+// ============================================================================
+
+/**
+ * @brief Canvas color character codes for bitmap rendering
+ * 
+ * Single character codes used in canvas/bitmap representation:
+ * - 'n' = no color (default/transparent)
+ * - 'g' = green
+ * - 'y' = yellow
+ * - 'r' = red
+ * - 'B' = black (capital to avoid conflict with blue)
+ * - 'b' = blue
+ * - 'm' = magenta
+ * - 'c' = cyan
+ * - 'w' = white
+ * - 'o' = orange
+ */
+namespace canvas
+{
+    constexpr char NO_COLOR = 'n';
+    constexpr char GREEN    = 'g';
+    constexpr char YELLOW   = 'y';
+    constexpr char RED      = 'r';
+    constexpr char BLACK    = 'B';
+    constexpr char BLUE     = 'b';
+    constexpr char MAGENTA  = 'm';
+    constexpr char CYAN     = 'c';
+    constexpr char WHITE    = 'w';
+    constexpr char ORANGE   = 'o';
+} // namespace canvas
+
+// ============================================================================
 // Color Conversion Functions
 // ============================================================================
 
@@ -152,35 +185,112 @@ namespace ansi
  * @brief Get background color from single character code (for bitmaps)
  * @param c Character code (g=green, r=red, b=blue, etc.)
  * @return ANSI escape sequence string view
- * 
- * Character mapping:
- * - 'g' = green
- * - 'y' = yellow
- * - 'r' = red
- * - 'B' = black (capital to avoid conflict with blue)
- * - 'b' = blue
- * - 'm' = magenta
- * - 'c' = cyan
- * - 'w' = white
- * - 'o' = orange
- * - 'n' = default (no color)
  */
 [[nodiscard]] constexpr std::string_view getBackgroundColorChar(char c) noexcept
 {
     switch (c)
     {
-        case 'g': return ansi::BG_GREEN;
-        case 'y': return ansi::BG_YELLOW;
-        case 'r': return ansi::BG_RED;
-        case 'B': return ansi::BG_BLACK;
-        case 'b': return ansi::BG_BLUE;
-        case 'm': return ansi::BG_MAGENTA;
-        case 'c': return ansi::BG_CYAN;
-        case 'w': return ansi::BG_WHITE;
-        case 'o': return ansi::BG_ORANGE;
-        case 'n': return ansi::BG_DEFAULT;
-        default:  return ansi::BG_DEFAULT;
+        case canvas::GREEN:    return ansi::BG_GREEN;
+        case canvas::YELLOW:   return ansi::BG_YELLOW;
+        case canvas::RED:      return ansi::BG_RED;
+        case canvas::BLACK:    return ansi::BG_BLACK;
+        case canvas::BLUE:     return ansi::BG_BLUE;
+        case canvas::MAGENTA:  return ansi::BG_MAGENTA;
+        case canvas::CYAN:     return ansi::BG_CYAN;
+        case canvas::WHITE:    return ansi::BG_WHITE;
+        case canvas::ORANGE:   return ansi::BG_ORANGE;
+        case canvas::NO_COLOR: return ansi::BG_DEFAULT;
+        default:               return ansi::BG_DEFAULT;
     }
+}
+
+/**
+ * @brief Convert Color enum to canvas character code
+ * @param color KaguOS color enum
+ * @return Canvas character code
+ */
+[[nodiscard]] constexpr char colorToCanvasChar(Color color) noexcept
+{
+    switch (color)
+    {
+        case Color::Green:   return canvas::GREEN;
+        case Color::Yellow:  return canvas::YELLOW;
+        case Color::Red:     return canvas::RED;
+        case Color::Black:   return canvas::BLACK;
+        case Color::Blue:    return canvas::BLUE;
+        case Color::Magenta: return canvas::MAGENTA;
+        case Color::Cyan:    return canvas::CYAN;
+        case Color::White:   return canvas::WHITE;
+        case Color::No:
+        default:             return canvas::NO_COLOR;
+    }
+}
+
+/**
+ * @brief Convert canvas character to Color enum
+ * @param c Canvas character code
+ * @return KaguOS color enum
+ */
+[[nodiscard]] constexpr Color canvasCharToColor(char c) noexcept
+{
+    switch (c)
+    {
+        case canvas::GREEN:   return Color::Green;
+        case canvas::YELLOW:  return Color::Yellow;
+        case canvas::RED:     return Color::Red;
+        case canvas::BLACK:   return Color::Black;
+        case canvas::BLUE:    return Color::Blue;
+        case canvas::MAGENTA: return Color::Magenta;
+        case canvas::CYAN:    return Color::Cyan;
+        case canvas::WHITE:   return Color::White;
+        default:              return Color::No;
+    }
+}
+
+/**
+ * @brief Convert color code string to canvas character
+ * @param colorStr Color as string (numeric "0"-"8" or char "g", "r", etc.)
+ * @return Canvas character code
+ */
+[[nodiscard]] inline char colorStrToCanvasChar(std::string_view colorStr) noexcept
+{
+    if (colorStr.empty())
+    {
+        return canvas::NO_COLOR;
+    }
+    
+    // Single character - could be digit or color char
+    if (colorStr.size() == 1)
+    {
+        char c = colorStr[0];
+        
+        // Numeric code 0-8
+        if (c >= '0' && c <= '8')
+        {
+            return colorToCanvasChar(fromInt<Color>(c - '0'));
+        }
+        
+        // Already a canvas char
+        return c;
+    }
+    
+    // Multi-digit number
+    int val = 0;
+    for (char c : colorStr)
+    {
+        if (c < '0' || c > '9')
+        {
+            return canvas::NO_COLOR;
+        }
+        val = val * 10 + (c - '0');
+    }
+    
+    if (val >= 0 && val <= 8)
+    {
+        return colorToCanvasChar(fromInt<Color>(val));
+    }
+    
+    return canvas::NO_COLOR;
 }
 
 /**

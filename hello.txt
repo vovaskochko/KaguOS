@@ -1,0 +1,39 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+18
+0
+0
+1 38 15  # [19?]
+1 39 7   # 
+0        #
+1 32 1   # [19] Copy Start Addr "27" (at line 29) to REG_A
+1 33 2   # [20] Copy End Addr "29" (at line 30) to REG_B
+1 34 3   # [21] Copy X Coord "5" (at line 31) to REG_C
+1 35 4   # [22] Copy Y Coord "2" (at line 32) to REG_D
+1 36 7   # [23] Copy OP_RENDER_BITMAP (at line 33) to REG_OP
+0        # [24] cpu_exec (Render the bitmap)
+1 37 7   # [25] Copy OP_HALT (at line 34) to REG_OP
+0        # [26] cpu_exec
+rrrrggggbbbb
+ggggbbbbyyyy
+30
+32
+5
+2
+24
+30
+5
+23

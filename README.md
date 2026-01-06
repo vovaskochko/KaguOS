@@ -82,17 +82,19 @@ Get the emulator running and execute your first program.
 The emulator (`kagu_boot`) simulates the physical hardware.
 
 ```bash
+# 0. Switch to tools folder
+cd tools
 # 1. Configure project
 cmake -B build
 # 2. Build artefacts. kagu_boot will be installed to the root of the project
-cd build && make
+cd build && make -j 4
 # 3. Go to the root folder of the project
 cd ../..
 ```
 
 ### Run "Hello World"
 
-KaguOS boots from a disk image. We will use a pre-made example cpu firmware with custom reset vector. You should consider it as some initial state of RAM.
+KaguOS boots from a disk image that is loaded with reset vector `hw/cpu_firmware.bin`. For simplicity at this stage we will use a pre-made example cpu firmware with custom reset vector. You should consider it as some initial state of RAM.
 
 **Note**: `kagu_boot` requires two parameters - path to cpu firmware aka reset vector and RAM size. You can specify options for debugging as described in the Troubleshooting subsection below.
 
@@ -405,6 +407,11 @@ KaguOS provides a dedicated error register (`REG_ERROR`, Addr 10). Critical oper
 
 KaguOS Bare Metal Edition simulates a realistic multi-stage boot process. Understanding this chain is critical because, unlike writing a simple script, your code must "wake up" the machine and pull itself into memory.
 
+**NOTE:** You can use the default boot components(mbr, bootloader and kernel from `hw/samples` folder) to build a `bootable.disk`
+```bash
+./build_bootable_disk.sh hw/samples/kernel.data
+```
+
 ## 4.1. The Boot Chain Overview
 
 The system does not magically run your kernel. It follows a strict chain of trust and loading:
@@ -412,23 +419,23 @@ The system does not magically run your kernel. It follows a strict chain of trus
 1. **Stage 0: Firmware (BIOS/UEFI Equivalent)** - Initial hardware setup and MBR loading.
 2. **Stage 1: MBR (Master Boot Record)** - The first 50 lines of the disk. Finds the Bootloader.
 3. **Stage 2: Bootloader** - A smarter program that finds, verifies, and loads the Kernel.
-4. **Stage 3: Kernel** - Your operating system.
+4. **Stage 3: Kernel** - The core part of your operating system.
 
 ## 4.2. Stage 0: Firmware (The Reset Vector)
 
-When you run `./kagu_boot`, the emulator "powers on" and loads `hw/cpu_firmware.bin` into the **Firmware Zone** (RAM 1-40).
+When you run `./kagu_boot`, the emulator "powers on" and loads `hw/cpu_firmware.bin` into the **Firmware Zone** (RAM 1-40). Current version of firmware expect `hw/bootable.disk` to exist and follow a special disk format.
 
 * **Reset Vector:** The Program Counter (`PC`) is initialized to **18** (value read from line 16 of the firmware file).
 * **Execution Start:** The CPU immediately increments the PC. The first instruction executed is at address **19**.
 * **Jump to Routine:** Address 19 contains the instruction `2 23`, which jumps to the **Disk Copy Loop** starting at address 23.
 
 **The Disk Copy Loop (RAM 23-40):**
-This is a small utility routine built into the "motherboard". It reads blocks from the disk and writes them to RAM based on specific registers.
+This is a small utility routine built into the "motherboard". It reads blocks from the disk and writes them to RAM based on specific registers. It uses registers from C to F as the input data:
 
-* **`REG_C`**: Disk Name (e.g., `bootable.disk`).
+* **`REG_C`**: Disk Name (e.g., `bootable.disk` which should be placed in `hw` folder).
 * **`REG_D`**: Start Block on Disk.
 * **`REG_E`**: Target RAM Address.
-* **`REG_F`**: End Block Number (How many blocks to read/where to stop).
+* **`REG_F`**: End Block Number (Allows to determine how many blocks to read/where to stop).
 
 **Default Boot Behavior:**
 By default, the firmware is configured to load the MBR (Master Boot Record) from the disk into `RAM[41]` and then pass control to it.
@@ -568,11 +575,9 @@ When KaguOS starts, it loads the firmware file into RAM.
 
 **The Code (`hello_firmware.txt`):**
 
-Create a text file with exactly the following content. Note the placeholders for lines 17 and 18.
+Create a text file with first 15 empty lines and paste the following content starting from the line 16. Note the placeholders for lines 17 and 18.
 
 ```bash
-# Lines 1-15 are reserved for registers (leave empty)
-# Line 16: RESET VECTOR (Set to 18. CPU increments to 19, then executes RAM[19])
 18
 0
 0
@@ -607,13 +612,11 @@ We will use the **I/O Registers** defined in the hardware reference:
 
 **The Code (`echo_firmware.txt`):**
 
-Create a text file with the following content. We start code execution at **Line 19** to avoid the reserved system registers at 17 and 18.
+Create a text file with first 15 empty lines and paste the following content starting from the line 16. We start code execution at **Line 19** to avoid the reserved system registers at 17 and 18.
 
 **Note:** Be careful with the data addresses (28-32). They correspond to the physical line numbers in the file.
 
 ```bash
-# Lines 1-15 are reserved for registers (leave empty)
-# Line 16: Program counter (Set to 18. CPU increments to 19, then executes RAM[19])
 18
 0
 0
@@ -635,60 +638,159 @@ Create a text file with the following content. We start code execution at **Line
 
 **Run It:**
 
+Run the following command, type some text and press Enter:
 ```bash
 ./kagu_boot echo_firmware.txt 100
 ```
 
 ## Lab 3: Pixel Art (Graphics Kernel)
 
-**Objective:** Use the `OP_RENDER_BITMAP` command to draw a simple multi-colored graphic on the screen.
+**Objective:** Use graphics operations to set background color and draw animated multi-colored graphics on the screen.
 
-**Concept:**
+**New Operations:**
 
-* **Bitmap Data:** We store rows of color codes (e.g., `rrrr` for red, `gggg` for green) in the data section.
-* **Rendering:** The `OP_RENDER_BITMAP` operation requires four arguments:
-  * `REG_A`: Start RAM Address of the bitmap data.
-  * `REG_B`: End RAM Address (Exclusive) of the bitmap data.
-  * `REG_C`: X Coordinate (Screen column).
-  * `REG_D`: Y Coordinate (Screen row).
-* **Pointers:** Since we cannot put raw numbers like "27" directly into the instruction, we must store the address values (pointers) in the data section and copy them to registers.
+| Operation | Code | Description |
+|-----------|------|-------------|
+| `OP_SET_BACKGROUND_COLOR` | 23 | Sets the canvas background color. Reads color code from `REG_A`. The background will be visible when rendering bitmaps or clearing the screen. |
+| `OP_RENDER_BITMAP` | 24 | Draws a bitmap on screen. Reads start address from `REG_A`, end address (exclusive) from `REG_B`, X coordinate from `REG_C`, Y coordinate from `REG_D`. Each row of bitmap data is a string of color characters. |
+| `OP_NOP` | 29 | No operation / sleep. If `REG_A` contains a number, sleeps for that many seconds. Useful for creating delays and simple animations. |
+
+**Color Codes for Bitmaps:**
+
+| Char | Color |
+|------|-------|
+| `r` | Red |
+| `g` | Green |
+| `b` | Blue |
+| `y` | Yellow |
+| `m` | Magenta |
+| `c` | Cyan |
+| `w` | White |
+| `B` | Black |
+| `o` | Orange |
+| `n` | No color (transparent) |
+
+**Color Codes for Background (numeric):**
+
+| Code | Color |
+|------|-------|
+| 0 | Default (no color) |
+| 1 | Green |
+| 2 | Yellow |
+| 3 | Red |
+| 4 | Black |
+| 5 | Blue |
+| 6 | Magenta |
+| 7 | Cyan |
+| 8 | White |
+
+**Concepts:**
+
+* **Background Color:** The `OP_SET_BACKGROUND_COLOR` operation sets the canvas background from `REG_A`. When followed by bitmap rendering, areas outside the bitmap will be filled with this color.
+* **Bitmap Data:** We store rows of color codes (e.g., `rrrr` for red, `gggg` for green) in the data section. Each character represents one pixel.
+* **Rendering:** The `OP_RENDER_BITMAP` operation reads bitmap rows from RAM between start and end addresses, then draws them at the specified screen position.
+* **Animation:** By using `OP_NOP` with a delay value in `REG_A`, we can pause execution and create simple animations by rendering multiple bitmaps sequentially.
+* **Pointers:** Since we cannot put raw numbers like "35" directly into the instruction, we must store the address values (pointers) in the data section and copy them to registers.
 
 **The Code (`art_firmware.txt`):**
 
-Create a text file with the following content.
+Create a text file with first 15 empty lines and paste the following content starting from line 16.
 
-* **Logic:** The code loads constants into registers `A`, `B`, `C`, and `D`, triggers the render, and then halts.
-* **Addressing:** The bitmap starts at Line 27. It has 2 rows. So it ends at Line 29 (Exclusive).
+**Logic:** The code sets a blue background, renders the first bitmap, waits 1 second, renders a second bitmap at a different position, then halts.
 
-```bash
-# Lines 1-15 are reserved for registers (leave empty)
-# Line 16: Program Counter (Set to 18. CPU increments to 19, then executes RAM[19])
+**Memory Layout:**
+
+| Lines | Content |
+|-------|---------|
+| 1-15 | Reserved for registers (empty) |
+| 16 | Program Counter (18) |
+| 17-18 | Empty |
+| 19-37 | Instructions |
+| 38-41 | Bitmap data (4 rows) |
+| 42-55 | Constants |
+So copy this code starting from the line 16
+```
 18
-0
-0
-1 29 1   # [19] Copy Start Addr "27" (at line 29) to REG_A
-1 30 2   # [20] Copy End Addr "29" (at line 30) to REG_B
-1 31 3   # [21] Copy X Coord "5" (at line 31) to REG_C
-1 32 4   # [22] Copy Y Coord "2" (at line 32) to REG_D
-1 33 7   # [23] Copy OP_RENDER_BITMAP (at line 33) to REG_OP
-0        # [24] cpu_exec (Render the bitmap)
-1 34 7   # [25] Copy OP_HALT (at line 34) to REG_OP
-0        # [26] cpu_exec
-rrrrggggbbbb
-ggggbbbbyyyy
-27
-29
+
+
+1 43 1   # [19] Copy background color "5" to REG_A
+1 44 7   # [20] Copy OP_SET_BACKGROUND_COLOR "23" to REG_OP
+0        # [21] cpu_exec: set background to blue
+1 45 1   # [22] Copy bitmap1 start addr "39" to REG_A
+1 46 2   # [23] Copy bitmap1 end addr "41" to REG_B
+1 47 3   # [24] Copy X coord "5" to REG_C
+1 48 4   # [25] Copy Y coord "2" to REG_D
+1 49 7   # [26] Copy OP_RENDER_BITMAP "24" to REG_OP
+0        # [27] cpu_exec: render first bitmap at (5, 2)
+1 50 1   # [28] Copy sleep duration "1" to REG_A
+1 51 7   # [29] Copy OP_NOP "29" to REG_OP
+0        # [30] cpu_exec: sleep for 1 second
+1 52 1   # [31] Copy bitmap2 start addr "41" to REG_A
+1 53 2   # [32] Copy bitmap2 end addr "43" to REG_B
+1 54 3   # [33] Copy X coord "12" to REG_C
+1 55 4   # [34] Copy Y coord "12" to REG_D
+1 49 7   # [35] Copy OP_RENDER_BITMAP "24" to REG_OP
+0        # [36] cpu_exec: render second bitmap at (20, 5)
+1 56 7   # [37] Copy OP_HALT "30" to REG_OP
+0        # [38] cpu_exec: halt
+rrrrggggmmmm
+ggggmmmmyyyy
+yyyymmmmcccc
+mmmmccccwwww
+5
+23
+39
+41
 5
 2
 24
+1
+29
+41
+43
+20
+5
 30
 ```
 
-**Run It:**
+**Data Section Reference (lines 42-55):**
 
+| Line | Value | Used For |
+|------|-------|----------|
+| 42 | 5 | Background color (blue) |
+| 43 | 23 | OP_SET_BACKGROUND_COLOR |
+| 44 | 38 | First bitmap start address |
+| 45 | 40 | First bitmap end address |
+| 46 | 5 | First bitmap X coordinate |
+| 47 | 2 | First bitmap Y coordinate |
+| 48 | 24 | OP_RENDER_BITMAP |
+| 49 | 1 | Sleep duration (seconds) |
+| 50 | 29 | OP_NOP |
+| 51 | 40 | Second bitmap start address |
+| 52 | 42 | Second bitmap end address |
+| 53 | 20 | Second bitmap X coordinate |
+| 54 | 5 | Second bitmap Y coordinate |
+| 55 | 30 | OP_HALT |
+
+**Run It:**
 ```bash
-clear && ./kagu_boot art_firmware.txt 100
+./kagu_boot art_firmware.txt 100
 ```
+
+**Expected Result:**
+
+1. Screen fills with blue background
+2. First bitmap (red/green/blue pattern) appears at position (5, 2)
+3. After 1 second pause...
+4. Second bitmap (yellow/magenta/cyan/white pattern) appears at position (20, 5)
+5. Program halts
+
+**Experiment Ideas:**
+
+* Change background color code from `5` (blue) to `3` (red) or `2` (yellow)
+* Modify bitmap data to create your own pixel art patterns
+* Add more sleep/render cycles to create longer animations
+* Try overlapping bitmaps by using the same coordinates
 
 ---
 
@@ -706,6 +808,7 @@ clear && ./kagu_boot art_firmware.txt 100
 | **12** | `DISPLAY_BUF` | Output Buffer |
 | **13** | `DISPLAY_COL` | Text Color (0-8) |
 | **14** | `KEYBOARD_BUF` | Input Buffer / Mode Set |
+| **15** | `DISPLAY_BACKGROUND` | Background Color |
 | **16** | `PC` | Program Counter |
 
 ## 7.2. Instruction List (Control Flow)
@@ -735,6 +838,25 @@ clear && ./kagu_boot art_firmware.txt 100
 | **21** | `ReadBlock` | Read Disk `A`, Block `B` -> `RES` |
 | **24** | `Render` | Draw Bitmap (A=Start, B=End, C=X, D=Y) |
 | **30** | `Halt` | Stop execution |
+
+## 7.4. Colors
+
+### Colors
+
+| Color Name | Code | Bitmap Symbol |
+|------------|------|---------------|
+| No color   | 0    | n             |
+| Green      | 1    | g             |
+| Yellow     | 2    | y             |
+| Red        | 3    | r             |
+| Black      | 4    | B             |
+| Blue       | 5    | b             |
+| Magenta    | 6    | m             |
+| Cyan       | 7    | c             |
+| White      | 8    | w             |
+| Orange     | -    | o             |
+
+**Note:** Orange is only available in bitmaps (symbol 'o'), not as a text color code.
 
 ---
 

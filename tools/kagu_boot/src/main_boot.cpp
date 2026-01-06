@@ -81,7 +81,7 @@ int main(int argc, char* argv[])
     }
     
     // Parse options (after required arguments)
-    bool debugMode = true;  // Default: dump RAM after each step
+    bool debugMode = false;  // Default: do not dump RAM after each step
     bool printJumps = false;
     int debugSleepMs = 0;
     

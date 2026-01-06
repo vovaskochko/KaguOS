@@ -188,6 +188,20 @@ int RAM::size() const noexcept
 
 void RAM::dumpToFile(const std::string& filename) const
 {
+    // Ensure parent directory exists
+    std::filesystem::path filepath(filename);
+    if (filepath.has_parent_path())
+    {
+        try
+        {
+            std::filesystem::create_directories(filepath.parent_path());
+        }
+        catch (const std::exception& e)
+        {
+            // Silently fail - will be caught by file open error below
+        }
+    }
+
     std::ofstream file(filename);
     if (!file)
     {
@@ -206,7 +220,7 @@ void RAM::dumpToFile(const std::string& filename) const
         }
         else
         {
-            file << std::left << std::setw(NAME_WIDTH) << "UNUSED" << ": " << data_[i] << '\n';
+            file << std::left << std::setw(NAME_WIDTH) << "FIRMWARE" << ": " << data_[i] << '\n';
         }
     }
     

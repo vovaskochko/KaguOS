@@ -816,6 +816,7 @@ void CPU::execSetBackground(const std::string& color)
 {
     std::string bgCode = display_.setBackgroundStr(color);
     ram_.writeRegister(kagu::Address::DisplayBackground, bgCode);
+    display_.clear();
 }
 
 void CPU::execRenderBitmap(const std::string& startStr, const std::string& endStr)
