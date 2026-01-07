@@ -17,17 +17,17 @@ bootable.disk
 
 
 ####### FIRMWARE START We start from DISK_COPY (line 23), lines 20-22 contains data for the firmware
-2
 21
+2
 11
 1 3 1   # [DISK_COPY] Copy disk name from REG_C(line 3) to REG_A for OP_READ_BLOCK
 1 4 2   # [DISK_COPY] Copy block number from REG_D(line 4) to REG_B for OP_READ_BLOCK
-1 21 7  # [DISK_COPY] Set REG_OP = OP_READ_BLOCK (constant from line 21, code 21)
+1 20 7  # [DISK_COPY] Set REG_OP = OP_READ_BLOCK (constant from line 20, code 21)
 0       # [DISK_COPY] Execute read block
 5 41    # [DISK_COPY] Jump to EXIT (line 41) on error
 1 8 *6  # [STORE_RESULT] Write REG_RES to address stored in REG_F (indirect write via *REG_E)
 1 6 1   # [INC_TARGET_ADDR] Copy target address from REG_F to REG_A
-1 20 7  # [INC_TARGET_ADDR] Set REG_OP = OP_INCR (constant from line 20, code 2)
+1 21 7  # [INC_TARGET_ADDR] Set REG_OP = OP_INCR (constant from line 21, code 2)
 0       # [INC_TARGET_ADDR] Execute increment
 1 8 6   # [INC_TARGET_ADDR] Save incremented target address back to REG_F
 1 4 1   # [INC_BLOCK_NUM] Copy block number from REG_D to REG_A
