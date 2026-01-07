@@ -9,7 +9,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 # Compiler warnings
-add_compile_options(-Wall -Wextra -Wpedantic)
+if(NOT MSVC)
+    add_compile_options(-Wall -Wextra -Wpedantic)
+else()
+    add_compile_options(-Wall)
+endif()
 
 # Build type defaults to Release
 if(NOT CMAKE_BUILD_TYPE)
@@ -27,7 +31,7 @@ add_subdirectory(kagu_boot)
 # Custom target to copy executables to project root
 add_custom_target(install_to_root ALL
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        $<TARGET_FILE:kagu_boot> ${CMAKE_SOURCE_DIR}/../kagu_boot
+        $<TARGET_FILE:kagu_boot> ${CMAKE_SOURCE_DIR}/../kagu_boot${CMAKE_EXECUTABLE_SUFFIX}
     DEPENDS kagu_boot
     COMMENT "Copying executables to project root"
 )
