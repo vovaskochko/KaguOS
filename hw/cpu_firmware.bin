@@ -2,8 +2,8 @@
 
 bootable.disk
 2
-41
 51
+41
 
 
 
@@ -13,10 +13,10 @@ bootable.disk
 
 
 
-18
+22
 
 
-2 23    # [ENTRY] Jump to DISK_COPY (line 23) - skip constants at lines 20-22
+####### FIRMWARE START We start from DISK_COPY (line 23), lines 20-22 contains data for the firmware
 2
 21
 11
@@ -25,16 +25,16 @@ bootable.disk
 1 21 7  # [DISK_COPY] Set REG_OP = OP_READ_BLOCK (constant from line 21, code 21)
 0       # [DISK_COPY] Execute read block
 5 41    # [DISK_COPY] Jump to EXIT (line 41) on error
-1 8 *5  # [STORE_RESULT] Write REG_RES to address stored in REG_E (indirect write via *REG_E)
-1 5 1   # [INC_TARGET_ADDR] Copy target address from REG_E to REG_A
+1 8 *6  # [STORE_RESULT] Write REG_RES to address stored in REG_F (indirect write via *REG_E)
+1 6 1   # [INC_TARGET_ADDR] Copy target address from REG_F to REG_A
 1 20 7  # [INC_TARGET_ADDR] Set REG_OP = OP_INCR (constant from line 20, code 2)
 0       # [INC_TARGET_ADDR] Execute increment
-1 8 5   # [INC_TARGET_ADDR] Save incremented target address back to REG_E
+1 8 6   # [INC_TARGET_ADDR] Save incremented target address back to REG_F
 1 4 1   # [INC_BLOCK_NUM] Copy block number from REG_D to REG_A
 0       # [INC_BLOCK_NUM] Execute increment (OP_INCR still in REG_OP)
 1 8 4   # [INC_BLOCK_NUM] Save incremented block number back to REG_D
 1 4 1   # [CHECK_END] Copy current block number from REG_D to REG_A
-1 6 2   # [CHECK_END] Copy end block number from REG_F to REG_B
+1 5 2   # [CHECK_END] Copy end block number from REG_E to REG_B
 1 22 7  # [CHECK_END] Set REG_OP = OP_CMP_LE (constant from line 22, code 11)
 0       # [CHECK_END] Execute comparison: is current_block <= end_block?
 3 23    # [CHECK_END] Jump to DISK_COPY (line 23) if true - more blocks to read

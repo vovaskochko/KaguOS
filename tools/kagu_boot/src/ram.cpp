@@ -8,6 +8,7 @@
 #include "ram.hpp"
 #include <fstream>
 #include <iomanip>
+#include <filesystem>
 
 namespace kagu_boot
 {

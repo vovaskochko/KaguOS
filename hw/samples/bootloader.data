@@ -49,12 +49,12 @@ Simple kernel for KaguOS
 0          # [INC_KERNEL_BLOCK_2] Execute increment
 1 105 3    # [SETUP_DISK_COPY] Copy disk name from backup (addr 105, line 65) to REG_C
 1 8 4      # [SETUP_DISK_COPY] Copy REG_RES (first data block) to REG_D
-1 122 5    # [SETUP_DISK_COPY] Copy target address 41 (addr 122, line 82) to REG_E
+1 122 6    # [SETUP_DISK_COPY] Copy target address 41 (addr 122, line 82) to REG_F
 1 43 1     # [CALC_END_BLOCK] Copy block index before increment (addr 43, line 3) to REG_A
 1 121 2    # [CALC_END_BLOCK] Copy kernel size from backup (addr 121, line 81) to REG_B
 1 123 7    # [CALC_END_BLOCK] Set REG_OP = OP_ADD (addr 123, line 83, code 0)
 0          # [CALC_END_BLOCK] Execute add: end_block = current_block + size
-1 8 6      # [CALC_END_BLOCK] Copy REG_RES to REG_F (end block for firmware)
+1 8 5      # [CALC_END_BLOCK] Copy REG_RES to REG_E (end block for firmware)
 2 23       # [JUMP_TO_FIRMWARE] Jump to firmware disk copy routine (line 23) to load kernel
 1 125 12   # [ERROR_HANDLER] Copy error message (addr 125, line 85) to DISPLAY_BUFFER
 1 124 13   # [ERROR_HANDLER] Copy color red (addr 124, line 84, code 3) to DISPLAY_COLOR

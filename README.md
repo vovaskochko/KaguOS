@@ -87,9 +87,9 @@ cd tools
 # 1. Configure project
 cmake -B build
 # 2. Build artefacts. kagu_boot will be installed to the root of the project
-cd build && make -j 4
+cmake --build build
 # 3. Go to the root folder of the project
-cd ../..
+cd ..
 ```
 
 ### Run "Hello World"
@@ -434,8 +434,9 @@ This is a small utility routine built into the "motherboard". It reads blocks fr
 
 * **`REG_C`**: Disk Name (e.g., `bootable.disk` which should be placed in `hw` folder).
 * **`REG_D`**: Start Block on Disk.
-* **`REG_E`**: Target RAM Address.
-* **`REG_F`**: End Block Number (Allows to determine how many blocks to read/where to stop).
+* **`REG_E`**: End Block Number (Allows to determine how many blocks to read/where to stop).
+* **`REG_F`**: Target RAM Address.
+
 
 **Default Boot Behavior:**
 By default, the firmware is configured to load the MBR (Master Boot Record) from the disk into `RAM[41]` and then pass control to it.
@@ -451,7 +452,7 @@ By default, the firmware is configured to load the MBR (Master Boot Record) from
 1. **Read Header:** It checks for the "KAGU BOOTLOADER" signature on the disk (Line 52).
 2. **Get Size:** It reads the bootloader size from Line 53.
 3. **Chain Load:** It calculates the start and end blocks for the bootloader.
-4. **Reuse Firmware:** The MBR reuses the firmware's code. It sets up `REG_C` (disk), `REG_D` (start block), `REG_E` (RAM destination), and `REG_F` (end block), then executes `2 23` to jump back into the firmware's Disk Copy Loop. This loads the bootloader into memory immediately after the MBR.
+4. **Reuse Firmware:** The MBR reuses the firmware's code. It sets up `REG_C` (disk), `REG_D` (start block), `REG_E` (end block), and `REG_F` (RAM destination), then executes `2 23` to jump back into the firmware's Disk Copy Loop. This loads the bootloader into memory immediately after the MBR.
 
 ## 4.4. Stage 2: The Bootloader
 
