@@ -86,7 +86,7 @@ if (-not (Test-Path $MbrPath)) {
 # Check MBR Size
 $MbrLinesTotal = Get-LineCount -Path $MbrPath
 if ($MbrLinesTotal -lt $MbrSize) {
-    Write-ErrorMsg "MBR file must have at least $MbrSize lines, but has only $MbrLinesTotal: $MbrPath"
+    Write-ErrorMsg "MBR file must have at least $MbrSize lines, but has only ${MbrLinesTotal}: $MbrPath"
 }
 
 # Check Bootloader
@@ -130,7 +130,7 @@ $OutputContent.Add($TotalLines.ToString())
 
 # 2. MBR (Exactly 50 lines)
 $MbrData = Get-Content $MbrPath | Select-Object -First $MbrSize
-$OutputContent.AddRange($MbrData)
+$OutputContent.AddRange([string[]]$MbrData)
 
 # 3. Bootloader Signature
 $OutputContent.Add("KAGU BOOTLOADER")
@@ -140,7 +140,7 @@ $OutputContent.Add($BootloaderLines.ToString())
 
 # 5. Bootloader Data
 if ($BootloaderLines -gt 0) {
-    $OutputContent.AddRange((Get-FileContent $BootloaderPath))
+    $OutputContent.AddRange([string[]](Get-FileContent $BootloaderPath))
 }
 
 # 6. Kernel Signature
@@ -151,7 +151,7 @@ $OutputContent.Add($KernelLines.ToString())
 
 # 8. Kernel Data
 if ($KernelLines -gt 0) {
-    $OutputContent.AddRange((Get-FileContent $KernelPath))
+    $OutputContent.AddRange([string[]](Get-FileContent $KernelPath))
 }
 
 # Write to file (Using UTF8 to be safe, or Default)
@@ -174,17 +174,17 @@ Write-Host "  Line 53:      Bootloader size ($BootloaderLines)"
 
 if ($BootloaderLines -gt 0) {
     $BootEnd = 53 + $BootloaderLines
-    Write-Host "  Lines 54-$BootEnd:  Bootloader data"
+    Write-Host "  Lines 54-${BootEnd}:  Bootloader data"
     $KernelSig = $BootEnd + 1
 } else {
     $KernelSig = 54
 }
 
-Write-Host "  Line $KernelSig:      KAGU KERNEL"
+Write-Host "  Line ${KernelSig}:      KAGU KERNEL"
 $KernelSizeLine = $KernelSig + 1
-Write-Host "  Line $KernelSizeLine:      Kernel size ($KernelLines)"
+Write-Host "  Line ${KernelSizeLine}:      Kernel size ($KernelLines)"
 
 if ($KernelLines -gt 0) {
     $KernelStart = $KernelSizeLine + 1
-    Write-Host "  Lines $KernelStart-$TotalLines: Kernel data"
+    Write-Host "  Lines ${KernelStart}-${TotalLines}: Kernel data"
 }
