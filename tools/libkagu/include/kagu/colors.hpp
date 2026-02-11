@@ -58,7 +58,10 @@ enum class Color : int
     Cyan = 7,
     
     /// White text
-    White = 8
+    White = 8,
+
+    /// Pink text
+    Pink = 9
 };
 
 // ============================================================================
@@ -82,6 +85,7 @@ namespace ansi
     constexpr std::string_view FG_MAGENTA = "\033[95m";
     constexpr std::string_view FG_CYAN    = "\033[96m";
     constexpr std::string_view FG_WHITE   = "\033[97m";
+    constexpr std::string_view FG_PINK  = "\033[38;5;205m";
     
     // Background colors
     constexpr std::string_view BG_BLACK   = "\033[40m";
@@ -92,6 +96,7 @@ namespace ansi
     constexpr std::string_view BG_MAGENTA = "\033[48;5;5m";
     constexpr std::string_view BG_CYAN    = "\033[48;5;6m";
     constexpr std::string_view BG_WHITE   = "\033[47m";
+    constexpr std::string_view BG_PINK    = "\033[48;5;205m";
     constexpr std::string_view BG_ORANGE  = "\033[48;5;214m";
     constexpr std::string_view BG_DEFAULT = "\033[49m";
     
@@ -131,6 +136,7 @@ namespace canvas
     constexpr char CYAN     = 'c';
     constexpr char WHITE    = 'w';
     constexpr char ORANGE   = 'o';
+    constexpr char PINK     = 'p';
 } // namespace canvas
 
 // ============================================================================
@@ -154,6 +160,7 @@ namespace canvas
         case Color::Magenta: return ansi::FG_MAGENTA;
         case Color::Cyan:    return ansi::FG_CYAN;
         case Color::White:   return ansi::FG_WHITE;
+        case Color::Pink:    return ansi::FG_PINK;
         case Color::No:
         default:             return ansi::RESET;
     }
@@ -176,6 +183,7 @@ namespace canvas
         case Color::Magenta: return ansi::BG_MAGENTA;
         case Color::Cyan:    return ansi::BG_CYAN;
         case Color::White:   return ansi::BG_WHITE;
+        case Color::Pink:    return ansi::BG_PINK;
         case Color::No:
         default:             return ansi::BG_DEFAULT;
     }
@@ -198,6 +206,7 @@ namespace canvas
         case canvas::MAGENTA:  return ansi::BG_MAGENTA;
         case canvas::CYAN:     return ansi::BG_CYAN;
         case canvas::WHITE:    return ansi::BG_WHITE;
+        case canvas::PINK:     return ansi::BG_PINK;
         case canvas::ORANGE:   return ansi::BG_ORANGE;
         case canvas::NO_COLOR: return ansi::BG_DEFAULT;
         default:               return ansi::BG_DEFAULT;
@@ -221,6 +230,7 @@ namespace canvas
         case Color::Magenta: return canvas::MAGENTA;
         case Color::Cyan:    return canvas::CYAN;
         case Color::White:   return canvas::WHITE;
+        case Color::Pink:    return canvas::PINK;
         case Color::No:
         default:             return canvas::NO_COLOR;
     }
@@ -243,6 +253,7 @@ namespace canvas
         case canvas::MAGENTA: return Color::Magenta;
         case canvas::CYAN:    return Color::Cyan;
         case canvas::WHITE:   return Color::White;
+        case canvas::PINK:    return Color::Pink;
         default:              return Color::No;
     }
 }
@@ -264,8 +275,8 @@ namespace canvas
     {
         char c = colorStr[0];
         
-        // Numeric code 0-8
-        if (c >= '0' && c <= '8')
+        // Numeric code 0-9
+        if (c >= '0' && c <= '9')
         {
             return colorToCanvasChar(fromInt<Color>(c - '0'));
         }
@@ -285,7 +296,7 @@ namespace canvas
         val = val * 10 + (c - '0');
     }
     
-    if (val >= 0 && val <= 8)
+    if (val >= 0 && val <= 9)
     {
         return colorToCanvasChar(fromInt<Color>(val));
     }
@@ -309,7 +320,7 @@ namespace canvas
     if (colorStr.size() == 1)
     {
         char c = colorStr[0];
-        if (c >= '0' && c <= '8')
+        if (c >= '0' && c <= '9')
         {
             return getBackgroundColor(fromInt<Color>(c - '0'));
         }
@@ -327,7 +338,7 @@ namespace canvas
         val = val * 10 + (c - '0');
     }
     
-    if (val >= 0 && val <= 8)
+    if (val >= 0 && val <= 9)
     {
         return getBackgroundColor(fromInt<Color>(val));
     }

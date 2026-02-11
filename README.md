@@ -27,11 +27,22 @@ Educational operating system emulator for learning low-level programming.
   - [5.1. The Build Script](#51-the-build-script-build_bootable_disksh)
   - [5.2. Debugging Tools](#52-debugging-tools)
   - [5.3. CMake Build System](#53-cmake-build-system)
-- [Part 6: Practical Workshops](#part-6-practical-workshops)
+- [Part 6: KaguASM Assembler](#part-6-kaguasm-assembler)
+  - [6.1. Overview](#61-overview)
+  - [6.2. Building and Running](#62-building-and-running)
+  - [6.3. Commands](#63-commands)
+  - [6.4. Variables](#64-variables)
+  - [6.5. Labels](#65-labels)
+  - [6.6. `write` vs `copy` — The Key Distinction](#66-write-vs-copy--the-key-distinction)
+  - [6.7. Prefixes (`*` and `@`)](#67-prefixes--and-)
+  - [6.8. Execution Model (`cpu_exec`)](#68-execution-model-cpu_exec)
+  - [6.9. Built-in Symbols](#69-built-in-symbols)
+  - [6.10. Example Walkthrough: hello.kga](#610-example-walkthrough-hellokga)
+- [Part 7: Practical Workshops](#part-7-practical-workshops)
   - [Lab 1: Hello Kagu](#lab-1-hello-kagu-the-ram-snapshot)
   - [Lab 2: The Echo Chamber](#lab-2-the-echo-chamber-inputoutput)
   - [Lab 3: Pixel Art](#lab-3-pixel-art-graphics-kernel)
-- [Part 7: KaguOS Cheat Sheet](#part-7-kaguos-cheat-sheet)
+- [Part 8: KaguOS Cheat Sheet](#part-8-kaguos-cheat-sheet)
 
 ---
 
@@ -559,7 +570,315 @@ make
 
 ---
 
-# Part 6: Practical Workshops
+# Part 6: KaguASM Assembler
+
+In Parts 2-3 you learned how to write raw machine code by hand — calculating addresses, placing data at the end, and remembering numeric opcodes. KaguASM is a **human-readable assembler** that compiles `.kga` source files into machine code, handling all of that for you.
+
+## 6.1. Overview
+
+KaguASM is a **two-pass assembler**:
+
+1. **Pass 1 (Lexical Analysis):** Parses all source lines, registers variable and label declarations, collects string/numeric constants.
+2. **Address Calculation:** Assigns memory addresses to all constants and variables (placed after instructions).
+3. **Pass 2 (Code Generation):** Emits the final machine code, resolving all symbol references to concrete addresses.
+
+The output is a `.data` file (e.g., `build/kernel.data`) that can be packaged into a bootable disk using `build_bootable_disk.sh`.
+
+## 6.2. Building and Running
+
+### Build the Assembler
+
+The assembler (`kagu_asm`) is built together with the emulator as part of the CMake toolchain:
+
+```bash
+cd tools && cmake -B build && cmake --build build && cd ..
+```
+
+This produces the `kagu_asm` binary in the project root.
+
+### Compile, Build, and Boot
+
+The full workflow to go from `.kga` source to a running kernel:
+
+```bash
+# 1. Compile the .kga source into build/kernel.data
+./kagu_asm src/hello.kga
+
+# 2. Package kernel.data into a bootable disk (hw/bootable.disk)
+./build_bootable_disk.sh build/kernel.data
+
+# 3. Boot the emulator with 500 RAM cells
+./kagu_boot hw/cpu_firmware.bin 500
+```
+
+### Compiler Options
+
+```bash
+./kagu_asm [options] <source_files...>
+
+Options:
+  -n, --no-debug    Don't include debug comments in output
+  -h, --help        Show help
+```
+
+### VS Code Extension
+
+A syntax highlighting extension for `.kga` files is available. To install it:
+
+1. Download the `.vsix` file from the [releases page](https://github.com/vovaskochko/VSCodeKaguLangSupport/releases) (use version **0.0.12** or newer).
+2. Install from the command line:
+   ```bash
+   code --install-extension kaguasmlang-0.0.12.vsix
+   ```
+   Or in VS Code: open the Command Palette (`Cmd+Shift+P` / `Ctrl+Shift+P`), select **Extensions: Install from VSIX...**, and choose the downloaded file.
+
+Once installed, VS Code will automatically recognize `.kga` files and provide syntax highlighting for commands, registers, operations, colors, variables, labels, and string literals.
+
+## 6.3. Commands
+
+KaguASM has 11 commands:
+
+| Command | Description |
+|---------|-------------|
+| `var` | Declare a variable |
+| `label` | Declare a label (jump target) |
+| `write` | Write a constant value to an address |
+| `copy` | Copy the contents of one address to another |
+| `cpu_exec` | Execute the operation stored in `REG_OP` |
+| `jump` | Unconditional jump |
+| `jump_if` | Jump if `REG_BOOL_RES` == "1" |
+| `jump_if_not` | Jump if `REG_BOOL_RES` == "0" |
+| `jump_err` | Jump if `REG_ERROR` is not empty |
+| `DEBUG_ON` | Enable debug mode |
+| `DEBUG_OFF` | Disable debug mode |
+
+Comments start with `//` and can appear on their own line or after a command's arguments.
+
+## 6.4. Variables
+
+Declare a variable with `var`, reference it with `var:name`:
+
+```
+var counter
+write 0 to var:counter        // initialize to 0
+copy var:counter to REG_A     // read the variable into a register
+copy REG_RES to var:counter   // store a result back into the variable
+```
+
+Variables are allocated in memory **after** all instructions and constants. Names must start with a letter and contain only letters, digits, and underscores.
+
+## 6.5. Labels
+
+Declare a label with `label`, reference it with `label:name`:
+
+```
+label loop_start
+   // ... loop body ...
+   jump_if_not label:loop_start   // jump back if condition is false
+```
+
+A label marks the address of the **next instruction** that follows it. Labels can be used with all jump commands:
+
+```
+jump label:somewhere            // unconditional jump
+jump_if label:on_true           // jump if REG_BOOL_RES == "1"
+jump_if_not label:on_false      // jump if REG_BOOL_RES == "0"
+jump_err label:error_handler    // jump if REG_ERROR is not empty
+```
+
+## 6.6. `write` vs `copy` — The Key Distinction
+
+This is the most important concept in KaguASM.
+
+**`write`** stores a **constant value** (a literal) into a destination address:
+
+```
+write 0 to var:i                    // stores the number 0
+write "Hello " to DISPLAY_BUFFER    // stores a string literal
+write COLOR_PINK to DISPLAY_COLOR   // stores the color constant (9)
+write OP_DISPLAY to REG_OP          // stores the operation code (19)
+```
+
+**`copy`** reads the **contents of one address** and writes them to another address:
+
+```
+copy var:i to REG_A        // reads the value stored at var:i, puts it into REG_A
+copy REG_RES to var:i      // reads the value stored at REG_RES, puts it into var:i
+```
+
+### The Critical Difference: `write 1 to 20` vs `copy 1 to 20`
+
+| Statement | What happens | Result |
+|-----------|-------------|--------|
+| `write 1 to 20` | Stores the **literal number `1`** into RAM address 20 | `RAM[20] = "1"` |
+| `copy 1 to 20` | Copies the **contents of address 1** (which is `REG_A`) into address 20 | `RAM[20] = RAM[1]` (whatever REG_A holds) |
+
+In other words, `write` treats its first argument as a **value to store**, while `copy` treats it as an **address to read from**.
+
+More examples:
+
+| Statement | Meaning |
+|-----------|---------|
+| `write 5 to REG_B` | `REG_B` now contains the literal `"5"` |
+| `copy 5 to REG_B` | `REG_B` now contains whatever is stored at address 5 (i.e., the contents of `REG_E`) |
+| `write "Hello" to DISPLAY_BUFFER` | `DISPLAY_BUFFER` contains the string `"Hello"` |
+| `copy DISPLAY_BUFFER to REG_A` | `REG_A` gets whatever text is currently in `DISPLAY_BUFFER` |
+
+## 6.7. Prefixes (`*` and `@`)
+
+The `*` prefix **dereferences** — it reads the value at an address, then uses that value as the actual address:
+
+```
+copy *var:ptr to REG_A     // read var:ptr, use its value as an address, copy from there
+jump *REG_A                // jump to the address stored in REG_A
+```
+
+The `@` prefix on variables passes the **address itself** rather than the value stored at that address:
+
+```
+copy @var:data to REG_A    // REG_A = address_of(data), not the value stored in data
+```
+
+## 6.8. Execution Model (`cpu_exec`)
+
+Operations in KaguOS follow a two-step pattern: first you set up the operand registers and the operation register, then you call `cpu_exec` to execute.
+
+```
+// Increment a variable
+copy var:i to REG_A            // load operand into REG_A
+write OP_INCR to REG_OP        // set the operation
+cpu_exec                        // execute: REG_RES = REG_A + 1
+copy REG_RES to var:i          // store the result back
+
+// Compare two values
+copy var:i to REG_A            // first operand
+write 5 to REG_B               // second operand (literal)
+write OP_CMP_EQ to REG_OP      // set comparison operation
+cpu_exec                        // REG_BOOL_RES = "1" if equal, "0" otherwise
+jump_if_not label:loop          // branch based on result
+```
+
+## 6.9. Built-in Symbols
+
+KaguASM recognizes the following built-in symbol names so you never have to remember numeric codes:
+
+### Registers
+
+| Symbol | Address | Description |
+|--------|---------|-------------|
+| `REG_A` .. `REG_F` | 1 - 6 | General purpose operand registers |
+| `REG_OP` | 7 | Operation code register |
+| `REG_RES` | 8 | Result register |
+| `REG_BOOL_RES` | 9 | Boolean result ("0" or "1") |
+| `REG_ERROR` | 10 | Error message register |
+| `REG_LAST_KEY` | 11 | Last key pressed |
+| `DISPLAY_BUFFER` | 12 | Text output buffer |
+| `DISPLAY_COLOR` | 13 | Text color for display |
+| `KEYBOARD_BUFFER` | 14 | Keyboard input buffer / mode |
+| `DISPLAY_BACKGROUND` | 15 | Terminal background color |
+| `PROGRAM_COUNTER` | 16 | Current instruction address |
+
+### Operations (`OP_*`)
+
+| Symbol | Code | Description |
+|--------|------|-------------|
+| `OP_ADD` | 0 | `REG_RES = REG_A + REG_B` |
+| `OP_SUB` | 1 | `REG_RES = REG_A - REG_B` |
+| `OP_INCR` | 2 | `REG_RES = REG_A + 1` |
+| `OP_DECR` | 3 | `REG_RES = REG_A - 1` |
+| `OP_DIV` | 4 | `REG_RES = REG_A / REG_B` |
+| `OP_MOD` | 5 | `REG_RES = REG_A % REG_B` |
+| `OP_MUL` | 6 | `REG_RES = REG_A * REG_B` |
+| `OP_IS_NUM` | 7 | Check if `REG_A` is numeric |
+| `OP_CMP_EQ` | 8 | `REG_A == REG_B` |
+| `OP_CMP_NEQ` | 9 | `REG_A != REG_B` |
+| `OP_CMP_LT` | 10 | `REG_A < REG_B` |
+| `OP_CMP_LE` | 11 | `REG_A <= REG_B` |
+| `OP_CONTAINS` | 12 | Check if `REG_A` contains `REG_B` |
+| `OP_GET_LENGTH` | 13 | Length of `REG_A` |
+| `OP_STARTS_WITH` | 14 | Check if `REG_A` starts with `REG_B` |
+| `OP_GET_COLUMN` | 15 | Extract token from string |
+| `OP_REPLACE_COLUMN` | 16 | Replace token in string |
+| `OP_CONCAT_WITH` | 17 | `REG_A + REG_C + REG_B` |
+| `OP_READ_INPUT` | 18 | Read keyboard input |
+| `OP_DISPLAY` | 19 | Print `DISPLAY_BUFFER` (no newline) |
+| `OP_DISPLAY_LN` | 20 | Print `DISPLAY_BUFFER` with newline |
+| `OP_READ_BLOCK` | 21 | Read disk block |
+| `OP_WRITE_BLOCK` | 22 | Write disk block |
+| `OP_SET_BACKGROUND_COLOR` | 23 | Set terminal background |
+| `OP_RENDER_BITMAP` | 24 | Render bitmap from RAM |
+| `OP_NOP` | 29 | No operation / sleep |
+| `OP_HALT` | 30 | Halt CPU |
+
+### Colors (`COLOR_*`)
+
+| Symbol | Code |
+|--------|------|
+| `COLOR_NO` | 0 |
+| `COLOR_GREEN` | 1 |
+| `COLOR_YELLOW` | 2 |
+| `COLOR_RED` | 3 |
+| `COLOR_BLACK` | 4 |
+| `COLOR_BLUE` | 5 |
+| `COLOR_MAGENTA` | 6 |
+| `COLOR_CYAN` | 7 |
+| `COLOR_WHITE` | 8 |
+| `COLOR_PINK` | 9 |
+
+### Keyboard Modes (`KEYBOARD_READ_*`)
+
+| Symbol | Description |
+|--------|-------------|
+| `KEYBOARD_READ_LINE` | Read a full line of input |
+| `KEYBOARD_READ_CHAR` | Read a single character |
+
+## 6.10. Example Walkthrough: hello.kga
+
+Here is the complete `src/hello.kga` — a program that prints "Hello 0" through "Hello 4" and halts:
+
+```
+var i                              // declare loop counter
+write 0 to var:i                   // i = 0
+
+label start                        // loop entry point
+   write "Hello " to DISPLAY_BUFFER   // set text to print
+   write COLOR_PINK to DISPLAY_COLOR  // set color to pink
+   write OP_DISPLAY to REG_OP         // print without newline
+   cpu_exec
+
+   copy var:i to DISPLAY_BUFFER       // set counter value as text to print
+   write COLOR_GREEN to DISPLAY_COLOR // set color to green
+   write OP_DISPLAY_LN to REG_OP      // print with newline
+   cpu_exec
+
+   copy var:i to REG_A                // load counter for increment
+   write OP_INCR to REG_OP            // increment operation
+   cpu_exec                            // REG_RES = i + 1
+
+   copy REG_RES to var:i              // save incremented value back
+   copy var:i to REG_A                // load counter for comparison
+   write 5 to REG_B                   // compare against 5
+   write OP_CMP_EQ to REG_OP          // equality check
+   cpu_exec                            // REG_BOOL_RES = "1" if i == 5
+   jump_if_not label:start            // if i != 5, loop again
+
+write OP_HALT to REG_OP               // halt CPU
+cpu_exec
+```
+
+Notice how `write` is used for constants (`"Hello "`, `COLOR_PINK`, `OP_DISPLAY`, `0`, `5`) and `copy` is used to move data between registers and variables. The assembler handles all address calculations — you never need to count line numbers or remember that `OP_DISPLAY` is `19`.
+
+To run this example:
+
+```bash
+./kagu_asm src/hello.kga
+./build_bootable_disk.sh build/kernel.data
+./kagu_boot hw/cpu_firmware.bin 500
+```
+
+---
+
+# Part 7: Practical Workshops
 
 Now that you understand the architecture and tools, it is time to write code. These workshops progress from basic hardware manipulation to full OS development using the build tools.
 
@@ -795,9 +1114,9 @@ mmmmccccwwww
 
 ---
 
-# Part 7: KaguOS Cheat Sheet
+# Part 8: KaguOS Cheat Sheet
 
-## 7.1. Memory Map
+## 8.1. Memory Map
 
 | Address | Name | Purpose |
 | --- | --- | --- |
@@ -812,7 +1131,7 @@ mmmmccccwwww
 | **15** | `DISPLAY_BACKGROUND` | Background Color |
 | **16** | `PC` | Program Counter |
 
-## 7.2. Instruction List (Control Flow)
+## 8.2. Instruction List (Control Flow)
 
 | Code | Syntax | Action |
 | --- | --- | --- |
@@ -824,7 +1143,7 @@ mmmmccccwwww
 | **5** | `5 addr` | **Jump if Error** (`REG_ERR` != "") |
 | **6** | `6 mode` | **Debug** mode on/off |
 
-## 7.3. Operation Codes (Load into `REG_OP`)
+## 8.3. Operation Codes (Load into `REG_OP`)
 
 | ID | Name | Description |
 | --- | --- | --- |
@@ -840,7 +1159,7 @@ mmmmccccwwww
 | **24** | `Render` | Draw Bitmap (A=Start, B=End, C=X, D=Y) |
 | **30** | `Halt` | Stop execution |
 
-## 7.4. Colors
+## 8.4. Colors
 
 ### Colors
 

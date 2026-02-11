@@ -1,0 +1,27 @@
+var i
+write 0 to var:i
+
+label start
+   write "Hello " to DISPLAY_BUFFER
+   write COLOR_PINK to DISPLAY_COLOR
+   write OP_DISPLAY to REG_OP
+   cpu_exec
+
+   copy var:i to DISPLAY_BUFFER
+   write COLOR_GREEN to DISPLAY_COLOR
+   write OP_DISPLAY_LN to REG_OP
+   cpu_exec
+
+   copy var:i to REG_A
+   write OP_INCR to REG_OP
+   cpu_exec
+
+   copy REG_RES to var:i
+   copy var:i to REG_A
+   write 5 to REG_B
+   write OP_CMP_EQ to REG_OP
+   cpu_exec
+   jump_if_not label:start
+
+write OP_HALT to REG_OP
+cpu_exec

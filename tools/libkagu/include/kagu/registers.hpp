@@ -5,8 +5,8 @@
  * Architecture Notes:
  * - Addresses 1-11 are accessible from user space
  * - Addresses 12-18 are system registers (privileged I/O and memory management)
- * - Addresses 19-50 are firmware zone (bootstrap code, overwritten during boot)
- * - Address 51+ is available for kernel/user code
+ * - Addresses 19-40 are firmware zone (bootstrap code, overwritten during boot)
+ * - Address 41+ is available for kernel/user code
  */
 
 #pragma once
@@ -102,6 +102,17 @@ enum class Address : int
     // This region contains CPU microcode loaded by emulator at power-on.
     // It includes constants, copy routines, and cleanup code.
     // This zone is overwritten by MBR during boot and can be reused by kernel.
+
+    // After kernel boot this memory will be used as a service memory
+    FreeMemoryStart = 19,
+    FreeChunks = 20,
+    ProcStartAddress = 21,
+    ProcEndAddress = 22,
+    SysCallHandler = 23,
+    SysRetAddress = 24,
+    SysInterruptHandler = 25,
+    SysInterruptData = 26,
+    SysHwTimer = 27,
 
     // ========================================================================
     // Code Space (41+)

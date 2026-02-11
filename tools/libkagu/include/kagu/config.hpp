@@ -26,6 +26,25 @@ namespace config
     /// Minimum RAM size for kernel operation
     constexpr int MIN_RAM_SIZE = 100;
     
+    /// Default memory size per process
+    constexpr int DEFAULT_PROC_MEMORY_SIZE = 250;
+    
+    /// Default maximum number of concurrent processes
+    constexpr int DEFAULT_MAX_PROC_COUNT = 10;
+    
+    /// Default maximum number of open file descriptors
+    constexpr int DEFAULT_MAX_FD_COUNT = 50;
+    
+    // ========================================================================
+    // Scheduler Configuration
+    // ========================================================================
+    
+    /// Default scheduler time quantum (ticks)
+    constexpr int DEFAULT_TIME_QUANTUM = 50;
+    
+    /// Hardware timer disabled value
+    constexpr int TIMER_DISABLED = -1;
+    
     // ========================================================================
     // Directory Paths
     // ========================================================================
@@ -44,7 +63,7 @@ namespace config
     // ========================================================================
     
     /// Default kernel disk path
-    constexpr std::string_view KERNEL_DISK = "build/kernel.disk";
+    constexpr std::string_view KERNEL_DATA = "build/kernel.data";
     
     /// Default user program disk path
     constexpr std::string_view USER_DISK = "build/user.disk";

@@ -1,6 +1,6 @@
 /**
  * @file kagu.hpp
- * @brief KaguOS - Main include header for libkagu (Bare Metal Edition)
+ * @brief KaguOS - Main include header for libkagu
  * 
  * Include this single header to get access to all KaguOS constants,
  * types, and utilities.
@@ -9,6 +9,7 @@
  * - types.hpp     : Fundamental type aliases (RamAddress, RamCell, etc.)
  * - registers.hpp : Memory-mapped register addresses (Address enum)
  * - opcodes.hpp   : CPU instructions and operations (Instruction, Operation)
+ * - syscalls.hpp  : System call definitions (SysCall enum)
  * - colors.hpp    : Terminal colors and ANSI codes (Color enum)
  * - keyboard.hpp  : Keyboard input modes (KeyboardMode enum)
  * - config.hpp    : System configuration constants
@@ -19,9 +20,12 @@
  *   
  *   using namespace kagu;
  *   
- *   // Get register address
+ *   // Get register address (new compact layout)
  *   int opAddr = toInt(Address::Op);  // Returns 1
  *   int regA = toInt(Address::A);     // Returns 2
+ *   
+ *   // Check operation privileges
+ *   bool priv = isPrivileged(Operation::Display);  // Returns true
  *   
  *   // Format colored output
  *   std::cout << colorize("Success!", Color::Green);
@@ -42,6 +46,9 @@
 // CPU instructions and operations
 #include "opcodes.hpp"
 
+// System calls
+#include "syscalls.hpp"
+
 // Terminal colors
 #include "colors.hpp"
 
@@ -60,7 +67,7 @@ namespace kagu
 struct Version
 {
     int major = 1;
-    int minor = 0;  // Bare Metal Edition
+    int minor = 1;
     int patch = 0;
     
     /**

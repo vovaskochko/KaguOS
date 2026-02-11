@@ -1,0 +1,9 @@
+6
+MOUNT dummy.disk dummyPart /dummy
+MOUNT main.disk part2 /home
+MOUNT main.disk part3 /usr
+MOUNT main.disk part4 /test
+MOUNT main.disk part1 /
+
+// Note if you have nested mount points e.g. /, /dir1, /dir1/dir2 then you should specify the longest path first e.g. /dir1/dir2 then /dir1 and then /
+// This is done to optimise the process of filesystem mapping.

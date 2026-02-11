@@ -46,7 +46,7 @@ enum class Instruction : int
     /// Format: 1 <src> <dest>
     /// Supports prefixes: * (dereference), @ (literal value)
     CopyFromToAddress = 1,
-    
+        
     /// Unconditional jump to address
     /// Format: 2 <addr>
     /// Supports prefix * for indirect jump
@@ -255,6 +255,20 @@ enum class Operation : int
 // ============================================================================
 // Operation Utility Functions
 // ============================================================================
+
+/**
+ * @brief Check if an operation requires kernel mode
+ * @param op Operation to check
+ * @return true if operation is privileged
+ * 
+ * Privileged operations can only be executed in kernel mode.
+ * SysCall is NOT privileged - it's the mechanism to enter kernel mode.
+ */
+[[nodiscard]] constexpr bool isPrivileged(Operation op) noexcept
+{
+    // ReadInput through DecryptData are privileged, except SysCall
+    return op >= Operation::ReadInput && op != Operation::SysCall;
+}
 
 /**
  * @brief Check if operation is an arithmetic operation
