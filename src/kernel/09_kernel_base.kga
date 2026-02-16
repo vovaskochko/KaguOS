@@ -1,0 +1,247 @@
+// KaguOS kernel main code
+// Simplified version with interactive shell supporting: cat, exit
+
+// ##########################################
+// # KERNEL BOOT                            #
+// ##########################################
+label kernel_entry_point
+
+// Initialize FREE_MEMORY_START from REG_F
+// After bootloader loads kernel via firmware disk copy, REG_F points to first free address
+copy REG_F to FREE_MEMORY_START
+
+// Let's init pointer to the stack
+//      var:sys_stack_ptr = FREE_MEMORY_END + 1
+// Therefore on any push to stack we will decrement it
+// If sys_stack_pop will be called incorrectly then we will get crashed
+copy FREE_MEMORY_END to REG_A
+write OP_INCR to REG_OP
+cpu_exec
+copy REG_RES to var:sys_stack_ptr
+
+// init file system
+copy PROGRAM_COUNTER to var:sys_return
+jump label:sys_fs_init
+
+// Print welcome message
+write "RAMFS init - done." to DISPLAY_BUFFER
+write COLOR_GREEN to DISPLAY_COLOR
+write OP_DISPLAY_LN to REG_OP
+cpu_exec
+
+// ##########################################
+// # KERNEL_START                           #
+// ##########################################
+    // Display welcome message:
+    write "Welcome to KaguOS" to DISPLAY_BUFFER
+    write COLOR_GREEN to DISPLAY_COLOR
+    write OP_DISPLAY_LN to REG_OP
+    cpu_exec
+
+    var exitStr
+    write "exit" to var:exitStr
+
+    var catStr
+    write "cat" to var:catStr
+
+label kernel_start
+    // Display prompt: current_dir :)
+    copy var:sys_work_dir to DISPLAY_BUFFER
+    write "" to DISPLAY_COLOR
+    write OP_DISPLAY to REG_OP
+    cpu_exec
+    write " :) " to DISPLAY_BUFFER
+    cpu_exec
+
+    // read cmd from keyboard
+    write OP_READ_INPUT to REG_OP
+    write KEYBOARD_READ_LINE to REG_A
+    cpu_exec
+
+    // remove leading and duplicated spaces:
+    copy KEYBOARD_BUFFER to REG_A
+    copy PROGRAM_COUNTER to var:sys_return
+    jump label:sys_remove_unneeded_spaces
+    copy REG_RES to KEYBOARD_BUFFER
+
+    // Get command name (first word):
+    var parsedCmd
+    copy KEYBOARD_BUFFER to REG_A
+    write 1 to REG_B
+    write " " to REG_C
+    write OP_GET_COLUMN to REG_OP
+    cpu_exec
+    copy REG_RES to var:parsedCmd
+
+    // Check whether command is exit
+    copy var:parsedCmd to REG_A
+    copy var:exitStr to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec
+    jump_if label:kernel_end
+
+    // Check whether command is cat
+    copy var:parsedCmd to REG_A
+    copy var:catStr to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec
+    jump_if label:kernel_cmd_cat
+
+    // Check that command is not empty, if so display error
+    copy var:parsedCmd to REG_A
+    write "" to REG_B
+    write OP_CMP_NEQ to REG_OP
+    cpu_exec
+    jump_if label:kernel_unknown_cmd
+
+    // Empty input - just loop back
+    jump label:kernel_start
+
+
+// ##########################################
+// # cat command                            #
+// ##########################################
+label kernel_cmd_cat
+    // Extract filepath argument (2nd column)
+    var kernel_cat_filepath
+    copy KEYBOARD_BUFFER to REG_A
+    write 2 to REG_B
+    write " " to REG_C
+    write OP_GET_COLUMN to REG_OP
+    cpu_exec
+    copy REG_RES to var:kernel_cat_filepath
+
+    // Check that filepath is not empty
+    copy var:kernel_cat_filepath to REG_A
+    write "" to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec
+    jump_if label:kernel_cat_no_arg
+
+    // Open file
+    copy var:kernel_cat_filepath to REG_A
+    copy PROGRAM_COUNTER to var:sys_return
+    jump label:sys_fs_open
+    jump_err label:kernel_cat_open_error
+
+    // REG_RES contains the file descriptor index
+    var kernel_cat_fd
+    copy REG_RES to var:kernel_cat_fd
+
+    // Read lines in a loop
+    var kernel_cat_line_no
+    write 0 to var:kernel_cat_line_no
+
+    label kernel_cat_read_loop
+        copy var:kernel_cat_fd to REG_A
+        copy var:kernel_cat_line_no to REG_B
+        copy PROGRAM_COUNTER to var:sys_return
+        jump label:sys_fs_read
+        jump_err label:kernel_cat_read_done
+
+        // Display the line
+        copy REG_RES to DISPLAY_BUFFER
+        write "" to DISPLAY_COLOR
+        write OP_DISPLAY_LN to REG_OP
+        cpu_exec
+
+        // Increment line counter
+        copy var:kernel_cat_line_no to REG_A
+        write OP_INCR to REG_OP
+        cpu_exec
+        copy REG_RES to var:kernel_cat_line_no
+
+        jump label:kernel_cat_read_loop
+
+    label kernel_cat_read_done
+        // Close the file descriptor
+        copy var:kernel_cat_fd to REG_A
+        copy PROGRAM_COUNTER to var:sys_return
+        jump label:sys_fs_close
+        jump label:kernel_start
+
+    label kernel_cat_open_error
+        write "cat: cannot open file: " to DISPLAY_BUFFER
+        write COLOR_RED to DISPLAY_COLOR
+        write OP_DISPLAY to REG_OP
+        cpu_exec
+        copy REG_ERROR to DISPLAY_BUFFER
+        write OP_DISPLAY_LN to REG_OP
+        cpu_exec
+        jump label:kernel_start
+
+    label kernel_cat_no_arg
+        write "cat: missing file argument" to DISPLAY_BUFFER
+        write COLOR_RED to DISPLAY_COLOR
+        write OP_DISPLAY_LN to REG_OP
+        cpu_exec
+        jump label:kernel_start
+
+
+// ##########################################
+// # Unknown command handler                #
+// ##########################################
+label kernel_unknown_cmd
+    copy var:parsedCmd to DISPLAY_BUFFER
+    write COLOR_RED to DISPLAY_COLOR
+    write OP_DISPLAY to REG_OP
+    cpu_exec
+    write ": command not found" to DISPLAY_BUFFER
+    write OP_DISPLAY_LN to REG_OP
+    cpu_exec
+    jump label:kernel_start
+
+
+// ##########################################
+// # KERNEL_END                             #
+// ##########################################
+label kernel_end
+    // Print bye message and exit:
+    write "Good bye!" to DISPLAY_BUFFER
+    write COLOR_GREEN to DISPLAY_COLOR
+    write OP_DISPLAY_LN to REG_OP
+    cpu_exec
+
+    write OP_HALT to REG_OP
+    cpu_exec
+
+
+// ##########################################
+// # Utility: sys_remove_unneeded_spaces    #
+// ##########################################
+// Removes leading and duplicated spaces from a string
+// Input: REG_A - string to clean
+// Output: REG_RES - cleaned string
+label sys_remove_unneeded_spaces
+    copy PROGRAM_COUNTER to var:sys_stack_return
+    jump label:sys_stack_push
+
+    // REG_A contains the input string for cleanup so we can use it directly from register
+    write OP_STARTS_WITH to REG_OP
+    write " " to REG_B
+    label sys_remove_unneeded_spaces_leading
+        cpu_exec
+        jump_if_not label:sys_remove_unneeded_spaces_duplicated
+
+        copy REG_RES to REG_A
+        jump label:sys_remove_unneeded_spaces_leading
+
+    // Now we should remove duplicated spaces
+    label sys_remove_unneeded_spaces_duplicated
+        write "  " to REG_B
+        write OP_CONTAINS to REG_OP
+        cpu_exec
+        jump_if_not label:sys_remove_unneeded_spaces_done
+
+        copy REG_RES to REG_B
+        write " " to REG_C
+        write "" to REG_D
+        write OP_REPLACE_COLUMN to REG_OP
+        cpu_exec
+        copy REG_RES to REG_A
+
+        jump label:sys_remove_unneeded_spaces_duplicated
+
+    label sys_remove_unneeded_spaces_done
+        copy REG_A to REG_RES
+        jump label:sys_stack_pop

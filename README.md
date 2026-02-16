@@ -23,26 +23,34 @@ Educational operating system emulator for learning low-level programming.
   - [4.5. Stage 3: The Kernel](#45-stage-3-the-kernel)
   - [4.6. Building a Bootable Disk](#46-building-a-bootable-disk)
   - [4.7. Quick Boot / Testing](#47-quick-boot--testing)
-- [Part 5: Toolchain \& Build System](#part-5-toolchain--build-system)
-  - [5.1. The Build Script](#51-the-build-script-build_bootable_disksh)
-  - [5.2. Debugging Tools](#52-debugging-tools)
-  - [5.3. CMake Build System](#53-cmake-build-system)
-- [Part 6: KaguASM Assembler](#part-6-kaguasm-assembler)
-  - [6.1. Overview](#61-overview)
-  - [6.2. Building and Running](#62-building-and-running)
-  - [6.3. Commands](#63-commands)
-  - [6.4. Variables](#64-variables)
-  - [6.5. Labels](#65-labels)
-  - [6.6. `write` vs `copy` — The Key Distinction](#66-write-vs-copy--the-key-distinction)
-  - [6.7. Prefixes (`*` and `@`)](#67-prefixes--and-)
-  - [6.8. Execution Model (`cpu_exec`)](#68-execution-model-cpu_exec)
-  - [6.9. Built-in Symbols](#69-built-in-symbols)
-  - [6.10. Example Walkthrough: hello.kga](#610-example-walkthrough-hellokga)
-- [Part 7: Practical Workshops](#part-7-practical-workshops)
+- [Part 5: KaguFS File System](#part-5-kagufs-file-system)
+  - [5.1. Overview](#51-overview)
+  - [5.2. Data Disk Layout](#52-data-disk-layout)
+  - [5.3. KaguFS Header \& File Entries](#53-kagufs-header--file-entries)
+  - [5.4. Mount System](#54-mount-system)
+  - [5.5. Default Disk Contents](#55-default-disk-contents)
+  - [5.6. The Kernel Shell](#56-the-kernel-shell)
+  - [5.7. Building \& Running the Kernel](#57-building--running-the-kernel)
+- [Part 6: Toolchain \& Build System](#part-6-toolchain--build-system)
+  - [6.1. The Build Script](#61-the-build-script-build_bootable_disksh)
+  - [6.2. Debugging Tools](#62-debugging-tools)
+  - [6.3. CMake Build System](#63-cmake-build-system)
+- [Part 7: KaguASM Assembler](#part-7-kaguasm-assembler)
+  - [7.1. Overview](#71-overview)
+  - [7.2. Building and Running](#72-building-and-running)
+  - [7.3. Commands](#73-commands)
+  - [7.4. Variables](#74-variables)
+  - [7.5. Labels](#75-labels)
+  - [7.6. `write` vs `copy` — The Key Distinction](#76-write-vs-copy--the-key-distinction)
+  - [7.7. Prefixes (`*` and `@`)](#77-prefixes--and-)
+  - [7.8. Execution Model (`cpu_exec`)](#78-execution-model-cpu_exec)
+  - [7.9. Built-in Symbols](#79-built-in-symbols)
+  - [7.10. Example Walkthrough: hello.kga](#710-example-walkthrough-hellokga)
+- [Part 8: Practical Workshops](#part-8-practical-workshops)
   - [Lab 1: Hello Kagu](#lab-1-hello-kagu-the-ram-snapshot)
   - [Lab 2: The Echo Chamber](#lab-2-the-echo-chamber-inputoutput)
   - [Lab 3: Pixel Art](#lab-3-pixel-art-graphics-kernel)
-- [Part 8: KaguOS Cheat Sheet](#part-8-kaguos-cheat-sheet)
+- [Part 9: KaguOS Cheat Sheet](#part-9-kaguos-cheat-sheet)
 
 ---
 
@@ -501,9 +509,263 @@ For simple experiments or debugging specific code snippets, you do not need to b
 
 ---
 
-# Part 5: Toolchain & Build System
+# Part 5: KaguFS File System
 
-## 5.1. The Build Script (`build_bootable_disk.sh`)
+Once the kernel boots and takes control of the machine, it needs a way to store and retrieve data. KaguFS is a simple, text-based file system designed for KaguOS. Since everything in KaguOS is text, the file system is just a structured text format inside disk files.
+
+## 5.1. Overview
+
+In KaguOS, a **disk** is a plain text file in the `hw/` directory (e.g., `hw/main.disk`). Each line in the file is one **block**. Block numbers correspond directly to line numbers — block 1 is line 1, block 42 is line 42, and so on.
+
+A disk is divided into three regions:
+
+1. **Partition Table** — Defines how the disk is sliced into partitions.
+2. **FS Headers** — Each partition has a header that lists the files it contains.
+3. **Data Blocks** — The actual file contents, one line per block.
+
+The kernel reads `hw/mount.info` at boot to learn which partitions to mount and at which paths.
+
+## 5.2. Data Disk Layout
+
+The first line of a disk stores the total number of blocks. The partition table follows immediately:
+
+```
+2048                                                    ← Block 1: Total block count
+START_PARTITION_TABLE                                   ← Block 2
+PARTITION_ENTRIES 4                                     ← Block 3: Number of partitions
+NAME part1 START_BLOCK 10 END_BLOCK 1000                ← Block 4
+NAME part2 START_BLOCK 1001 END_BLOCK 1500              ← Block 5
+NAME part3 START_BLOCK 1501 END_BLOCK 1800              ← Block 6
+NAME part4 START_BLOCK 1801 END_BLOCK 2048              ← Block 7
+END_PARTITION_TABLE                                     ← Block 8
+```
+
+Each `NAME` entry defines a partition with a name and a block range. Partitions cannot overlap. The blocks between the partition table and the first partition's `START_BLOCK` are unused.
+
+**Note:** This partition table is separate from the **bootable disk** (`hw/bootable.disk`). The bootable disk holds firmware, MBR, bootloader, and kernel code. The data disks (`hw/main.disk`, `hw/dummy.disk`) hold the file system with user-accessible files. Both types of disks are accessed by the emulator via `OP_READ_BLOCK` using the disk filename.
+
+## 5.3. KaguFS Header & File Entries
+
+Each partition starts with a **KaguFS header** at its `START_BLOCK`. The header lists all files on that partition and marks where usable data blocks begin.
+
+```
+FS_HEADER kagu_fs FIRST_USABLE_BLOCK 31 LAST_USABLE_BLOCK 1000   ← START_BLOCK
+config.txt 4 4 0 root root BLOCKS 31 40                          ← File entry
+menu.txt 4 4 4 kagu kagu BLOCKS 41 55                            ← File entry
+hello.txt 4 4 4 kagu kagu BLOCKS 106 115                         ← File entry
+                                                                  ← Empty lines (padding)
+FS_HEADER_END                                                     ← End marker
+<file data starts at FIRST_USABLE_BLOCK>
+```
+
+### FS_HEADER Line
+
+```
+FS_HEADER <fs_type> FIRST_USABLE_BLOCK <N> LAST_USABLE_BLOCK <M>
+```
+
+* `fs_type` — Always `kagu_fs`.
+* `FIRST_USABLE_BLOCK` — The first block after the header where file data can be stored. The kernel scans file entries from `START_BLOCK + 1` up to (but not including) this block.
+* `LAST_USABLE_BLOCK` — The last block in this partition (equals the partition's `END_BLOCK`).
+
+### File Entry Format
+
+```
+<filename> <perm1> <perm2> <perm3> <user> <group> BLOCKS <start1> <end1> [<start2> <end2> ...]
+```
+
+| Field | Description |
+|-------|-------------|
+| `filename` | Name of the file (no spaces, no path separators) |
+| `perm1 perm2 perm3` | Permission flags (reserved for future use) |
+| `user` | Owner user name |
+| `group` | Owner group name |
+| `BLOCKS` | Literal keyword |
+| `start end` | Block range(s) containing this file's data |
+
+A file can be stored across **one or more chunks** (block ranges). Each chunk is a pair of `start end` values specifying an inclusive range of blocks. When a file has multiple chunks, the kernel reads them in order and concatenates the contents, so the file appears as one continuous sequence of lines.
+
+**Single chunk example:**
+```
+menu.txt 4 4 4 kagu kagu BLOCKS 41 55
+```
+This file occupies blocks 41 through 55 (15 lines of content).
+
+**Multiple chunks example:**
+```
+config.txt 4 4 0 root root BLOCKS 31 40 116 120
+```
+This file is stored in two chunks: blocks 31-40 (10 lines) and blocks 116-120 (5 lines), for a total of 15 lines. The kernel reads blocks 31-40 first, then blocks 116-120, presenting them as a single 15-line file.
+
+### FS_HEADER_END
+
+The line `FS_HEADER_END` marks the end of the header region. The kernel stops scanning for file entries when it encounters this marker or reaches `FIRST_USABLE_BLOCK`.
+
+### Adding a File to a Partition
+
+To add a new file to a partition:
+
+1. Choose a free block range within the partition (between `FIRST_USABLE_BLOCK` and `LAST_USABLE_BLOCK`).
+2. Add a file entry line in the header (between `FS_HEADER` and `FS_HEADER_END`).
+3. Write the file content at the chosen block numbers (one line of content per block).
+
+**Example:** Adding `notes.txt` with 3 lines of content at blocks 200-202:
+```
+notes.txt 4 4 4 user user BLOCKS 200 202
+```
+Then at blocks 200-202 in the disk file:
+```
+First line of notes
+Second line of notes
+Third line of notes
+```
+
+If free space is fragmented, you can split the file across multiple chunks:
+```
+notes.txt 4 4 4 user user BLOCKS 200 201 250 250
+```
+This stores lines 1-2 at blocks 200-201 and line 3 at block 250.
+
+## 5.4. Mount System
+
+The file `hw/mount.info` tells the kernel how to map partitions to directory paths. The kernel reads this file during `sys_fs_init` at boot.
+
+```
+6                                                ← Total line count
+MOUNT dummy.disk dummyPart /dummy                ← Mount dummy.disk's dummyPart at /dummy
+MOUNT main.disk part2 /home                      ← Mount main.disk's part2 at /home
+MOUNT main.disk part3 /usr                       ← Mount main.disk's part3 at /usr
+MOUNT main.disk part4 /test                      ← Mount main.disk's part4 at /test
+MOUNT main.disk part1 /                          ← Mount main.disk's part1 at /
+```
+
+### MOUNT Entry Format
+
+```
+MOUNT <disk_file> <partition_name> <mount_path>
+```
+
+| Field | Description |
+|-------|-------------|
+| `disk_file` | Filename of the disk in `hw/` directory |
+| `partition_name` | Partition name as defined in the disk's partition table |
+| `mount_path` | Directory path where this partition appears in the virtual filesystem |
+
+**Ordering rule:** If you have nested mount points (e.g., `/`, `/home`, `/home/user`), list the **longest (most specific) paths first**. The kernel matches paths by scanning mount points in order and using the first match.
+
+When you access `/home/diary.txt`, the kernel:
+1. Scans the mount table and finds that `/home` maps to `main.disk` partition `part2`.
+2. Strips the mount prefix, giving the relative path `diary.txt`.
+3. Opens `main.disk`, finds `part2` in its partition table, reads its FS_HEADER.
+4. Scans file entries for `diary.txt` and reads the corresponding blocks.
+
+## 5.5. Default Disk Contents
+
+The project ships with two data disks. Here are the files available for reading:
+
+### `hw/main.disk` — Main System Disk
+
+| Path | Partition | Description |
+|------|-----------|-------------|
+| `/config.txt` | part1 | System configuration |
+| `/menu.txt` | part1 | Kagu Restaurant menu |
+| `/welcome.txt` | part1 | Welcome message |
+| `/recipe.txt` | part1 | Secret recipe |
+| `/reviews.txt` | part1 | Restaurant reviews |
+| `/staff.txt` | part1 | Staff listing |
+| `/hello.txt` | part1 | Hello from KaguOS |
+| `/home/notes.txt` | part2 | Chef's personal notes |
+| `/home/shopping_list.txt` | part2 | Shopping list |
+| `/home/diary.txt` | part2 | Chef Kagu's diary |
+| `/usr/tips.txt` | part3 | Cooking tips for OS chefs |
+| `/usr/glossary.txt` | part3 | Restaurant/OS glossary |
+| `/test/test1.txt` | part4 | Test file |
+| `/test/test2.txt` | part4 | Test file |
+
+### `hw/dummy.disk` — Secondary Disk
+
+| Path | Partition | Description |
+|------|-----------|-------------|
+| `/dummy/secret.txt` | dummyPart | Hidden easter egg |
+| `/dummy/lore.txt` | dummyPart | The Legend of Chef Kagu |
+
+## 5.6. The Kernel Shell
+
+The KaguOS kernel (`src/kernel/`) provides an interactive shell. After booting, the kernel initializes the file system (mounts all partitions from `mount.info`), then drops into a command prompt.
+
+**Shell prompt:**
+```
+/ :)
+```
+
+The prompt shows the current working directory (always `/` for now) followed by `:)`.
+
+### Available Commands
+
+| Command | Description |
+|---------|-------------|
+| `cat <filepath>` | Display the contents of a file |
+| `exit` | Shut down the system |
+
+### Usage Examples
+
+```
+/ :) cat /hello.txt
+Hello from KaguOS!
+
+If you can read this, congratulations!
+...
+
+/ :) cat /home/diary.txt
+Dear Diary,
+
+Day 1: Started my restaurant from a food truck.
+...
+
+/ :) cat /dummy/secret.txt
+You found the secret dummy disk!
+...
+
+/ :) exit
+Good bye!
+```
+
+## 5.7. Building & Running the Kernel
+
+The kernel source lives in `src/kernel/` and consists of numbered `.kga` files that are compiled together:
+
+| File | Purpose |
+|------|---------|
+| `01_stack.kga` | Call stack implementation (push/pop return addresses) |
+| `02_fs.kga` | File system: init, open, read, write, close |
+| `09_kernel_base.kga` | Boot sequence and interactive shell |
+
+### Build & Run
+
+```bash
+# Build the kernel (compile + package into bootable disk)
+./build_kernel.sh
+
+# Boot the emulator with 5000 RAM cells
+./kagu_boot hw/cpu_firmware.bin 5000
+```
+
+The `build_kernel.sh` script:
+1. Passes all `src/kernel/*.kga` files (sorted by name) to the assembler.
+2. Packages the compiled `build/kernel.data` into `hw/bootable.disk` using `build_bootable_disk.sh`.
+
+### Kernel Boot Sequence
+
+1. **Initialize `FREE_MEMORY_START`** from `REG_F` (set by the bootloader after loading the kernel).
+2. **Initialize the call stack** — sets the stack pointer to `FREE_MEMORY_END + 1` (stack grows downward).
+3. **Initialize the file system** — reads `mount.info`, parses partition tables from each disk, builds an in-memory mount table.
+4. **Display welcome message** and enter the interactive shell loop.
+
+---
+
+# Part 6: Toolchain & Build System
+
+## 6.1. The Build Script (`build_bootable_disk.sh`)
 
 Building a bootable disk manually (by copy-pasting lines) is error-prone. The project includes a dedicated build script that automates the assembly of the MBR, Bootloader, and Kernel components.
 
@@ -526,7 +788,7 @@ Building a bootable disk manually (by copy-pasting lines) is error-prone. The pr
 ./build_bootable_disk.sh my_kernel.data my_bootloader.data my_mbr.data
 ```
 
-## 5.2. Debugging Tools
+## 6.2. Debugging Tools
 
 Since KaguOS is a "Bare Metal" emulator, standard debuggers like GDB are not applicable to the guest code. Instead, you use the hardware inspection tools built directly into the emulator.
 
@@ -552,7 +814,7 @@ If your kernel crashes (or Halts unexpectedly), the `tmp/RAM.txt` file serves as
 * **Lines 12-18:** Check System Registers, specifically `PROGRAM_COUNTER` (to see where execution stopped) and `REG_ERROR` (to see if a system error occurred).
 * **Line 41+:** Inspect the Code Space to verify that your kernel code was loaded into memory correctly.
 
-## 5.3. CMake Build System
+## 6.3. CMake Build System
 
 The emulator itself is built using CMake.
 
@@ -570,11 +832,11 @@ make
 
 ---
 
-# Part 6: KaguASM Assembler
+# Part 7: KaguASM Assembler
 
 In Parts 2-3 you learned how to write raw machine code by hand — calculating addresses, placing data at the end, and remembering numeric opcodes. KaguASM is a **human-readable assembler** that compiles `.kga` source files into machine code, handling all of that for you.
 
-## 6.1. Overview
+## 7.1. Overview
 
 KaguASM is a **two-pass assembler**:
 
@@ -584,7 +846,7 @@ KaguASM is a **two-pass assembler**:
 
 The output is a `.data` file (e.g., `build/kernel.data`) that can be packaged into a bootable disk using `build_bootable_disk.sh`.
 
-## 6.2. Building and Running
+## 7.2. Building and Running
 
 ### Build the Assembler
 
@@ -634,7 +896,7 @@ A syntax highlighting extension for `.kga` files is available. To install it:
 
 Once installed, VS Code will automatically recognize `.kga` files and provide syntax highlighting for commands, registers, operations, colors, variables, labels, and string literals.
 
-## 6.3. Commands
+## 7.3. Commands
 
 KaguASM has 11 commands:
 
@@ -654,7 +916,7 @@ KaguASM has 11 commands:
 
 Comments start with `//` and can appear on their own line or after a command's arguments.
 
-## 6.4. Variables
+## 7.4. Variables
 
 Declare a variable with `var`, reference it with `var:name`:
 
@@ -667,7 +929,7 @@ copy REG_RES to var:counter   // store a result back into the variable
 
 Variables are allocated in memory **after** all instructions and constants. Names must start with a letter and contain only letters, digits, and underscores.
 
-## 6.5. Labels
+## 7.5. Labels
 
 Declare a label with `label`, reference it with `label:name`:
 
@@ -686,7 +948,7 @@ jump_if_not label:on_false      // jump if REG_BOOL_RES == "0"
 jump_err label:error_handler    // jump if REG_ERROR is not empty
 ```
 
-## 6.6. `write` vs `copy` — The Key Distinction
+## 7.6. `write` vs `copy` — The Key Distinction
 
 This is the most important concept in KaguASM.
 
@@ -724,7 +986,7 @@ More examples:
 | `write "Hello" to DISPLAY_BUFFER` | `DISPLAY_BUFFER` contains the string `"Hello"` |
 | `copy DISPLAY_BUFFER to REG_A` | `REG_A` gets whatever text is currently in `DISPLAY_BUFFER` |
 
-## 6.7. Prefixes (`*` and `@`)
+## 7.7. Prefixes (`*` and `@`)
 
 The `*` prefix **dereferences** — it reads the value at an address, then uses that value as the actual address:
 
@@ -739,7 +1001,7 @@ The `@` prefix on variables passes the **address itself** rather than the value 
 copy @var:data to REG_A    // REG_A = address_of(data), not the value stored in data
 ```
 
-## 6.8. Execution Model (`cpu_exec`)
+## 7.8. Execution Model (`cpu_exec`)
 
 Operations in KaguOS follow a two-step pattern: first you set up the operand registers and the operation register, then you call `cpu_exec` to execute.
 
@@ -758,7 +1020,7 @@ cpu_exec                        // REG_BOOL_RES = "1" if equal, "0" otherwise
 jump_if_not label:loop          // branch based on result
 ```
 
-## 6.9. Built-in Symbols
+## 7.9. Built-in Symbols
 
 KaguASM recognizes the following built-in symbol names so you never have to remember numeric codes:
 
@@ -832,7 +1094,7 @@ KaguASM recognizes the following built-in symbol names so you never have to reme
 | `KEYBOARD_READ_LINE` | Read a full line of input |
 | `KEYBOARD_READ_CHAR` | Read a single character |
 
-## 6.10. Example Walkthrough: hello.kga
+## 7.10. Example Walkthrough: hello.kga
 
 Here is the complete `src/hello.kga` — a program that prints "Hello 0" through "Hello 4" and halts:
 
@@ -878,7 +1140,7 @@ To run this example:
 
 ---
 
-# Part 7: Practical Workshops
+# Part 8: Practical Workshops
 
 Now that you understand the architecture and tools, it is time to write code. These workshops progress from basic hardware manipulation to full OS development using the build tools.
 
@@ -1114,9 +1376,9 @@ mmmmccccwwww
 
 ---
 
-# Part 8: KaguOS Cheat Sheet
+# Part 9: KaguOS Cheat Sheet
 
-## 8.1. Memory Map
+## 9.1. Memory Map
 
 | Address | Name | Purpose |
 | --- | --- | --- |
@@ -1131,7 +1393,7 @@ mmmmccccwwww
 | **15** | `DISPLAY_BACKGROUND` | Background Color |
 | **16** | `PC` | Program Counter |
 
-## 8.2. Instruction List (Control Flow)
+## 9.2. Instruction List (Control Flow)
 
 | Code | Syntax | Action |
 | --- | --- | --- |
@@ -1143,7 +1405,7 @@ mmmmccccwwww
 | **5** | `5 addr` | **Jump if Error** (`REG_ERR` != "") |
 | **6** | `6 mode` | **Debug** mode on/off |
 
-## 8.3. Operation Codes (Load into `REG_OP`)
+## 9.3. Operation Codes (Load into `REG_OP`)
 
 | ID | Name | Description |
 | --- | --- | --- |
@@ -1159,7 +1421,7 @@ mmmmccccwwww
 | **24** | `Render` | Draw Bitmap (A=Start, B=End, C=X, D=Y) |
 | **30** | `Halt` | Stop execution |
 
-## 8.4. Colors
+## 9.4. Colors
 
 ### Colors
 

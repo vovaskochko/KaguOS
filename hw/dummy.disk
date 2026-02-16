@@ -1,8 +1,48 @@
-10
+50
 START_PARTITION_TABLE
 PARTITION_ENTRIES 1
-NAME dummyPart START_BLOCK 6 END_BLOCK 10
+NAME dummyPart START_BLOCK 6 END_BLOCK 50
 END_PARTITION_TABLE
+FS_HEADER kagu_fs FIRST_USABLE_BLOCK 27 LAST_USABLE_BLOCK 50
+secret.txt 4 4 4 kagu kagu BLOCKS 27 33
+lore.txt 4 4 4 kagu kagu BLOCKS 34 43
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+FS_HEADER_END
+You found the secret dummy disk!
+Not many adventurers make it here.
+The Kagu bird hides its shiniest treasures
+on this tiny partition.
+
+Fun fact: The real Kagu bird is native to New Caledonia
+and is known for its beautiful crest and barking call!
+The Legend of Chef Kagu
+=======================
+Long ago, in the land of Bare Metal,
+a young Kagu bird dreamed of running a restaurant.
+With nothing but a boot sector and a dream,
+Kagu learned to manage memory, schedule tasks,
+and serve processes with grace and efficiency.
+Today, Kagu's Restaurant has three Michelin stars
+and serves thousands of system calls per second.
+The end. (Or is it just the beginning?)
+
+
 
 
 

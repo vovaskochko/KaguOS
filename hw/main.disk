@@ -8,1004 +8,13 @@ NAME part4 START_BLOCK 1801 END_BLOCK 2048
 END_PARTITION_TABLE
 
 FS_HEADER kagu_fs FIRST_USABLE_BLOCK 31 LAST_USABLE_BLOCK 1000
-config.txt 4 4 0 user user BLOCKS 31 40
-cat 7 7 7 user user BLOCKS 41 100
-1.txt 4 4 4 user user BLOCKS 101 110
-mario 7 7 7 user user BLOCKS 111 270
-clear 7 7 7 user user BLOCKS 271 285
-debug 7 7 7 user user BLOCKS 286 330
-sleep 7 7 7 user user BLOCKS 331 345
-user_sched 7 7 7 user group BLOCKS 346 405
-minion 7 7 7 user user BLOCKS 406 565
-bitmap_test 7 7 7 user user BLOCKS 566 670
-
-
-
-
-
-
-
-
-
-FS_HEADER_END
-proc_memory 250     // memory allocated for one process
-max_proc_count 10   // max count of active processes
-max_fd_count 50     // max count of files open at the same time
-schedule_quantum 100 // instruction count before rescheduling
-
-
-
-
-
-
-1 2 64         #  copy REG_A => var:input_file
-1 52 3         #  write "" => REG_B
-1 53 1         #  write OP_CMP_EQ => REG_OP
-0              #  cpu_exec
-4 48           #  jump_if lbl:exit_error
-1 64 2         #  copy var:input_file => REG_A
-1 54 6         #  write SYS_CALL_OPEN => REG_E
-1 55 1         #  write OP_SYS_CALL => REG_OP
-0              #  cpu_exec
-6 48           #  jump_err lbl:exit_error
-1 7 65         #  copy REG_RES => var:fd
-1 56 66        #  write "1" => var:counter
-1 65 2         #  copy var:fd => REG_A
-1 66 3         #  copy var:counter => REG_B
-1 57 6         #  write SYS_CALL_READ => REG_E
-1 55 1         #  write OP_SYS_CALL => REG_OP
-0              #  cpu_exec
-6 39           #  jump_err lbl:close
-1 7 2          #  copy REG_RES => REG_A
-1 58 3         #  write COLOR_NO => REG_B
-1 59 6         #  write SYS_CALL_PRINTLN => REG_E
-1 55 1         #  write OP_SYS_CALL => REG_OP
-0              #  cpu_exec
-1 66 2         #  copy var:counter => REG_A
-1 60 1         #  write OP_INCR => REG_OP
-0              #  cpu_exec
-1 7 66         #  copy REG_RES => var:counter
-3 23           #  jump lbl:loop
-1 65 2         #  copy var:fd => REG_A
-1 61 6         #  write SYS_CALL_CLOSE => REG_E
-1 55 1         #  write OP_SYS_CALL => REG_OP
-0              #  cpu_exec
-6 48           #  jump_err lbl:exit_error
-1 62 2         #  write "0" => REG_A
-1 63 6         #  write SYS_CALL_EXIT => REG_E
-1 55 1         #  write OP_SYS_CALL => REG_OP
-0              #  cpu_exec
-1 56 2         #  write "1" => REG_A
-1 63 6         #  write SYS_CALL_EXIT => REG_E
-1 55 1         #  write OP_SYS_CALL => REG_OP
-0              #  cpu_exec
-
-8
-4
-25
-1
-7
-0
-1
-2
-6
-0
-0
-
-
-
-
-
-
-
-Some line 1
-Line 2
-Another line
-Just for test
-Ok
-That's it
-Text
-Other Text
-One more Text
-The end
-1 2 164        #  copy REG_A => var:iterations
-1 124 2        #  write COLOR_CYAN => REG_A
-1 125 6        #  write SYS_CALL_SET_BACKGROUND => REG_E
-1 126 1        #  write OP_SYS_CALL => REG_OP
-0              #  cpu_exec
-1 127 180      #  write "cccccccccccccccccccccccccccc" => 180
-1 127 181      #  write "cccccccccccccccccccccccccccc" => 181
-1 127 182      #  write "cccccccccccccccccccccccccccc" => 182
-1 127 183      #  write "cccccccccccccccccccccccccccc" => 183
-1 128 184      #  write "cccccccccccrrrrrcccccccccccc" => 184
-1 129 185      #  write "ccccccccccrrrrrrrrrccccccccc" => 185
-1 130 186      #  write "ccccccccccbbbyybyccccccccccc" => 186
-1 131 187      #  write "cccccccccbybyyybyyyccccccccc" => 187
-1 132 188      #  write "cccccccccbybbyyybyyycccccccc" => 188
-1 133 189      #  write "cccccccccbbyyyybbbbccccccccc" => 189
-1 134 190      #  write "cccccccccccyyyyyyycccccccccc" => 190
-1 135 191      #  write "ccccccccccbbrbbbcccccccccccc" => 191
-1 136 192      #  write "cccccccccbbbrbbrbbbccccccccc" => 192
-1 137 193      #  write "ccccccccbbbbrrrrbbbbcccccccc" => 193
-1 138 194      #  write "ccccccccyybryrryrbyycccccccc" => 194
-1 139 195      #  write "ccccccccyyyrrrrrryyycccccccc" => 195
-1 140 196      #  write "ccccccccyyrrrrrrrryycccccccc" => 196
-1 141 197      #  write "ccccccccccrrrccrrrcccccccccc" => 197
-1 142 198      #  write "cccccccccbbbccccbbbccccccccc" => 198
-1 143 199      #  write "ccccccccbbbbccccbbbbcccccccc" => 199
-1 144 200      #  write "cBBBBBBBBBBBBBBBBBBBBBBBBBBc" => 200
-1 127 201      #  write "cccccccccccccccccccccccccccc" => 201
-1 127 202      #  write "cccccccccccccccccccccccccccc" => 202
-1 127 203      #  write "cccccccccccccccccccccccccccc" => 203
-1 127 204      #  write "cccccccccccccccccccccccccccc" => 204
-1 164 2        #  copy var:iterations => REG_A
-1 145 1        #  write OP_DECR => REG_OP
-0              #  cpu_exec
-1 7 164        #  copy REG_RES => var:iterations
-1 164 2        #  copy var:iterations => REG_A
-1 146 3        #  write "0" => REG_B
-1 147 1        #  write OP_CMP_EQ => REG_OP
-0              #  cpu_exec
-4 116          #  jump_if lbl:exit
-1 148 165      #  write "180" => var:counter
-1 165 2        #  copy var:counter => REG_A
-1 149 1        #  write OP_INCR => REG_OP
-0              #  cpu_exec
-1 7 165        #  copy REG_RES => var:counter
-1 165 2        #  copy var:counter => REG_A
-1 150 3        #  write "21" => REG_B
-1 151 1        #  write OP_ADD => REG_OP
-0              #  cpu_exec
-1 165 2        #  copy var:counter => REG_A
-1 7 3          #  copy REG_RES => REG_B
-1 146 4        #  write "0" => REG_C
-1 146 5        #  write "0" => REG_D
-1 152 6        #  write SYS_CALL_RENDER_BITMAP => REG_E
-1 126 1        #  write OP_SYS_CALL => REG_OP
-0              #  cpu_exec
-1 153 2        #  write "0.1" => REG_A
-1 154 6        #  write SYS_CALL_SLEEP => REG_E
-1 126 1        #  write OP_SYS_CALL => REG_OP
-0              #  cpu_exec
-1 165 2        #  copy var:counter => REG_A
-1 155 3        #  write "184" => REG_B
-1 156 1        #  write OP_CMP_NEQ => REG_OP
-0              #  cpu_exec
-4 51           #  jump_if lbl:loop_move_up
-1 165 2        #  copy var:counter => REG_A
-1 145 1        #  write OP_DECR => REG_OP
-0              #  cpu_exec
-1 7 165        #  copy REG_RES => var:counter
-1 165 2        #  copy var:counter => REG_A
-1 150 3        #  write "21" => REG_B
-1 151 1        #  write OP_ADD => REG_OP
-0              #  cpu_exec
-1 165 2        #  copy var:counter => REG_A
-1 7 3          #  copy REG_RES => REG_B
-1 146 4        #  write "0" => REG_C
-1 146 5        #  write "0" => REG_D
-1 152 6        #  write SYS_CALL_RENDER_BITMAP => REG_E
-1 126 1        #  write OP_SYS_CALL => REG_OP
-0              #  cpu_exec
-1 153 2        #  write "0.1" => REG_A
-1 154 6        #  write SYS_CALL_SLEEP => REG_E
-1 126 1        #  write OP_SYS_CALL => REG_OP
-0              #  cpu_exec
-1 148 2        #  write "180" => REG_A
-1 165 3        #  copy var:counter => REG_B
-1 157 1        #  write OP_CMP_LT => REG_OP
-0              #  cpu_exec
-4 75           #  jump_if lbl:loop_move_down
-1 148 165      #  write "180" => var:counter
-1 158 2        #  write "c" => REG_A
-1 *165 3       #  copy *var:counter => REG_B
-1 159 4        #  write "" => REG_C
-1 160 1        #  write OP_CONCAT_WITH => REG_OP
-0              #  cpu_exec
-1 7 *165       #  copy REG_RES => *var:counter
-1 165 2        #  copy var:counter => REG_A
-1 149 1        #  write OP_INCR => REG_OP
-0              #  cpu_exec
-1 7 165        #  copy REG_RES => var:counter
-1 165 2        #  copy var:counter => REG_A
-1 161 3        #  write "201" => REG_B
-1 157 1        #  write OP_CMP_LT => REG_OP
-0              #  cpu_exec
-4 100          #  jump_if lbl:shift_right
-3 41           #  jump lbl:start
-1 162 2        #  write COLOR_NO => REG_A
-1 125 6        #  write SYS_CALL_SET_BACKGROUND => REG_E
-1 126 1        #  write OP_SYS_CALL => REG_OP
-0              #  cpu_exec
-1 146 2        #  write "0" => REG_A
-1 163 6        #  write SYS_CALL_EXIT => REG_E
-1 126 1        #  write OP_SYS_CALL => REG_OP
-0              #  cpu_exec
-7
-9
-25
-cccccccccccccccccccccccccccc
-cccccccccccrrrrrcccccccccccc
-ccccccccccrrrrrrrrrccccccccc
-ccccccccccbbbyybyccccccccccc
-cccccccccbybyyybyyyccccccccc
-cccccccccbybbyyybyyycccccccc
-cccccccccbbyyyybbbbccccccccc
-cccccccccccyyyyyyycccccccccc
-ccccccccccbbrbbbcccccccccccc
-cccccccccbbbrbbrbbbccccccccc
-ccccccccbbbbrrrrbbbbcccccccc
-ccccccccyybryrryrbyycccccccc
-ccccccccyyyrrrrrryyycccccccc
-ccccccccyyrrrrrrrryycccccccc
-ccccccccccrrrccrrrcccccccccc
-cccccccccbbbccccbbbccccccccc
-ccccccccbbbbccccbbbbcccccccc
-cBBBBBBBBBBBBBBBBBBBBBBBBBBc
-3
-0
-8
-180
-2
-21
-0
-10
-0.1
-11
-184
-9
-10
-c
-
-17
-201
-0
-0
-
-
-
-
-
-
-
-1 19 2         #  write COLOR_NO => REG_A
-1 20 6         #  write SYS_CALL_SET_BACKGROUND => REG_E
-1 21 1         #  write OP_SYS_CALL => REG_OP
-0              #  cpu_exec
-1 22 2         #  write "0" => REG_A
-1 23 6         #  write SYS_CALL_EXIT => REG_E
-1 21 1         #  write OP_SYS_CALL => REG_OP
-0              #  cpu_exec
-0
-9
-25
-0
-0
-
-
-1 2 49         #  copy REG_A => var:arg
-1 49 2         #  copy var:arg => REG_A
-1 39 3         #  write "on" => REG_B
-1 40 1         #  write OP_CMP_EQ => REG_OP
-0              #  cpu_exec
-4 31           #  jump_if lbl:debug_command_on
-1 49 2         #  copy var:arg => REG_A
-1 41 3         #  write "off" => REG_B
-1 40 1         #  write OP_CMP_EQ => REG_OP
-0              #  cpu_exec
-4 33           #  jump_if lbl:debug_command_off
-1 42 2         #  write "Unknown argument. Expected: debug on/debug off" => REG_A
-1 43 3         #  write COLOR_RED => REG_B
-1 44 6         #  write SYS_CALL_PRINTLN => REG_E
-1 45 1         #  write OP_SYS_CALL => REG_OP
-0              #  cpu_exec
-1 46 2         #  write "1" => REG_A
-1 47 6         #  write SYS_CALL_EXIT => REG_E
-1 45 1         #  write OP_SYS_CALL => REG_OP
-0              #  cpu_exec
-DEBUG_ON       #  DEBUG_ON
-3 35           #  jump lbl:exit
-DEBUG_OFF      #  DEBUG_OFF
-3 35           #  jump lbl:exit
-1 48 2         #  write "0" => REG_A
-1 47 6         #  write SYS_CALL_EXIT => REG_E
-1 45 1         #  write OP_SYS_CALL => REG_OP
-0              #  cpu_exec
-on
-8
-off
-Unknown argument. Expected: debug on/debug off
-3
-1
-25
-1
-0
-0
-
-
-
-
-
-
-
-1 21 1         #  write OP_IS_NUM => REG_OP
-0              #  cpu_exec
-5 17           #  jump_if_not lbl:exit
-1 22 6         #  write SYS_CALL_SLEEP => REG_E
-1 23 1         #  write OP_SYS_CALL => REG_OP
-0              #  cpu_exec
-1 24 2         #  write "0" => REG_A
-1 25 6         #  write SYS_CALL_EXIT => REG_E
-1 23 1         #  write OP_SYS_CALL => REG_OP
-0              #  cpu_exec
-7
-11
-25
-0
-0
-1 50 2         #  write "Enter command to schedule or command exit to quit:" => REG_A
-1 51 3         #  write COLOR_NO => REG_B
-1 52 6         #  write SYS_CALL_PRINTLN => REG_E
-1 53 1         #  write OP_SYS_CALL => REG_OP
-0              #  cpu_exec
-1 54 2         #  write KEYBOARD_READ_LINE => REG_A
-1 55 6         #  write SYS_CALL_READ_INPUT => REG_E
-1 53 1         #  write OP_SYS_CALL => REG_OP
-0              #  cpu_exec
-1 7 2          #  copy REG_RES => REG_A
-1 56 3         #  write "exit" => REG_B
-1 57 1         #  write OP_CMP_EQ => REG_OP
-0              #  cpu_exec
-4 40           #  jump_if lbl:exit
-1 58 3         #  write "50" => REG_B
-1 59 6         #  write SYS_CALL_SCHED_PROGRAM => REG_E
-1 53 1         #  write OP_SYS_CALL => REG_OP
-0              #  cpu_exec
-6 44           #  jump_err lbl:error
-1 7 66         #  copy REG_RES => var:pid
-1 60 2         #  write "Program loaded with PID " => REG_A
-1 61 3         #  write COLOR_GREEN => REG_B
-1 62 6         #  write SYS_CALL_PRINT => REG_E
-1 53 1         #  write OP_SYS_CALL => REG_OP
-0              #  cpu_exec
-1 66 2         #  copy var:pid => REG_A
-1 52 6         #  write SYS_CALL_PRINTLN => REG_E
-0              #  cpu_exec
-3 11           #  jump lbl:start
-1 63 2         #  write "0" => REG_A
-1 64 6         #  write SYS_CALL_EXIT => REG_E
-1 53 1         #  write OP_SYS_CALL => REG_OP
-0              #  cpu_exec
-1 9 2          #  copy REG_ERROR => REG_A
-1 65 3         #  write COLOR_RED => REG_B
-1 52 6         #  write SYS_CALL_PRINTLN => REG_E
-1 53 1         #  write OP_SYS_CALL => REG_OP
-0              #  cpu_exec
-3 11           #  jump lbl:start
-Enter command to schedule or command exit to quit:
-0
-1
-25
-KeyboardReadLine
-3
-exit
-8
-50
-14
-Program loaded with PID 
-1
-2
-0
-0
-3
-
-
-
-
-
-1 2 162        #  copy REG_A => var:iterations
-1 124 2        #  write COLOR_CYAN => REG_A
-1 125 6        #  write SYS_CALL_SET_BACKGROUND => REG_E
-1 126 1        #  write OP_SYS_CALL => REG_OP
-0              #  cpu_exec
-1 127 180      #  write "cccccccccccccccccccccccccccc" => 180
-1 127 181      #  write "cccccccccccccccccccccccccccc" => 181
-1 127 182      #  write "cccccccccccccccccccccccccccc" => 182
-1 127 183      #  write "cccccccccccccccccccccccccccc" => 183
-1 128 184      #  write "ccccccccccyyyyyyycccccccccccc" => 184
-1 129 185      #  write "cccccccccyyyyyyyyyccccccccccc" => 185
-1 130 186      #  write "ccccccccyybbyyybbyyccccccccc" => 186
-1 131 187      #  write "ccccccccBbwBbBbwBbBccccccccc" => 187
-1 132 188      #  write "ccccccccBbwwbBbwwbBccccccccc" => 188
-1 130 189      #  write "ccccccccyybbyyybbyyccccccccc" => 189
-1 133 190      #  write "ccccccccyyyyyyyyyyycccccccccc" => 190
-1 134 191      #  write "ccccccccyyByyyyyByycccccccccc" => 191
-1 135 192      #  write "ccccccccyyyBBBBByyycccccccccc" => 192
-1 136 193      #  write "ccccccccbyyyyyyyyybcccccccccc" => 193
-1 137 194      #  write "ccccccccybbbbbbbbbycccccccccc" => 194
-1 138 195      #  write "ccccccccyybbbbbbbyycccccccccc" => 195
-1 138 196      #  write "ccccccccyybbbbbbbyycccccccccc" => 196
-1 137 197      #  write "ccccccccybbbbbbbbbycccccccccc" => 197
-1 139 198      #  write "cccccccBBbbbbbbbbbBBccccccccc" => 198
-1 140 199      #  write "ccccccccBbbbbbbbbbBcccccccccc" => 199
-1 141 200      #  write "ccccccccccBBcccBBcccccccccccc" => 200
-1 142 201      #  write "cccccccccBBBcccBBBccccccccccc" => 201
-1 127 202      #  write "cccccccccccccccccccccccccccc" => 202
-1 127 203      #  write "cccccccccccccccccccccccccccc" => 203
-1 127 204      #  write "cccccccccccccccccccccccccccc" => 204
-1 162 2        #  copy var:iterations => REG_A
-1 143 1        #  write OP_DECR => REG_OP
-0              #  cpu_exec
-1 7 162        #  copy REG_RES => var:iterations
-1 162 2        #  copy var:iterations => REG_A
-1 144 3        #  write "0" => REG_B
-1 145 1        #  write OP_CMP_EQ => REG_OP
-0              #  cpu_exec
-4 116          #  jump_if lbl:exit
-1 146 163      #  write "180" => var:counter
-1 163 2        #  copy var:counter => REG_A
-1 147 1        #  write OP_INCR => REG_OP
-0              #  cpu_exec
-1 7 163        #  copy REG_RES => var:counter
-1 163 2        #  copy var:counter => REG_A
-1 148 3        #  write "21" => REG_B
-1 149 1        #  write OP_ADD => REG_OP
-0              #  cpu_exec
-1 163 2        #  copy var:counter => REG_A
-1 7 3          #  copy REG_RES => REG_B
-1 144 4        #  write "0" => REG_C
-1 144 5        #  write "0" => REG_D
-1 150 6        #  write SYS_CALL_RENDER_BITMAP => REG_E
-1 126 1        #  write OP_SYS_CALL => REG_OP
-0              #  cpu_exec
-1 151 2        #  write "0.1" => REG_A
-1 152 6        #  write SYS_CALL_SLEEP => REG_E
-1 126 1        #  write OP_SYS_CALL => REG_OP
-0              #  cpu_exec
-1 163 2        #  copy var:counter => REG_A
-1 153 3        #  write "184" => REG_B
-1 154 1        #  write OP_CMP_NEQ => REG_OP
-0              #  cpu_exec
-4 51           #  jump_if lbl:loop_move_up
-1 163 2        #  copy var:counter => REG_A
-1 143 1        #  write OP_DECR => REG_OP
-0              #  cpu_exec
-1 7 163        #  copy REG_RES => var:counter
-1 163 2        #  copy var:counter => REG_A
-1 148 3        #  write "21" => REG_B
-1 149 1        #  write OP_ADD => REG_OP
-0              #  cpu_exec
-1 163 2        #  copy var:counter => REG_A
-1 7 3          #  copy REG_RES => REG_B
-1 144 4        #  write "0" => REG_C
-1 144 5        #  write "0" => REG_D
-1 150 6        #  write SYS_CALL_RENDER_BITMAP => REG_E
-1 126 1        #  write OP_SYS_CALL => REG_OP
-0              #  cpu_exec
-1 151 2        #  write "0.1" => REG_A
-1 152 6        #  write SYS_CALL_SLEEP => REG_E
-1 126 1        #  write OP_SYS_CALL => REG_OP
-0              #  cpu_exec
-1 146 2        #  write "180" => REG_A
-1 163 3        #  copy var:counter => REG_B
-1 155 1        #  write OP_CMP_LT => REG_OP
-0              #  cpu_exec
-4 75           #  jump_if lbl:loop_move_down
-1 146 163      #  write "180" => var:counter
-1 156 2        #  write "c" => REG_A
-1 *163 3       #  copy *var:counter => REG_B
-1 157 4        #  write "" => REG_C
-1 158 1        #  write OP_CONCAT_WITH => REG_OP
-0              #  cpu_exec
-1 7 *163       #  copy REG_RES => *var:counter
-1 163 2        #  copy var:counter => REG_A
-1 147 1        #  write OP_INCR => REG_OP
-0              #  cpu_exec
-1 7 163        #  copy REG_RES => var:counter
-1 163 2        #  copy var:counter => REG_A
-1 159 3        #  write "202" => REG_B
-1 155 1        #  write OP_CMP_LT => REG_OP
-0              #  cpu_exec
-4 100          #  jump_if lbl:shift_right
-3 41           #  jump lbl:start
-1 160 2        #  write COLOR_NO => REG_A
-1 125 6        #  write SYS_CALL_SET_BACKGROUND => REG_E
-1 126 1        #  write OP_SYS_CALL => REG_OP
-0              #  cpu_exec
-1 144 2        #  write "0" => REG_A
-1 161 6        #  write SYS_CALL_EXIT => REG_E
-1 126 1        #  write OP_SYS_CALL => REG_OP
-0              #  cpu_exec
-7
-9
-25
-cccccccccccccccccccccccccccc
-ccccccccccyyyyyyycccccccccccc
-cccccccccyyyyyyyyyccccccccccc
-ccccccccyybbyyybbyyccccccccc
-ccccccccBbwBbBbwBbBccccccccc
-ccccccccBbwwbBbwwbBccccccccc
-ccccccccyyyyyyyyyyycccccccccc
-ccccccccyyByyyyyByycccccccccc
-ccccccccyyyBBBBByyycccccccccc
-ccccccccbyyyyyyyyybcccccccccc
-ccccccccybbbbbbbbbycccccccccc
-ccccccccyybbbbbbbyycccccccccc
-cccccccBBbbbbbbbbbBBccccccccc
-ccccccccBbbbbbbbbbBcccccccccc
-ccccccccccBBcccBBcccccccccccc
-cccccccccBBBcccBBBccccccccccc
-3
-0
-8
-180
-2
-21
-0
-10
-0.1
-11
-184
-9
-10
-c
-
-17
-202
-0
-0
-
-
-
-
-
-
-
-
-
-1 71 2         #  write COLOR_BLUE => REG_A
-1 72 6         #  write SYS_CALL_SET_BACKGROUND => REG_E
-1 73 1         #  write OP_SYS_CALL => REG_OP
-0              #  cpu_exec
-1 74 180       #  write "rrrrr" => 180
-1 74 181       #  write "rrrrr" => 181
-1 74 182       #  write "rrrrr" => 182
-1 74 183       #  write "rrrrr" => 183
-1 74 184       #  write "rrrrr" => 184
-1 75 190       #  write "ggggg" => 190
-1 75 191       #  write "ggggg" => 191
-1 75 192       #  write "ggggg" => 192
-1 75 193       #  write "ggggg" => 193
-1 75 194       #  write "ggggg" => 194
-1 76 200       #  write "  y  " => 200
-1 77 201       #  write " yyy " => 201
-1 78 202       #  write "yyyyy" => 202
-1 77 203       #  write " yyy " => 203
-1 76 204       #  write "  y  " => 204
-1 79 2         #  write "180" => REG_A
-1 80 3         #  write "185" => REG_B
-1 81 4         #  write "2" => REG_C
-1 82 5         #  write "1" => REG_D
-1 83 6         #  write SYS_CALL_RENDER_BITMAP => REG_E
-1 73 1         #  write OP_SYS_CALL => REG_OP
-0              #  cpu_exec
-1 84 2         #  write "0.5" => REG_A
-1 85 6         #  write SYS_CALL_SLEEP => REG_E
-1 73 1         #  write OP_SYS_CALL => REG_OP
-0              #  cpu_exec
-1 86 2         #  write "190" => REG_A
-1 87 3         #  write "195" => REG_B
-1 88 4         #  write "10" => REG_C
-1 89 5         #  write "3" => REG_D
-1 83 6         #  write SYS_CALL_RENDER_BITMAP => REG_E
-1 73 1         #  write OP_SYS_CALL => REG_OP
-0              #  cpu_exec
-1 84 2         #  write "0.5" => REG_A
-1 85 6         #  write SYS_CALL_SLEEP => REG_E
-1 73 1         #  write OP_SYS_CALL => REG_OP
-0              #  cpu_exec
-1 90 2         #  write "200" => REG_A
-1 91 3         #  write "205" => REG_B
-1 92 4         #  write "5" => REG_C
-1 81 5         #  write "2" => REG_D
-1 83 6         #  write SYS_CALL_RENDER_BITMAP => REG_E
-1 73 1         #  write OP_SYS_CALL => REG_OP
-0              #  cpu_exec
-1 93 2         #  write "2" => REG_A
-1 85 6         #  write SYS_CALL_SLEEP => REG_E
-1 73 1         #  write OP_SYS_CALL => REG_OP
-0              #  cpu_exec
-1 94 2         #  write COLOR_NO => REG_A
-1 72 6         #  write SYS_CALL_SET_BACKGROUND => REG_E
-1 73 1         #  write OP_SYS_CALL => REG_OP
-0              #  cpu_exec
-1 95 2         #  write "0" => REG_A
-1 96 6         #  write SYS_CALL_EXIT => REG_E
-1 73 1         #  write OP_SYS_CALL => REG_OP
-0              #  cpu_exec
-5
-9
-25
-rrrrr
-ggggg
-  y  
- yyy 
-yyyyy
-180
-185
-2
-1
-10
-0.5
-11
-190
-195
-10
-3
-200
-205
-5
-2
-0
-0
-0
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-FS_HEADER kagu_fs FIRST_USABLE_BLOCK 1021 LAST_USABLE_BLOCK 1500
-
-
-
-
-
-
-
+config.txt 4 4 0 root root BLOCKS 31 40 116 120
+menu.txt 4 4 4 kagu kagu BLOCKS 41 55
+welcome.txt 4 4 4 kagu kagu BLOCKS 56 65
+recipe.txt 4 4 4 kagu kagu BLOCKS 66 80
+reviews.txt 4 4 4 kagu kagu BLOCKS 81 95
+staff.txt 4 4 4 kagu kagu BLOCKS 96 105
+hello.txt 4 4 4 kagu kagu BLOCKS 106 115
 
 
 
@@ -1019,6 +28,96 @@ FS_HEADER kagu_fs FIRST_USABLE_BLOCK 1021 LAST_USABLE_BLOCK 1500
 
 
 FS_HEADER_END
+just
+a
+file
+with some data
+and empty space
+
+
+
+
+
+========================================
+     KAGU RESTAURANT - DAILY MENU
+========================================
+STARTERS:
+  Bug Soup ..................... 2 CPU cycles
+  Memory Leak Salad ........... 3 CPU cycles
+  Stack Overflow Nachos ....... 4 CPU cycles
+MAIN COURSES:
+  Kernel Panic Pasta .......... 7 CPU cycles
+  Grilled Process with Scheduler Sauce .. 8 cycles
+  Mutex Locked Lobster ........ 12 CPU cycles
+DESSERTS:
+  Deadlock Donuts ............. 3 CPU cycles
+  Segfault Sundae ............. 4 CPU cycles
+  Chef Kagu recommends: Kernel Panic Pasta!
+Welcome to Kagu's Restaurant!
+Where every dish is cooked with love and syscalls.
+
+Our chef, the magnificent Kagu bird,
+started from a humble food truck (bootloader)
+and built this fine dining establishment (kernel).
+
+Today's special: Fresh File System Fondue
+Reservation? Just open() a table!
+Bon appetit!
+TOP SECRET RECIPE: Kernel Panic Pasta
+======================================
+Ingredients:
+  - 1 cup of uninitialized memory
+  - 2 tbsp of null pointer dereference
+  - A pinch of race condition
+  - 3 threads (unsynchronized)
+Instructions:
+  1. Fork() the process twice
+  2. Mix all ingredients without mutex
+  3. Heat to exactly 0xDEADBEEF degrees
+  4. Serve immediately before watchdog timer expires
+  5. If segfault occurs, restart from step 1
+WARNING: Do not attempt without proper exception handling!
+Chef Kagu's note: This dish crashes every time. Delicious!
+======= KAGU RESTAURANT REVIEWS =======
+***** "Best kernel-level dining!" - Process #1
+**** "Food was great but had to wait() for my table" - PID 42
+***** "The mutex locked lobster was worth the deadlock!" - Thread 7
+*** "My dessert caused a segfault. 10/10 would dine again" - User 404
+***** "Chef Kagu really knows how to handle interrupts" - IRQ Handler
+**** "Great food but the scheduler kept preempting my meal" - PID 99
+***** "The root beer is amazing with the right permissions" - sudo
+* "I got a SIGKILL before finishing my appetizer" - PID 666
+***** "Came for the Bug Soup, stayed for the Nachos" - Dev #1
+**** "The piped output tea pairs well with grep salad" - bash
+*** "Reservation system needs better file descriptors" - SysAdmin
+
+Overall rating: 4.2 out of 5 stars
+Open daily from boot to shutdown!
+======= KAGU RESTAURANT STAFF =======
+Head Chef:    Kagu Bird ............ PID 1
+Sous Chef:    Init Process ......... PID 0
+Waiter:       Shell ................ stdin/stdout
+Bartender:    /dev/random
+Dishwasher:   Garbage Collector
+Bouncer:      Firewall
+Accountant:   /proc/meminfo
+Host:         localhost
+Night Cook:   Daemon (never goes home)
+Hello from KaguOS!
+
+If you can read this, congratulations!
+Your kernel successfully:
+  1. Initialized the file system
+  2. Mounted the disk partitions
+  3. Opened this file
+  4. Read it line by line
+  5. Displayed it on screen
+Well done! The Kagu bird is proud of you!
+and here
+another
+chunk
+of the file
+config.txt
 
 
 
@@ -1055,6 +154,906 @@ FS_HEADER_END
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+FS_HEADER kagu_fs FIRST_USABLE_BLOCK 1022 LAST_USABLE_BLOCK 1500
+notes.txt 4 4 4 kagu kagu BLOCKS 1022 1031
+shopping_list.txt 4 4 4 kagu kagu BLOCKS 1032 1041
+diary.txt 4 4 4 kagu kagu BLOCKS 1042 1056
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+FS_HEADER_END
+Chef Kagu's Personal Notes
+==========================
+TODO: Fix the race condition in the kitchen
+NOTE: The mutex locked lobster recipe needs more testing
+IDEA: What if we served processes in round-robin order?
+BUG: Sometimes the soup fork()s itself
+REMINDER: Never free() the dessert twice
+THOUGHT: Maybe we should try async cooking
+WARNING: The dishwasher (GC) is getting slow
+URGENT: We are running out of file descriptors!
+Kagu Restaurant Shopping List
+==============================
+[ ] 512 MB of fresh RAM sticks
+[ ] 1 box of null terminators
+[ ] 4 cores of organic CPU
+[ ] 2 liters of thermal paste sauce
+[ ] 1 bag of semaphores (assorted)
+[ ] 6 pipes (for interprocess cooking)
+[ ] 1 new swap file (the old one is full)
+[ ] 3 mutexes (non-recursive)
+Dear Diary,
+
+Day 1: Started my restaurant from a food truck.
+Day 7: Learned to manage multiple orders (processes).
+Day 14: Hired a scheduler to manage the kitchen queue.
+Day 21: A customer complained about a deadlock in their meal.
+Day 30: Expanded to a real restaurant! Got our own filesystem.
+Day 45: Memory leak in the soup kitchen. Had to restart.
+Day 60: Added virtual memory. Now we can serve more guests!
+Day 90: Got our first Michelin star for our syscalls!
+Day 120: Two stars! Our interrupt handling is top-notch.
+Day 180: Three stars! Full preemptive multitasking kitchen.
+Day 365: Looking back, it all started with a simple boot sector.
+
+                                    - Chef Kagu
 
 
 
@@ -1500,8 +1499,8 @@ FS_HEADER_END
 
 
 FS_HEADER kagu_fs FIRST_USABLE_BLOCK 1522 LAST_USABLE_BLOCK 1800
-
-
+tips.txt 4 4 4 kagu kagu BLOCKS 1522 1535
+glossary.txt 4 4 4 kagu kagu BLOCKS 1536 1550
 
 
 
@@ -1520,35 +1519,35 @@ FS_HEADER kagu_fs FIRST_USABLE_BLOCK 1522 LAST_USABLE_BLOCK 1800
 
 
 FS_HEADER_END
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+Kagu's Cooking Tips for OS Chefs
+=================================
+1. Always initialize your variables before cooking
+2. Never dereference a null pointer in the kitchen
+3. Use mutexes when multiple chefs share the same pan
+4. Free your memory after every meal service
+5. Handle all error codes - unhandled exceptions spoil the broth
+6. Keep your stack clean - overflow ruins the souffle
+7. Cache your most popular recipes for faster service
+8. Use pipes to pass ingredients between stations
+9. Always close your file descriptors after reading recipes
+10. A good chef handles SIGTERM gracefully
+11. Never run the kitchen as root unless necessary
+12. Log everything - debugging a cold kitchen is impossible
+Kagu Restaurant Glossary
+=========================
+Fork    - When a dish splits into two identical copies
+Pipe    - How ingredients flow between kitchen stations
+Signal  - The bell the waiter rings when food is ready
+Daemon  - The night shift cook who never goes home
+Zombie  - A finished dish that nobody picked up
+Orphan  - A dish whose chef has left the kitchen
+Socket  - Where you plug in the electric stove
+Thread  - A helper cook sharing the same kitchen
+Mutex   - The lock on the shared refrigerator
+Kernel  - The head chef managing everything
+Shell   - The front desk taking customer orders
+Swap    - When you run out of counter space and use the floor
+Boot    - The morning routine of turning everything on
 
 
 
@@ -1800,8 +1799,8 @@ FS_HEADER_END
 
 
 FS_HEADER kagu_fs FIRST_USABLE_BLOCK 1822 LAST_USABLE_BLOCK 2048
-
-
+test1.txt 4 4 4 kagu kagu BLOCKS 1822 1826
+test2.txt 4 4 4 kagu kagu BLOCKS 1827 1831
 
 
 
@@ -1820,56 +1819,16 @@ FS_HEADER kagu_fs FIRST_USABLE_BLOCK 1822 LAST_USABLE_BLOCK 2048
 
 
 FS_HEADER_END
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+This is test file number 1.
+It lives on the /test partition.
+Feel free to experiment here.
+Nothing important will break.
+...probably.
+Another test file for your experiments.
+Try reading this with: cat /test/test2.txt
+If you see this text, everything works!
+The filesystem is functioning correctly.
+Kagu approves!
 
 
 
