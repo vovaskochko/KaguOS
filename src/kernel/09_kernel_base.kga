@@ -128,9 +128,9 @@ label kernel_cmd_cat
     var kernel_cat_fd
     copy REG_RES to var:kernel_cat_fd
 
-    // Read lines in a loop
+    // Read lines in a loop (1-based line indexing)
     var kernel_cat_line_no
-    write 0 to var:kernel_cat_line_no
+    write 1 to var:kernel_cat_line_no
 
     label kernel_cat_read_loop
         copy var:kernel_cat_fd to REG_A
