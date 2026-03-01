@@ -121,7 +121,7 @@ void DebugServer::sendLine(const std::string& line)
 // Command Handling
 // ============================================================================
 
-bool DebugServer::handleCommand(const std::string& cmd, const RAM& ram, bool& out_quit)
+bool DebugServer::handleCommand(const std::string& cmd, RAM& ram, bool& out_quit)
 {
     out_quit = false;
 
@@ -166,6 +166,22 @@ bool DebugServer::handleCommand(const std::string& cmd, const RAM& ram, bool& ou
         return false;
     }
 
+    if (cmd.size() > 4 && cmd.substr(0, 4) == "SET ")
+    {
+        std::string rest = cmd.substr(4);
+        size_t sp = rest.find(' ');
+        if (sp != std::string::npos)
+        {
+            try
+            {
+                int addr = std::stoi(rest.substr(0, sp));
+                ram.directAccess(addr) = rest.substr(sp + 1);
+            }
+            catch (...) {}
+        }
+        return false;
+    }
+
     if (cmd == "QUIT")
     {
         out_quit = true;
@@ -180,7 +196,7 @@ bool DebugServer::handleCommand(const std::string& cmd, const RAM& ram, bool& ou
 // CPU Hooks
 // ============================================================================
 
-bool DebugServer::checkBreakpoint(int pc, const RAM& ram)
+bool DebugServer::checkBreakpoint(int pc, RAM& ram)
 {
     if (clientFd_ < 0) return true;
 
@@ -201,7 +217,7 @@ bool DebugServer::checkBreakpoint(int pc, const RAM& ram)
     }
 }
 
-void DebugServer::notifyHalted(const RAM& ram)
+void DebugServer::notifyHalted(RAM& ram)
 {
     if (clientFd_ < 0) return;
 

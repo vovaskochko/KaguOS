@@ -19,6 +19,7 @@
  *     BREAK <addr>         add a breakpoint at address
  *     CLEAR <addr>         remove a breakpoint
  *     STATE <start> <end>  dump RAM[start..end] (inclusive)
+ *     SET <addr> <value>   write value into RAM[addr] (live edit)
  *     QUIT                 terminate the emulator
  */
 
@@ -53,10 +54,10 @@ public:
     /// If pc is in the breakpoints set, or step-mode is active, sends "PAUSED <pc>"
     /// and processes commands until CONTINUE or STEP arrives.
     /// Returns false if QUIT was received (caller should stop the CPU).
-    bool checkBreakpoint(int pc, const RAM& ram);
+    bool checkBreakpoint(int pc, RAM& ram);
 
     /// Called from CPU::halt() — sends "HALTED" and keeps accepting queries.
-    void notifyHalted(const RAM& ram);
+    void notifyHalted(RAM& ram);
 
 private:
     int port_;
@@ -73,7 +74,7 @@ private:
     /// Handle one client command.
     /// Returns true when execution should resume (CONTINUE / STEP / QUIT).
     /// out_quit is set to true only on QUIT.
-    bool handleCommand(const std::string& cmd, const RAM& ram, bool& out_quit);
+    bool handleCommand(const std::string& cmd, RAM& ram, bool& out_quit);
 };
 
 } // namespace kagu_boot
