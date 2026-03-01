@@ -1,0 +1,14 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "kagu",
+            "request": "launch",
+            "name": "Boot KaguOS (kernel)",
+            "firmware": "hw/cpu_firmware.bin",
+            "mapFile": "build/kernel.map",
+            "kaguBoot": "./kagu_boot",
+            "debugPort": 4711
+        }
+    ]
+}

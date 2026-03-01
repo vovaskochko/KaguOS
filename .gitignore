@@ -14,7 +14,8 @@ hw/bootable.disk
 tmp/
 
 # IDE
-.vscode/
+.vscode/*
+!.vscode/launch.json
 .idea/
 *.swp
 *~
