@@ -1,6 +1,6 @@
 /**
  * @file cpu.cpp
- * @brief KaguOS Emulator - CPU Module (Bare Metal Edition)
+ * @brief KaguOS Emulator - CPU Module (Implementation)
  */
 
 #include "cpu.hpp"
@@ -32,14 +32,17 @@ CPU::CPU(
     RAM& ram,
     Display& display,
     Keyboard& keyboard,
-    Disk& disk
+    Disk& disk,
+    InterruptHandler& interrupts
 )
     : ram_(ram)
     , display_(display)
     , keyboard_(keyboard)
     , disk_(disk)
+    , interrupts_(interrupts)
     , running_(false)
     , debugMode_(false)
+    , debugUserOnly_(false)
     , debugPrintJumps_(false)
     , debugSleepMs_(0)
 {
@@ -60,23 +63,20 @@ void CPU::resetVector(const std::string& firmware)
     int address = 1;
     std::string line;
 
-    // Load the entire firmware file into RAM line by line
     while (std::getline(firmwareData, line))
     {
         if (address >= ram_.size())
         {
             throw CpuException("CRITICAL ERROR: Firmware image exceeds RAM size.");
         }
-
         ram_.directAccess(address) = line;
         address++;
     }
 
-    // Initialize FREE_MEMORY_END with RAM size to support dynamic memory allocation
+    // FREE_MEMORY_END starts at RAM size — shrinks as heap/stack grows
     ram_.directAccess(kagu::toInt(kagu::Address::FreeMemoryEnd)) = std::to_string(ram_.size());
 
-    // Start Fetch-Decode-Execute loop
-    running_ = true;    
+    running_ = true;
     while (running_)
     {
         step();
@@ -86,36 +86,43 @@ void CPU::resetVector(const std::string& firmware)
 void CPU::step()
 {
     jumpNext();
-    
-    if (debugMode_ && debugPrintJumps_)
+
+    if (shouldDebugPrint() && debugPrintJumps_)
     {
         printDebugInfo();
     }
-    
+
     kagu::ProgramCounter pc = getProgramCounter();
     std::string instruction = ram_.read(pc);
-    
-    // Handle debug commands
+
+    // DEBUG_ON / DEBUG_OFF are mode-aware: in kernel mode they set the global
+    // flag, in user mode they set the user-only flag.
     if (instruction.substr(0, 8) == "DEBUG_ON")
     {
-        debugMode_ = true;
+        if (ram_.isKernelMode())
+            debugMode_ = true;
+        else
+            debugUserOnly_ = true;
         display_.info("DEBUG ON");
         return;
     }
     else if (instruction.substr(0, 9) == "DEBUG_OFF")
     {
-        debugMode_ = false;
+        if (ram_.isKernelMode())
+            debugMode_ = false;
+        else
+            debugUserOnly_ = false;
         display_.info("DEBUG OFF");
         return;
     }
-    
-    // Poll keyboard for non-blocking input and update LastKey register
+
+    // Non-blocking keyboard poll — use directAccess; valid in both modes
     int key = keyboard_.pollKey();
     if (key != 0)
     {
         ram_.directAccess(kagu::toInt(kagu::Address::LastKey)) = std::to_string(key);
     }
-    
+
     try
     {
         executeInstruction(instruction);
@@ -132,18 +139,20 @@ void CPU::step()
     {
         std::cerr << "[FATAL] Exception in step: " << e.what() << "\n";
         std::cerr << "[FATAL] PC=" << pc << " Instruction: " << instruction << "\n";
+        std::cerr << "[FATAL] KernelMode=" << (ram_.isKernelMode() ? "yes" : "no") << "\n";
         throw;
     }
-    
-    if (debugMode_)
+
+    if (shouldDebugPrint())
     {
-        ram_.dumpToFile(std::string(kagu::config::RAM_DUMP_FILE));
-        
+        ram_.dumpToFile(
+            std::string(kagu::config::RAM_DUMP_FILE),
+            !ram_.isKernelMode()   // userOnly=true when in user mode
+        );
+
         if (debugSleepMs_ > 0)
         {
-            std::this_thread::sleep_for(
-                std::chrono::milliseconds(debugSleepMs_)
-            );
+            std::this_thread::sleep_for(std::chrono::milliseconds(debugSleepMs_));
         }
     }
 }
@@ -164,20 +173,10 @@ bool CPU::isRunning() const noexcept
 // Debug Configuration
 // ============================================================================
 
-void CPU::setDebugMode(bool enabled) noexcept
-{
-    debugMode_ = enabled;
-}
-
-void CPU::setDebugPrintJumps(bool enabled) noexcept
-{
-    debugPrintJumps_ = enabled;
-}
-
-void CPU::setDebugSleep(int milliseconds) noexcept
-{
-    debugSleepMs_ = milliseconds;
-}
+void CPU::setDebugMode(bool enabled) noexcept      { debugMode_      = enabled; }
+void CPU::setDebugUserOnly(bool enabled) noexcept  { debugUserOnly_  = enabled; }
+void CPU::setDebugPrintJumps(bool enabled) noexcept{ debugPrintJumps_= enabled; }
+void CPU::setDebugSleep(int milliseconds) noexcept { debugSleepMs_   = milliseconds; }
 
 // ============================================================================
 // Program Counter Management
@@ -193,10 +192,7 @@ void CPU::setProgramCounter(kagu::ProgramCounter pc)
     ram_.directAccess(kagu::toInt(kagu::Address::ProgramCounter)) = std::to_string(pc);
 }
 
-void CPU::jumpNext()
-{
-    setProgramCounter(getProgramCounter() + 1);
-}
+void CPU::jumpNext()  { setProgramCounter(getProgramCounter() + 1); }
 
 void CPU::jump(kagu::RamAddress address)
 {
@@ -205,32 +201,20 @@ void CPU::jump(kagu::RamAddress address)
 
 void CPU::jumpIf(kagu::RamAddress address)
 {
-    if (ram_.readRegister(kagu::Address::BoolRes) == "1")
-    {
-        jump(address);
-    }
+    if (ram_.readRegister(kagu::Address::BoolRes) == "1") jump(address);
 }
 
 void CPU::jumpIfNot(kagu::RamAddress address)
 {
-    if (ram_.readRegister(kagu::Address::BoolRes) == "0")
-    {
-        jump(address);
-    }
+    if (ram_.readRegister(kagu::Address::BoolRes) == "0") jump(address);
 }
 
 void CPU::jumpErr(kagu::RamAddress address)
 {
-    if (!ram_.readRegister(kagu::Address::Error).empty())
-    {
-        jump(address);
-    }
+    if (!ram_.readRegister(kagu::Address::Error).empty()) jump(address);
 }
 
-void CPU::debug(bool enable)
-{
-    debugMode_ = enable;
-}
+void CPU::debug(bool enable) { debugMode_ = enable; }
 
 // ============================================================================
 // Address Resolution
@@ -238,18 +222,14 @@ void CPU::debug(bool enable)
 
 kagu::RamAddress CPU::resolveAddress(const std::string& addr)
 {
-    if (addr.empty())
-    {
-        throw CpuException("Empty address");
-    }
-    
+    if (addr.empty()) throw CpuException("Empty address");
+
     if (addr[0] == '*')
     {
-        std::string innerAddr = addr.substr(1);
-        std::string value = ram_.read(std::stoi(innerAddr));
+        std::string value = ram_.read(std::stoi(addr.substr(1)));
         return std::stoi(value);
     }
-    
+
     return std::stoi(addr);
 }
 
@@ -261,52 +241,49 @@ void CPU::executeInstruction(const std::string& instruction)
 {
     std::istringstream iss(instruction);
     int instrCode;
-    
+
     if (!(iss >> instrCode))
     {
         throw CpuException("Invalid instruction format: " + instruction);
     }
-    
+
     auto instr = kagu::fromInt<kagu::Instruction>(instrCode);
-    
+
     switch (instr)
     {
         case kagu::Instruction::CpuExec:
             executeCpuExec();
             break;
-            
+
         case kagu::Instruction::CopyFromToAddress:
         {
             std::string src, dest;
-            if (!(iss >> src >> dest))
-            {
-                throw CpuException("copy requires 2 arguments");
-            }
+            if (!(iss >> src >> dest)) throw CpuException("copy requires 2 arguments");
             executeCopy(src, dest);
             break;
         }
-        
+
         case kagu::Instruction::Jump:
         {
             std::string addr = instruction.substr(instruction.find(' ') + 1);
             jump(resolveAddress(addr));
             break;
         }
-        
+
         case kagu::Instruction::JumpIf:
         {
             std::string addr = instruction.substr(instruction.find(' ') + 1);
             jumpIf(resolveAddress(addr));
             break;
         }
-        
+
         case kagu::Instruction::JumpIfNot:
         {
             std::string addr = instruction.substr(instruction.find(' ') + 1);
             jumpIfNot(resolveAddress(addr));
             break;
         }
-        
+
         case kagu::Instruction::JumpErr:
         {
             std::string addr = instruction.substr(instruction.find(' ') + 1);
@@ -320,6 +297,7 @@ void CPU::executeInstruction(const std::string& instruction)
             debug(value != "0");
             break;
         }
+
         default:
             throw CpuException("Unknown instruction: " + instruction);
     }
@@ -327,144 +305,87 @@ void CPU::executeInstruction(const std::string& instruction)
 
 void CPU::executeCopy(const std::string& src, const std::string& dest)
 {
-    std::string srcAddr = src;
+    std::string srcAddr  = src;
     std::string destAddr = dest;
-    
-    if (!src.empty() && src[0] == '*')
-    {
-        srcAddr = ram_.read(std::stoi(src.substr(1)));
-    }
-    
-    if (!dest.empty() && dest[0] == '*')
-    {
-        destAddr = ram_.read(std::stoi(dest.substr(1)));
-    }
-    
+
+    if (!src.empty()  && src[0]  == '*') srcAddr  = ram_.read(std::stoi(src.substr(1)));
+    if (!dest.empty() && dest[0] == '*') destAddr = ram_.read(std::stoi(dest.substr(1)));
+
     if (!src.empty() && src[0] == '@')
-    {
         ram_.write(std::stoi(destAddr), src.substr(1));
-    }
     else
-    {
         ram_.write(std::stoi(destAddr), ram_.read(std::stoi(srcAddr)));
-    }
 }
 
 void CPU::executeCpuExec()
 {
     std::string opStr = ram_.readRegister(kagu::Address::Op);
-    if (opStr.empty()) {
-        return;
-    }
-    
+    if (opStr.empty()) return;
+
     int opCode = std::stoi(opStr);
     auto op = kagu::fromInt<kagu::Operation>(opCode);
-    
-    // Increment energy counter based on operation cost
+
+    // Privileged operations may not run in user mode
+    if (!ram_.isKernelMode() && kagu::isPrivileged(op))
+    {
+        throw CpuException(
+            "User mode cannot execute privileged operation: " + std::to_string(opCode)
+        );
+    }
+
+    // Track energy — SysEnergy is a privileged register; use directAccess
     int energyCost = kagu::getOperationCost(op);
     std::string& energyRef = ram_.directAccess(kagu::toInt(kagu::Address::SysEnergy));
     int currentEnergy = energyRef.empty() ? 0 : std::stoi(energyRef);
     energyRef = std::to_string(currentEnergy + energyCost);
-    
+
+    // Save REG_RES / REG_ERROR BEFORE clearing them.
+    // execSysReturn needs the kernel-set values that existed just before SYS_RETURN.
+    std::string savedRes = ram_.readRegister(kagu::Address::Res);
+    std::string savedErr = ram_.readRegister(kagu::Address::Error);
+
     ram_.writeRegister(kagu::Address::Error, "");
-    
+
     std::string regA = ram_.readRegister(kagu::Address::A);
     std::string regB = ram_.readRegister(kagu::Address::B);
     std::string regC = ram_.readRegister(kagu::Address::C);
     std::string regD = ram_.readRegister(kagu::Address::D);
-    
+
     switch (op)
     {
-        case kagu::Operation::Add:
-            execAdd(regA, regB);
-            break;
-        case kagu::Operation::Sub:
-            execSub(regA, regB);
-            break;
-        case kagu::Operation::Incr:
-            execIncr(regA);
-            break;
-        case kagu::Operation::Decr:
-            execDecr(regA);
-            break;
-        case kagu::Operation::Div:
-            execDiv(regA, regB);
-            break;
-        case kagu::Operation::Mod:
-            execMod(regA, regB);
-            break;
-        case kagu::Operation::Mul:
-            execMul(regA, regB);
-            break;
-        case kagu::Operation::IsNum:
-            execIsNum(regA);
-            break;
-        case kagu::Operation::CmpEq:
-            execCmpEq(regA, regB);
-            break;
-        case kagu::Operation::CmpNeq:
-            execCmpNeq(regA, regB);
-            break;
-        case kagu::Operation::CmpLt:
-            execCmpLt(regA, regB);
-            break;
-        case kagu::Operation::CmpLe:
-            execCmpLe(regA, regB);
-            break;
-        case kagu::Operation::Contains:
-            execContains(regA, regB);
-            break;
-        case kagu::Operation::GetLength:
-            execGetLength(regA);
-            break;
-        case kagu::Operation::StartsWith:
-            execStartsWith(regA, regB);
-            break;
-        case kagu::Operation::GetColumn:
-            execGetColumn(regA, regB, regC);
-            break;
-        case kagu::Operation::ReplaceColumn:
-            execReplaceColumn(regA, regB, regC, regD);
-            break;
-        case kagu::Operation::ConcatWith:
-            execConcatWith(regA, regB, regC);
-            break;
-        case kagu::Operation::ReadInput:
-            execReadInput();
-            break;
-        case kagu::Operation::Display:
-            execDisplay(false);
-            break;
-        case kagu::Operation::DisplayLn:
-            execDisplay(true);
-            break;
-        case kagu::Operation::ReadBlock:
-            execReadBlock(regA, regB);
-            break;
-        case kagu::Operation::WriteBlock:
-            execWriteBlock(regA, regB, regC);
-            break;
-        case kagu::Operation::SetBackgroundColor:
-            execSetBackground(regA);
-            break;
-        case kagu::Operation::RenderBitmap:
-            execRenderBitmap(regA, regB);
-            break;
-        case kagu::Operation::SysCall:
-            throw CpuException("CRITICAL ERROR: System calls are not supported in Bare Metal mode. "
-                             "Use direct hardware access instead.");
-        case kagu::Operation::SysReturn:
-            throw CpuException("CRITICAL ERROR: Invalid instruction SYS_RETURN in Bare Metal mode.");
+        case kagu::Operation::Add:           execAdd(regA, regB);              break;
+        case kagu::Operation::Sub:           execSub(regA, regB);              break;
+        case kagu::Operation::Incr:          execIncr(regA);                   break;
+        case kagu::Operation::Decr:          execDecr(regA);                   break;
+        case kagu::Operation::Div:           execDiv(regA, regB);              break;
+        case kagu::Operation::Mod:           execMod(regA, regB);              break;
+        case kagu::Operation::Mul:           execMul(regA, regB);              break;
+        case kagu::Operation::IsNum:         execIsNum(regA);                  break;
+        case kagu::Operation::CmpEq:         execCmpEq(regA, regB);            break;
+        case kagu::Operation::CmpNeq:        execCmpNeq(regA, regB);           break;
+        case kagu::Operation::CmpLt:         execCmpLt(regA, regB);            break;
+        case kagu::Operation::CmpLe:         execCmpLe(regA, regB);            break;
+        case kagu::Operation::Contains:      execContains(regA, regB);         break;
+        case kagu::Operation::GetLength:     execGetLength(regA);              break;
+        case kagu::Operation::StartsWith:    execStartsWith(regA, regB);       break;
+        case kagu::Operation::GetColumn:     execGetColumn(regA, regB, regC);  break;
+        case kagu::Operation::ReplaceColumn: execReplaceColumn(regA, regB, regC, regD); break;
+        case kagu::Operation::ConcatWith:    execConcatWith(regA, regB, regC); break;
+        case kagu::Operation::ReadInput:     execReadInput();                  break;
+        case kagu::Operation::Display:       execDisplay(false);               break;
+        case kagu::Operation::DisplayLn:     execDisplay(true);                break;
+        case kagu::Operation::ReadBlock:     execReadBlock(regA, regB);        break;
+        case kagu::Operation::WriteBlock:    execWriteBlock(regA, regB, regC); break;
+        case kagu::Operation::SetBackgroundColor: execSetBackground(regA);     break;
+        case kagu::Operation::RenderBitmap:  execRenderBitmap(regA, regB);     break;
+        case kagu::Operation::SysCall:       execSysCall();                    break;
+        case kagu::Operation::SysReturn:     execSysReturn(savedRes, savedErr); break;
         case kagu::Operation::EncryptData:
         case kagu::Operation::DecryptData:
             ram_.writeRegister(kagu::Address::Res, regA);
             break;
-        case kagu::Operation::Nop:
-            execNop(regA);
-            break;
-        case kagu::Operation::Halt:
-            halt();
-            break;
+        case kagu::Operation::Nop:           execNop(regA);                    break;
+        case kagu::Operation::Halt:          halt();                           break;
         default:
             throw CpuException("Unknown operation: " + std::to_string(opCode));
     }
@@ -477,51 +398,33 @@ void CPU::executeCpuExec()
 void CPU::execAdd(const std::string& a, const std::string& b)
 {
     if (isFloat(a) || isFloat(b))
-    {
-        double result = std::stod(a) + std::stod(b);
-        ram_.writeRegister(kagu::Address::Res, formatNumber(result));
-    }
+        ram_.writeRegister(kagu::Address::Res, formatNumber(std::stod(a) + std::stod(b)));
     else
-    {
         ram_.writeRegister(kagu::Address::Res, std::to_string(std::stoi(a) + std::stoi(b)));
-    }
 }
 
 void CPU::execSub(const std::string& a, const std::string& b)
 {
     if (isFloat(a) || isFloat(b))
-    {
-        double result = std::stod(a) - std::stod(b);
-        ram_.writeRegister(kagu::Address::Res, formatNumber(result));
-    }
+        ram_.writeRegister(kagu::Address::Res, formatNumber(std::stod(a) - std::stod(b)));
     else
-    {
         ram_.writeRegister(kagu::Address::Res, std::to_string(std::stoi(a) - std::stoi(b)));
-    }
 }
 
 void CPU::execIncr(const std::string& a)
 {
     if (isFloat(a))
-    {
         ram_.writeRegister(kagu::Address::Res, formatNumber(std::stod(a) + 1));
-    }
     else
-    {
         ram_.writeRegister(kagu::Address::Res, std::to_string(std::stoi(a) + 1));
-    }
 }
 
 void CPU::execDecr(const std::string& a)
 {
     if (isFloat(a))
-    {
         ram_.writeRegister(kagu::Address::Res, formatNumber(std::stod(a) - 1));
-    }
     else
-    {
         ram_.writeRegister(kagu::Address::Res, std::to_string(std::stoi(a) - 1));
-    }
 }
 
 void CPU::execDiv(const std::string& a, const std::string& b)
@@ -531,16 +434,10 @@ void CPU::execDiv(const std::string& a, const std::string& b)
         ram_.writeRegister(kagu::Address::Error, "Division by zero");
         return;
     }
-    
     if (isFloat(a) || isFloat(b))
-    {
-        double result = std::stod(a) / std::stod(b);
-        ram_.writeRegister(kagu::Address::Res, formatNumber(result));
-    }
+        ram_.writeRegister(kagu::Address::Res, formatNumber(std::stod(a) / std::stod(b)));
     else
-    {
         ram_.writeRegister(kagu::Address::Res, std::to_string(std::stoi(a) / std::stoi(b)));
-    }
 }
 
 void CPU::execMod(const std::string& a, const std::string& b)
@@ -550,21 +447,15 @@ void CPU::execMod(const std::string& a, const std::string& b)
         ram_.writeRegister(kagu::Address::Error, "Modulo by zero");
         return;
     }
-    
     ram_.writeRegister(kagu::Address::Res, std::to_string(std::stoi(a) % std::stoi(b)));
 }
 
 void CPU::execMul(const std::string& a, const std::string& b)
 {
     if (isFloat(a) || isFloat(b))
-    {
-        double result = std::stod(a) * std::stod(b);
-        ram_.writeRegister(kagu::Address::Res, formatNumber(result));
-    }
+        ram_.writeRegister(kagu::Address::Res, formatNumber(std::stod(a) * std::stod(b)));
     else
-    {
         ram_.writeRegister(kagu::Address::Res, std::to_string(std::stoi(a) * std::stoi(b)));
-    }
 }
 
 // ============================================================================
@@ -574,8 +465,8 @@ void CPU::execMul(const std::string& a, const std::string& b)
 void CPU::execIsNum(const std::string& a)
 {
     static const std::regex numPattern(R"(^-?\d*\.?\d+$)");
-    bool isNum = std::regex_match(a, numPattern);
-    ram_.writeRegister(kagu::Address::BoolRes, isNum ? "1" : "0");
+    ram_.writeRegister(kagu::Address::BoolRes,
+                       std::regex_match(a, numPattern) ? "1" : "0");
 }
 
 // ============================================================================
@@ -594,26 +485,18 @@ void CPU::execCmpNeq(const std::string& a, const std::string& b)
 
 void CPU::execCmpLt(const std::string& a, const std::string& b)
 {
-    if (isFloat(a) || isFloat(b))
-    {
-        ram_.writeRegister(kagu::Address::BoolRes, (std::stod(a) < std::stod(b)) ? "1" : "0");
-    }
-    else
-    {
-        ram_.writeRegister(kagu::Address::BoolRes, (std::stoi(a) < std::stoi(b)) ? "1" : "0");
-    }
+    bool result = (isFloat(a) || isFloat(b))
+        ? (std::stod(a) < std::stod(b))
+        : (std::stoi(a) < std::stoi(b));
+    ram_.writeRegister(kagu::Address::BoolRes, result ? "1" : "0");
 }
 
 void CPU::execCmpLe(const std::string& a, const std::string& b)
 {
-    if (isFloat(a) || isFloat(b))
-    {
-        ram_.writeRegister(kagu::Address::BoolRes, (std::stod(a) <= std::stod(b)) ? "1" : "0");
-    }
-    else
-    {
-        ram_.writeRegister(kagu::Address::BoolRes, (std::stoi(a) <= std::stoi(b)) ? "1" : "0");
-    }
+    bool result = (isFloat(a) || isFloat(b))
+        ? (std::stod(a) <= std::stod(b))
+        : (std::stoi(a) <= std::stoi(b));
+    ram_.writeRegister(kagu::Address::BoolRes, result ? "1" : "0");
 }
 
 // ============================================================================
@@ -657,52 +540,35 @@ void CPU::execStartsWith(const std::string& a, const std::string& b)
 void CPU::execGetColumn(const std::string& a, const std::string& b, const std::string& c)
 {
     int columnIndex = std::stoi(b);
-    
+
     if (c.empty())
     {
         if (columnIndex >= 1 && columnIndex <= static_cast<int>(a.length()))
-        {
             ram_.writeRegister(kagu::Address::Res, std::string(1, a[columnIndex - 1]));
-        }
         else
-        {
             ram_.writeRegister(kagu::Address::Res, "");
-        }
+        return;
     }
-    else
+
+    std::vector<std::string> tokens;
+    std::string current;
+    for (char ch : a)
     {
-        std::vector<std::string> tokens;
-        std::string current;
-        
-        for (char ch : a)
+        if (c.find(ch) != std::string::npos)
         {
-            if (c.find(ch) != std::string::npos)
-            {
-                if (!current.empty())
-                {
-                    tokens.push_back(current);
-                    current.clear();
-                }
-            }
-            else
-            {
-                current += ch;
-            }
-        }
-        if (!current.empty())
-        {
-            tokens.push_back(current);
-        }
-        
-        if (columnIndex >= 1 && columnIndex <= static_cast<int>(tokens.size()))
-        {
-            ram_.writeRegister(kagu::Address::Res, tokens[columnIndex - 1]);
+            if (!current.empty()) { tokens.push_back(current); current.clear(); }
         }
         else
         {
-            ram_.writeRegister(kagu::Address::Res, "");
+            current += ch;
         }
     }
+    if (!current.empty()) tokens.push_back(current);
+
+    if (columnIndex >= 1 && columnIndex <= static_cast<int>(tokens.size()))
+        ram_.writeRegister(kagu::Address::Res, tokens[columnIndex - 1]);
+    else
+        ram_.writeRegister(kagu::Address::Res, "");
 }
 
 void CPU::execReplaceColumn(const std::string& a, const std::string& b,
@@ -710,49 +576,34 @@ void CPU::execReplaceColumn(const std::string& a, const std::string& b,
 {
     int columnIndex = std::stoi(b);
     std::string result;
-    
+
     if (c.empty())
     {
         result = a;
         if (columnIndex >= 1 && columnIndex <= static_cast<int>(a.length()))
-        {
             result[columnIndex - 1] = d.empty() ? ' ' : d[0];
-        }
     }
     else
     {
         std::vector<std::string> tokens;
         std::string current;
-        
         for (char ch : a)
         {
-            if (c.find(ch) != std::string::npos)
-            {
-                tokens.push_back(current);
-                current.clear();
-            }
-            else
-            {
-                current += ch;
-            }
+            if (c.find(ch) != std::string::npos) { tokens.push_back(current); current.clear(); }
+            else current += ch;
         }
         tokens.push_back(current);
-        
+
         if (columnIndex >= 1 && columnIndex <= static_cast<int>(tokens.size()))
-        {
             tokens[columnIndex - 1] = d;
-        }
-        
+
         for (size_t i = 0; i < tokens.size(); ++i)
         {
-            if (i > 0)
-            {
-                result += c;
-            }
+            if (i > 0) result += c;
             result += tokens[i];
         }
     }
-    
+
     ram_.writeRegister(kagu::Address::Res, result);
 }
 
@@ -762,54 +613,52 @@ void CPU::execConcatWith(const std::string& a, const std::string& b, const std::
 }
 
 // ============================================================================
-// I/O Operations
+// I/O Operations (privileged — blocked in user mode)
 // ============================================================================
 
 void CPU::execReadInput()
 {
-    std::string mode = ram_.readRegister(kagu::Address::KeyboardBuffer);
+    std::string mode  = ram_.readRegister(kagu::Address::KeyboardBuffer);
     std::string input = keyboard_.readInput(mode);
+    if (keyboard_.isEOF())
+    {
+        // Ctrl+D or end of piped input — exit cleanly
+        running_ = false;
+        return;
+    }
     ram_.writeRegister(kagu::Address::KeyboardBuffer, input);
 }
 
 void CPU::execDisplay(bool newline)
 {
     std::string buffer = ram_.readRegister(kagu::Address::DisplayBuffer);
-    std::string color = ram_.readRegister(kagu::Address::DisplayColor);
+    std::string color  = ram_.readRegister(kagu::Address::DisplayColor);
     display_.printWithColorStr(buffer, color, newline);
 }
 
 // ============================================================================
-// Disk Operations
+// Disk Operations (privileged — blocked in user mode)
 // ============================================================================
 
 void CPU::execReadBlock(const std::string& diskName, const std::string& blockNum)
 {
     auto result = disk_.readBlock(diskName, std::stoi(blockNum));
     if (result)
-    {
         ram_.writeRegister(kagu::Address::Res, *result);
-    }
     else
-    {
         ram_.writeRegister(kagu::Address::Error, "Failed to read block");
-    }
 }
 
-void CPU::execWriteBlock(
-    const std::string& diskName, 
-    const std::string& blockNum,
-    const std::string& data
-)
+void CPU::execWriteBlock(const std::string& diskName,
+                         const std::string& blockNum,
+                         const std::string& data)
 {
     if (!disk_.writeBlock(diskName, std::stoi(blockNum), data))
-    {
         ram_.writeRegister(kagu::Address::Error, "Failed to write block");
-    }
 }
 
 // ============================================================================
-// Display Control
+// Display Control (privileged — blocked in user mode)
 // ============================================================================
 
 void CPU::execSetBackground(const std::string& color)
@@ -822,16 +671,103 @@ void CPU::execSetBackground(const std::string& color)
 void CPU::execRenderBitmap(const std::string& startStr, const std::string& endStr)
 {
     int startAddr = std::stoi(startStr);
-    int endAddr = std::stoi(endStr);
-    
+    int endAddr   = std::stoi(endStr);
+
     std::string xStr = ram_.readRegister(kagu::Address::C);
     std::string yStr = ram_.readRegister(kagu::Address::D);
     int x = (xStr.empty() || xStr == "0") ? 0 : std::stoi(xStr);
     int y = (yStr.empty() || yStr == "0") ? 0 : std::stoi(yStr);
-    
+
     display_.renderBitmap(startAddr, endAddr, x, y, [this](int addr) {
         return ram_.read(addr);
     });
+}
+
+// ============================================================================
+// System Call Operations
+// ============================================================================
+
+/**
+ * OP_SYS_CALL — user mode → kernel mode
+ *
+ * 1. Switch to kernel mode.
+ * 2. Backup user registers (1-UserSpaceEnd) into process memory at ProcStartAddress.
+ * 3. Save current PC in REG_SYS_INTERRUPT_DATA as "0 <pc> 0".
+ * 4. Jump to kernel syscall handler (REG_SYS_CALL_HANDLER).
+ */
+void CPU::execSysCall()
+{
+    if (shouldDebugPrint())
+        display_.debug("Switch from user mode to kernel mode.", false);
+
+    ram_.setKernelMode(true);
+
+    const std::string& procOffsetStr =
+        ram_.directAccess(kagu::toInt(kagu::Address::ProcStartAddress));
+
+    if (!procOffsetStr.empty() && procOffsetStr != "0")
+    {
+        int procOffset = std::stoi(procOffsetStr);
+        for (int i = 1; i <= kagu::toInt(kagu::Address::UserSpaceEnd); ++i)
+        {
+            ram_.directAccess(i + procOffset) = ram_.directAccess(i);
+        }
+    }
+
+    kagu::ProgramCounter pc = getProgramCounter();
+    ram_.directAccess(kagu::toInt(kagu::Address::SysInterruptData)) =
+        "0 " + std::to_string(pc) + " 0";
+
+    kagu::RamAddress handler = interrupts_.getSysCallHandler();
+    jump(handler);
+}
+
+/**
+ * OP_SYS_RETURN — kernel mode → user mode
+ *
+ * 1. Restore user registers (1-UserSpaceEnd) from process memory backup.
+ * 2. Overwrite REG_RES / REG_ERROR with kernel return values (savedRes / savedErr).
+ * 3. Restore user PC from REG_SYS_INTERRUPT_DATA.
+ * 4. Clear REG_SYS_INTERRUPT_DATA.
+ * 5. Switch to user mode.
+ *
+ * ignoreResult flag in SysInterruptData:
+ *   "0" = normal syscall return  → write savedRes / savedErr to user registers
+ *   "1" = first program launch   → keep whatever was restored from backup
+ */
+void CPU::execSysReturn(const std::string& savedRes, const std::string& savedErr)
+{
+    const std::string& procOffsetStr =
+        ram_.directAccess(kagu::toInt(kagu::Address::ProcStartAddress));
+
+    if (!procOffsetStr.empty() && procOffsetStr != "0")
+    {
+        int procOffset = std::stoi(procOffsetStr);
+        for (int i = 1; i <= kagu::toInt(kagu::Address::UserSpaceEnd); ++i)
+        {
+            ram_.directAccess(i) = ram_.directAccess(i + procOffset);
+        }
+    }
+
+    std::string intData =
+        ram_.directAccess(kagu::toInt(kagu::Address::SysInterruptData));
+    std::istringstream iss(intData);
+    std::string typeStr, pcStr, ignoreFlag;
+    iss >> typeStr >> pcStr >> ignoreFlag;
+
+    if (ignoreFlag != "1")
+    {
+        ram_.directAccess(kagu::toInt(kagu::Address::Res))   = savedRes;
+        ram_.directAccess(kagu::toInt(kagu::Address::Error)) = savedErr;
+    }
+
+    ram_.directAccess(kagu::toInt(kagu::Address::ProgramCounter)) = pcStr;
+    ram_.directAccess(kagu::toInt(kagu::Address::SysInterruptData)) = "";
+
+    ram_.setKernelMode(false);
+
+    if (shouldDebugPrint())
+        display_.debug("Switch from kernel mode to user mode.", false);
 }
 
 // ============================================================================
@@ -853,30 +789,80 @@ void CPU::execNop(const std::string& a)
 // Error Handling
 // ============================================================================
 
+/**
+ * Memory access violation:
+ *  - Kernel mode → fatal (system is broken).
+ *  - User mode   → graceful crash: trigger SYS_CALL_EXIT(139) so the kernel
+ *                  shell regains control.
+ */
 void CPU::handleMemoryError(const RamAccessViolation& e)
 {
-    display_.error(std::string("[FATAL] Memory access error: ") + e.what());
-    ram_.dumpToFile(std::string(kagu::config::RAM_DUMP_FILE));
-    running_ = false;
+    if (ram_.isKernelMode())
+    {
+        display_.error(std::string("[FATAL] Kernel mode memory error: ") + e.what());
+        ram_.dumpToFile(std::string(kagu::config::RAM_DUMP_FILE));
+        running_ = false;
+    }
+    else
+    {
+        display_.error(std::string("[ERROR] Segmentation fault (SIGSEGV): ") + e.what());
+        ram_.dumpToFile(std::string(kagu::config::RAM_DUMP_FILE));
+
+        // Synthesise SYS_CALL_EXIT(139) to hand control back to kernel shell
+        ram_.writeRegister(kagu::Address::A,  "139");
+        ram_.writeRegister(kagu::Address::E,  "0");  // SYS_CALL_EXIT = 0
+        ram_.writeRegister(kagu::Address::Op,
+            std::to_string(kagu::toInt(kagu::Operation::SysCall)));
+        executeCpuExec();
+    }
 }
 
+/**
+ * CPU exception (privilege violation, unknown op, etc.):
+ *  - Kernel mode → fatal.
+ *  - User mode   → graceful crash via SYS_CALL_EXIT(1).
+ */
 void CPU::handleCpuError(const CpuException& e)
 {
-    display_.error(std::string("[FATAL] CPU error: ") + e.what());
-    ram_.dumpToFile(std::string(kagu::config::RAM_DUMP_FILE));
-    running_ = false;
+    if (ram_.isKernelMode())
+    {
+        display_.error(std::string("[FATAL] Kernel mode CPU error: ") + e.what());
+        ram_.dumpToFile(std::string(kagu::config::RAM_DUMP_FILE));
+        running_ = false;
+    }
+    else
+    {
+        display_.error(std::string("[ERROR] User program crashed: ") + e.what());
+        ram_.dumpToFile(std::string(kagu::config::RAM_DUMP_FILE));
+
+        // Synthesise SYS_CALL_EXIT(1)
+        ram_.writeRegister(kagu::Address::A,  "1");
+        ram_.writeRegister(kagu::Address::E,  "0");  // SYS_CALL_EXIT = 0
+        ram_.writeRegister(kagu::Address::Op,
+            std::to_string(kagu::toInt(kagu::Operation::SysCall)));
+        executeCpuExec();
+    }
 }
 
 // ============================================================================
 // Debug Helpers
 // ============================================================================
 
+bool CPU::shouldDebugPrint() const noexcept
+{
+    return debugMode_ || (debugUserOnly_ && !ram_.isKernelMode());
+}
+
 void CPU::printDebugInfo()
 {
     kagu::ProgramCounter pc = getProgramCounter();
     std::string cmd = ram_.read(pc);
-    
-    std::cout << "\033[34m[DEBUG]\033[0m Command " << pc 
+
+    const char* prefix = ram_.isKernelMode()
+        ? "\033[34m[KERNEL]"
+        : "\033[33m[USER]  ";
+
+    std::cout << prefix << "\033[0m Command " << pc
               << ": \033[35m" << cmd << "\033[0m" << std::endl;
 }
 
@@ -894,15 +880,11 @@ std::string CPU::formatNumber(double value)
     std::ostringstream out;
     out.precision(10);
     out << std::fixed << value;
-    
+
     std::string result = out.str();
-    
     result.erase(result.find_last_not_of('0') + 1, std::string::npos);
-    if (result.back() == '.')
-    {
-        result.pop_back();
-    }
-    
+    if (result.back() == '.') result.pop_back();
+
     return result;
 }
 

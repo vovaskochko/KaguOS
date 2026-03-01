@@ -37,13 +37,17 @@ public:
     void queueInput(const std::string& input);
     [[nodiscard]] std::optional<std::string> pollInput();
     
+    // EOF detection (Ctrl+D on interactive terminal, or end of piped input)
+    [[nodiscard]] bool isEOF() const noexcept;
+
     // Low-Level Input
     [[nodiscard]] std::string readLine(bool echo);
     [[nodiscard]] char readChar(bool echo);
-    
+
 private:
     std::string lastInput_;
     bool pendingInput_;
+    bool eofReached_;
     std::queue<std::string> inputQueue_;
     
     [[nodiscard]] char readCharPlatform(bool echo);

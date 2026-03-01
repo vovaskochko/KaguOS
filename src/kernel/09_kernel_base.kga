@@ -1,5 +1,5 @@
 // KaguOS kernel main code
-// Simplified version with interactive shell supporting: cat, exit
+// Shell supporting built-in commands (exit) and user-space program execution.
 
 // ##########################################
 // # KERNEL BOOT                            #
@@ -29,6 +29,15 @@ write COLOR_GREEN to DISPLAY_COLOR
 write OP_DISPLAY_LN to REG_OP
 cpu_exec
 
+// init system call table
+copy PROGRAM_COUNTER to var:sys_return
+jump label:sys_call_table_init
+
+write "SysCalls init - done." to DISPLAY_BUFFER
+write COLOR_GREEN to DISPLAY_COLOR
+write OP_DISPLAY_LN to REG_OP
+cpu_exec
+
 // ##########################################
 // # KERNEL_START                           #
 // ##########################################
@@ -40,9 +49,6 @@ cpu_exec
 
     var exitStr
     write "exit" to var:exitStr
-
-    var catStr
-    write "cat" to var:catStr
 
 label kernel_start
     // Display prompt: current_dir :)
@@ -80,116 +86,48 @@ label kernel_start
     cpu_exec
     jump_if label:kernel_end
 
-    // Check whether command is cat
-    copy var:parsedCmd to REG_A
-    copy var:catStr to REG_B
-    write OP_CMP_EQ to REG_OP
-    cpu_exec
-    jump_if label:kernel_cmd_cat
-
     // Check that command is not empty, if so display error
     copy var:parsedCmd to REG_A
     write "" to REG_B
     write OP_CMP_NEQ to REG_OP
     cpu_exec
-    jump_if label:kernel_unknown_cmd
+    jump_if label:kernel_exec_file
 
     // Empty input - just loop back
     jump label:kernel_start
 
 
 // ##########################################
-// # cat command                            #
+// # Execute user-space program             #
 // ##########################################
-label kernel_cmd_cat
-    // Extract filepath argument (2nd column)
-    var kernel_cat_filepath
+// Tries to load and run the typed command as a user program.
+// The full command line (including arguments) is passed as REG_A to sys_exec_load.
+label kernel_exec_file
     copy KEYBOARD_BUFFER to REG_A
-    write 2 to REG_B
-    write " " to REG_C
-    write OP_GET_COLUMN to REG_OP
-    cpu_exec
-    copy REG_RES to var:kernel_cat_filepath
-
-    // Check that filepath is not empty
-    copy var:kernel_cat_filepath to REG_A
-    write "" to REG_B
-    write OP_CMP_EQ to REG_OP
-    cpu_exec
-    jump_if label:kernel_cat_no_arg
-
-    // Open file
-    copy var:kernel_cat_filepath to REG_A
     copy PROGRAM_COUNTER to var:sys_return
-    jump label:sys_fs_open
-    jump_err label:kernel_cat_open_error
+    jump label:sys_exec_load
+    jump_err label:kernel_exec_file_error
 
-    // REG_RES contains the file descriptor index
-    var kernel_cat_fd
-    copy REG_RES to var:kernel_cat_fd
+    // Program loaded successfully - run it
+    copy PROGRAM_COUNTER to var:sys_return
+    jump label:sys_exec_run
 
-    // Read lines in a loop (1-based line indexing)
-    var kernel_cat_line_no
-    write 1 to var:kernel_cat_line_no
+    // User program exited - return to shell
+    jump label:kernel_start
 
-    label kernel_cat_read_loop
-        copy var:kernel_cat_fd to REG_A
-        copy var:kernel_cat_line_no to REG_B
-        copy PROGRAM_COUNTER to var:sys_return
-        jump label:sys_fs_read
-        jump_err label:kernel_cat_read_done
-
-        // Display the line
-        copy REG_RES to DISPLAY_BUFFER
-        write "" to DISPLAY_COLOR
-        write OP_DISPLAY_LN to REG_OP
-        cpu_exec
-
-        // Increment line counter
-        copy var:kernel_cat_line_no to REG_A
-        write OP_INCR to REG_OP
-        cpu_exec
-        copy REG_RES to var:kernel_cat_line_no
-
-        jump label:kernel_cat_read_loop
-
-    label kernel_cat_read_done
-        // Close the file descriptor
-        copy var:kernel_cat_fd to REG_A
-        copy PROGRAM_COUNTER to var:sys_return
-        jump label:sys_fs_close
-        jump label:kernel_start
-
-    label kernel_cat_open_error
-        write "cat: cannot open file: " to DISPLAY_BUFFER
+    label kernel_exec_file_error
+        copy var:parsedCmd to DISPLAY_BUFFER
         write COLOR_RED to DISPLAY_COLOR
+        write OP_DISPLAY to REG_OP
+        cpu_exec
+        write ": " to DISPLAY_BUFFER
+        write "" to DISPLAY_COLOR
         write OP_DISPLAY to REG_OP
         cpu_exec
         copy REG_ERROR to DISPLAY_BUFFER
         write OP_DISPLAY_LN to REG_OP
         cpu_exec
         jump label:kernel_start
-
-    label kernel_cat_no_arg
-        write "cat: missing file argument" to DISPLAY_BUFFER
-        write COLOR_RED to DISPLAY_COLOR
-        write OP_DISPLAY_LN to REG_OP
-        cpu_exec
-        jump label:kernel_start
-
-
-// ##########################################
-// # Unknown command handler                #
-// ##########################################
-label kernel_unknown_cmd
-    copy var:parsedCmd to DISPLAY_BUFFER
-    write COLOR_RED to DISPLAY_COLOR
-    write OP_DISPLAY to REG_OP
-    cpu_exec
-    write ": command not found" to DISPLAY_BUFFER
-    write OP_DISPLAY_LN to REG_OP
-    cpu_exec
-    jump label:kernel_start
 
 
 // ##########################################

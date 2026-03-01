@@ -20,8 +20,10 @@ namespace kagu_boot
 Keyboard::Keyboard()
     : lastInput_("")
     , pendingInput_(false)
+    , eofReached_(false)
 {
 }
+
 
 // ============================================================================
 // Input Reading
@@ -110,20 +112,19 @@ std::optional<std::string> Keyboard::pollInput()
 // Low-Level Input
 // ============================================================================
 
-std::string Keyboard::readLine(bool echo)
+bool Keyboard::isEOF() const noexcept
+{
+    return eofReached_;
+}
+
+std::string Keyboard::readLine([[maybe_unused]] bool echo)
 {
     std::string input;
-    
-    if (echo)
+    std::getline(std::cin, input);
+    if (std::cin.eof() || std::cin.fail())
     {
-        std::getline(std::cin, input);
+        eofReached_ = true;
     }
-    else
-    {
-        // Note: Full silent line reading is platform-specific
-        std::getline(std::cin, input);
-    }
-    
     return input;
 }
 
@@ -208,22 +209,29 @@ char Keyboard::readCharPlatform(bool echo)
 
 int Keyboard::pollKeyPlatform()
 {
+    // Only poll for non-blocking key events on an interactive terminal.
+    // Piped or redirected stdin must not be consumed here — readLine() handles it.
+    if (!isatty(STDIN_FILENO))
+    {
+        return 0;
+    }
+
     struct termios oldt, newt;
     int ch = 0;
-    
+
     tcgetattr(STDIN_FILENO, &oldt);
     newt = oldt;
     newt.c_lflag &= ~(ICANON | ECHO);
     newt.c_cc[VMIN] = 0;
     newt.c_cc[VTIME] = 0;
     tcsetattr(STDIN_FILENO, TCSANOW, &newt);
-    
+
     char c;
     if (read(STDIN_FILENO, &c, 1) == 1)
     {
         ch = static_cast<unsigned char>(c);
     }
-    
+
     tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
     return ch;
 }

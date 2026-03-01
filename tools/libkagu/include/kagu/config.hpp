@@ -81,15 +81,16 @@ namespace config
     constexpr std::string_view CONFIG_FILE = "/config.txt";
     
     // ========================================================================
-    // Address Space Configuration (New Layout)
+    // Address Space Configuration
     // ========================================================================
-    
-    /// User space starting address (first kernel register = end of user space + 1)
-    /// With new layout: User space is 1-10, kernel starts at 11
-    constexpr int USER_SPACE_START = 11;
-    
-    /// Number of user-accessible registers (1-10)
-    constexpr int USER_REGISTER_COUNT = 10;
+
+    /// First address of user program code in user space.
+    /// Registers 1-11 (REG_A..REG_LAST_KEY) are user-accessible; code starts
+    /// at 12 so that slot 11 is exclusively REG_LAST_KEY backup (no dual-purpose).
+    constexpr int USER_SPACE_START = 12;
+
+    /// Number of user-accessible registers (1-11: REG_A through REG_LAST_KEY)
+    constexpr int USER_REGISTER_COUNT = 11;
     
     // ========================================================================
     // Debug Configuration

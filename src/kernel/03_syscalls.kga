@@ -1,0 +1,251 @@
+// System call table:
+// Call Number  |       Name        |         REG_A      |        REG_B      |        REG_C    |         REG_RES       |      REG_ERROR
+//      0       |  exit             |      exit code     |        -          |        -        |            -          |         -
+//      1       |  println          |        text        |    color code     |        -        |            -          |         -
+//      2       |  print            |        text        |    color code     |        -        |            -          |         -
+//      3       |  read_input       |    keyboard mode   |        -          |        -        |     input string      |         -
+//      4       |  open             |     file path      |        -          |        -        |   file descriptor     |     error
+//      5       |  descriptor_info  |  file descriptor   |        -          |        -        |      file info        |     error
+//      6       |  close            |  file descriptor   |        -          |        -        |            -          |     error
+//      7       |  read             |  file descriptor   |   line number     |        -        |     read line         |  EOF / error
+//      8       |  write            |  file descriptor   |   line number     |   new value     |            -          |     error
+//      9       |  set_background   |  background color  |        -          |        -        |            -          |         -
+//     10       |  render_bitmap    |  start address     |    end address    |   x position   |   y position          |         -
+//     11       |  sleep            |  sleep in seconds  |        -          |        -        |            -          |         -
+var sys_call_count
+var sys_call_00
+var sys_call_01
+var sys_call_02
+var sys_call_03
+var sys_call_04
+var sys_call_05
+var sys_call_06
+var sys_call_07
+var sys_call_08
+var sys_call_09
+var sys_call_10
+var sys_call_11
+
+
+label sys_call_handler
+    var sys_call_arg1
+    var sys_call_arg2
+    var sys_call_arg3
+    var sys_call_arg4
+    var sys_call_number
+    copy REG_A to var:sys_call_arg1
+    copy REG_B to var:sys_call_arg2
+    copy REG_C to var:sys_call_arg3
+    copy REG_D to var:sys_call_arg4
+    copy REG_E to var:sys_call_number
+
+    // sys_call_number should be a number
+    copy var:sys_call_number to REG_A
+    write OP_IS_NUM to REG_OP
+    cpu_exec
+    jump_if_not label:unknown_sys_call
+
+    // sys_call_number should be >= 0
+    // copy var:sys_call_number to REG_A  <= it's already there
+    write 0 to REG_B
+    write OP_CMP_LT to REG_OP
+    cpu_exec
+    jump_if label:unknown_sys_call
+
+    // sys_call_number should be < sys_call_count
+    // copy var:sys_call_number to REG_A  <= it's already there
+    copy var:sys_call_count to REG_B
+    // write OP_CMP_LT to REG_OP         <= it's already there
+    cpu_exec
+    jump_if_not label:unknown_sys_call
+
+    // If sys call number is valid then we should find handler in syscall table
+    // We should get the address of handler for call 0 and add offset to it for further jump
+    copy @var:sys_call_00 to REG_A
+    copy var:sys_call_number to REG_B
+    write OP_ADD to REG_OP
+    cpu_exec
+
+    var some_result
+    copy *REG_RES to var:some_result
+    jump *var:some_result
+
+label unknown_sys_call
+    write "Unknown system call!!!" to DISPLAY_BUFFER
+    write COLOR_RED to DISPLAY_COLOR
+    write OP_DISPLAY_LN to REG_OP
+    cpu_exec
+
+    write 38 to REG_A // ENOSYS exit code for missing system function implementation
+    write "Function not implemented" to REG_ERROR
+    write "" to REG_RES
+    jump label:sys_call_exit
+
+label sys_call_to_user_mode
+    write OP_SYS_RETURN to REG_OP
+    cpu_exec
+
+
+// SYSTEM CALLS IMPLEMENTATION START
+label sys_call_exit
+    // Set ignore result flag in interrupt data so kernel REG_RES/ERROR are preserved
+    // NOTE: interrupt data format: <id> <program counter> <ignore result registers flag>
+    copy REG_SYS_INTERRUPT_DATA to REG_A
+    write 3 to REG_B
+    write " " to REG_C
+    write 1 to REG_D
+    write OP_REPLACE_COLUMN to REG_OP
+    cpu_exec
+    copy REG_RES to REG_SYS_INTERRUPT_DATA
+
+    // Restore free memory to pre-process state
+    copy var:sys_exec_old_free_memory to FREE_MEMORY_START
+
+    // Clear process address registers
+    write "" to REG_PROC_START_ADDRESS
+    write "" to REG_PROC_END_ADDRESS
+
+    // Jump back to kernel shell
+    jump *var:sys_exec_kernel_return
+
+
+label sys_call_println
+    copy var:sys_call_arg1 to DISPLAY_BUFFER
+    copy var:sys_call_arg2 to DISPLAY_COLOR
+    write OP_DISPLAY_LN to REG_OP
+    cpu_exec
+    jump label:sys_call_to_user_mode
+
+
+
+label sys_call_print
+    copy var:sys_call_arg1 to DISPLAY_BUFFER
+    copy var:sys_call_arg2 to DISPLAY_COLOR
+    write OP_DISPLAY to REG_OP
+    cpu_exec
+    jump label:sys_call_to_user_mode
+
+
+
+label sys_call_read_input
+    copy var:sys_call_arg1 to REG_A
+    write OP_READ_INPUT to REG_OP
+    cpu_exec
+    copy KEYBOARD_BUFFER to REG_RES
+    jump label:sys_call_to_user_mode
+
+
+
+label sys_call_fs_open
+    copy var:sys_call_arg1 to REG_A
+    copy PROGRAM_COUNTER to var:sys_return
+    jump label:sys_fs_open
+    jump_err label:sys_call_to_user_mode
+
+    copy REG_RES to var:sys_call_arg1
+    jump label:sys_call_to_user_mode
+
+
+
+label sys_call_fs_descriptor_info
+    copy var:sys_call_arg1 to REG_A
+    copy PROGRAM_COUNTER to var:sys_return
+    jump label:sys_fs_descriptor_info
+    jump label:sys_call_to_user_mode
+
+
+
+label sys_call_fs_close
+    copy var:sys_call_arg1 to REG_A
+    copy PROGRAM_COUNTER to var:sys_return
+    jump label:sys_fs_close
+    jump label:sys_call_to_user_mode
+
+
+
+label sys_call_fs_read
+    copy var:sys_call_arg1 to REG_A
+    copy var:sys_call_arg2 to REG_B
+    copy PROGRAM_COUNTER to var:sys_return
+    jump label:sys_fs_read
+    jump label:sys_call_to_user_mode
+
+
+
+label sys_call_fs_write
+    copy var:sys_call_arg1 to REG_A
+    copy var:sys_call_arg2 to REG_B
+    copy var:sys_call_arg3 to REG_C
+    copy PROGRAM_COUNTER to var:sys_return
+    jump label:sys_fs_write
+    jump label:sys_call_to_user_mode
+
+
+
+label sys_call_set_background
+    copy var:sys_call_arg1 to DISPLAY_BACKGROUND
+    write OP_SET_BACKGROUND_COLOR to REG_OP
+    cpu_exec
+    jump label:sys_call_to_user_mode
+
+
+
+label sys_call_render_bitmap
+    // add process memory offset to the bitmap address arguments:
+    copy var:sys_call_arg1 to REG_A
+    copy REG_PROC_START_ADDRESS to REG_B
+    write OP_ADD to REG_OP
+    cpu_exec
+    copy REG_RES to var:sys_call_arg1
+
+    copy var:sys_call_arg2 to REG_A
+    cpu_exec
+    copy REG_RES to var:sys_call_arg2
+
+    // Render bitmap (REG_A=start, REG_B=end, REG_C=x, REG_D=y):
+    copy var:sys_call_arg1 to REG_A
+    copy var:sys_call_arg2 to REG_B
+    copy var:sys_call_arg3 to REG_C
+    copy var:sys_call_arg4 to REG_D
+    write OP_RENDER_BITMAP to REG_OP
+    cpu_exec
+    jump label:sys_call_to_user_mode
+
+
+
+label sys_call_sleep
+    copy var:sys_call_arg1 to REG_A
+    write OP_NOP to REG_OP
+    cpu_exec
+    jump label:sys_call_to_user_mode
+
+
+
+// SYSTEM CALLS IMPLEMENTATION END
+
+
+// Use the following commands to init table with system calls and handler:
+//          copy PROGRAM_COUNTER to var:sys_return
+//          jump label:sys_call_table_init
+// RETURN: nothing (modifies kernel registers)
+label sys_call_table_init
+    copy PROGRAM_COUNTER to var:sys_stack_return
+    jump label:sys_stack_push
+
+    write label:sys_call_handler to REG_SYS_CALL_HANDLER
+    write 12 to var:sys_call_count
+
+    write label:sys_call_exit to var:sys_call_00
+    write label:sys_call_println to var:sys_call_01
+    write label:sys_call_print to var:sys_call_02
+    write label:sys_call_read_input to var:sys_call_03
+    write label:sys_call_fs_open to var:sys_call_04
+    write label:sys_call_fs_descriptor_info to var:sys_call_05
+    write label:sys_call_fs_close to var:sys_call_06
+    write label:sys_call_fs_read to var:sys_call_07
+    write label:sys_call_fs_write to var:sys_call_08
+    write label:sys_call_set_background to var:sys_call_09
+    write label:sys_call_render_bitmap to var:sys_call_10
+    write label:sys_call_sleep to var:sys_call_11
+
+    jump label:sys_stack_pop

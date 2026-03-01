@@ -15,6 +15,7 @@ recipe.txt 4 4 4 kagu kagu BLOCKS 66 80
 reviews.txt 4 4 4 kagu kagu BLOCKS 81 95
 staff.txt 4 4 4 kagu kagu BLOCKS 96 105
 hello.txt 4 4 4 kagu kagu BLOCKS 106 115
+cat 5 5 5 root root BLOCKS 121 198
 
 
 
@@ -117,81 +118,81 @@ and here
 another
 chunk
 of the file
-config.txt
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+1 1 87         #  copy REG_A => var:input_file
+1 71 2         #  write "" => REG_B
+1 72 7         #  write OP_CMP_EQ => REG_OP
+0              #  cpu_exec
+3 48           #  jump_if lbl:cat_no_arg
+1 87 1         #  copy var:input_file => REG_A
+1 73 5         #  write SYS_CALL_OPEN => REG_E
+1 74 7         #  write OP_SYS_CALL => REG_OP
+0              #  cpu_exec
+5 57           #  jump_err lbl:cat_open_error
+1 8 88         #  copy REG_RES => var:fd
+1 75 89        #  write "1" => var:line_no
+1 88 1         #  copy var:fd => REG_A
+1 89 2         #  copy var:line_no => REG_B
+1 76 5         #  write SYS_CALL_READ => REG_E
+1 74 7         #  write OP_SYS_CALL => REG_OP
+0              #  cpu_exec
+5 40           #  jump_err lbl:cat_read_done
+1 8 1          #  copy REG_RES => REG_A
+1 77 2         #  write COLOR_NO => REG_B
+1 78 5         #  write SYS_CALL_PRINTLN => REG_E
+1 74 7         #  write OP_SYS_CALL => REG_OP
+0              #  cpu_exec
+1 89 1         #  copy var:line_no => REG_A
+1 79 7         #  write OP_INCR => REG_OP
+0              #  cpu_exec
+1 8 89         #  copy REG_RES => var:line_no
+2 24           #  jump lbl:cat_read_loop
+1 88 1         #  copy var:fd => REG_A
+1 80 5         #  write SYS_CALL_CLOSE => REG_E
+1 74 7         #  write OP_SYS_CALL => REG_OP
+0              #  cpu_exec
+1 81 1         #  write "0" => REG_A
+1 82 5         #  write SYS_CALL_EXIT => REG_E
+1 74 7         #  write OP_SYS_CALL => REG_OP
+0              #  cpu_exec
+1 83 1         #  write "cat: missing file argument" => REG_A
+1 84 2         #  write COLOR_RED => REG_B
+1 78 5         #  write SYS_CALL_PRINTLN => REG_E
+1 74 7         #  write OP_SYS_CALL => REG_OP
+0              #  cpu_exec
+1 75 1         #  write "1" => REG_A
+1 82 5         #  write SYS_CALL_EXIT => REG_E
+1 74 7         #  write OP_SYS_CALL => REG_OP
+0              #  cpu_exec
+1 85 1         #  write "cat: cannot open: " => REG_A
+1 84 2         #  write COLOR_RED => REG_B
+1 86 5         #  write SYS_CALL_PRINT => REG_E
+1 74 7         #  write OP_SYS_CALL => REG_OP
+0              #  cpu_exec
+1 10 1         #  copy REG_ERROR => REG_A
+1 84 2         #  write COLOR_RED => REG_B
+1 78 5         #  write SYS_CALL_PRINTLN => REG_E
+1 74 7         #  write OP_SYS_CALL => REG_OP
+0              #  cpu_exec
+1 75 1         #  write "1" => REG_A
+1 82 5         #  write SYS_CALL_EXIT => REG_E
+1 74 7         #  write OP_SYS_CALL => REG_OP
+0              #  cpu_exec
+
+8
+4
+25
+1
+7
+0
+1
+2
+6
+0
+0
+cat: missing file argument
+3
+cat: cannot open: 
+2
 
 
 

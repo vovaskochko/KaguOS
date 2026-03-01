@@ -1,0 +1,88 @@
+// cat - print file contents to stdout
+// Usage: cat <filename>
+// REG_A contains the filename argument (passed by kernel via exec)
+
+var input_file
+var fd
+var line_no
+
+copy REG_A to var:input_file
+
+// Check that filename argument is not empty
+write "" to REG_B
+write OP_CMP_EQ to REG_OP
+cpu_exec
+jump_if label:cat_no_arg
+
+// Open file
+copy var:input_file to REG_A
+write SYS_CALL_OPEN to REG_E
+write OP_SYS_CALL to REG_OP
+cpu_exec
+jump_err label:cat_open_error
+copy REG_RES to var:fd
+
+// Read and print each line
+write 1 to var:line_no
+
+label cat_read_loop
+    copy var:fd to REG_A
+    copy var:line_no to REG_B
+    write SYS_CALL_READ to REG_E
+    write OP_SYS_CALL to REG_OP
+    cpu_exec
+    jump_err label:cat_read_done
+
+    copy REG_RES to REG_A
+    write COLOR_NO to REG_B
+    write SYS_CALL_PRINTLN to REG_E
+    write OP_SYS_CALL to REG_OP
+    cpu_exec
+
+    copy var:line_no to REG_A
+    write OP_INCR to REG_OP
+    cpu_exec
+    copy REG_RES to var:line_no
+
+    jump label:cat_read_loop
+
+label cat_read_done
+    copy var:fd to REG_A
+    write SYS_CALL_CLOSE to REG_E
+    write OP_SYS_CALL to REG_OP
+    cpu_exec
+
+    write 0 to REG_A
+    write SYS_CALL_EXIT to REG_E
+    write OP_SYS_CALL to REG_OP
+    cpu_exec
+
+label cat_no_arg
+    write "cat: missing file argument" to REG_A
+    write COLOR_RED to REG_B
+    write SYS_CALL_PRINTLN to REG_E
+    write OP_SYS_CALL to REG_OP
+    cpu_exec
+
+    write 1 to REG_A
+    write SYS_CALL_EXIT to REG_E
+    write OP_SYS_CALL to REG_OP
+    cpu_exec
+
+label cat_open_error
+    write "cat: cannot open: " to REG_A
+    write COLOR_RED to REG_B
+    write SYS_CALL_PRINT to REG_E
+    write OP_SYS_CALL to REG_OP
+    cpu_exec
+
+    copy REG_ERROR to REG_A
+    write COLOR_RED to REG_B
+    write SYS_CALL_PRINTLN to REG_E
+    write OP_SYS_CALL to REG_OP
+    cpu_exec
+
+    write 1 to REG_A
+    write SYS_CALL_EXIT to REG_E
+    write OP_SYS_CALL to REG_OP
+    cpu_exec

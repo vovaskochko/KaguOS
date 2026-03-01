@@ -297,8 +297,8 @@ TEST(isSilentMode)
 TEST(config_values)
 {
     ASSERT_EQ(kagu::config::DEFAULT_RAM_SIZE, 4600);
-    // USER_SPACE_START changed from 17 to 11 (first kernel register)
-    ASSERT_EQ(kagu::config::USER_SPACE_START, 11);
+    // USER_SPACE_START = 12: registers 1-11 are user-accessible, code starts at 12
+    ASSERT_EQ(kagu::config::USER_SPACE_START, 12);
     ASSERT_EQ(kagu::config::DEFAULT_TIME_QUANTUM, 50);
 }
 

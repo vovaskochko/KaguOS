@@ -1,9 +1,10 @@
-# kagu_boot - KaguOS emulator (Bare Metal Edition)
+# kagu_boot - KaguOS emulator
 
 add_executable(kagu_boot
     src/main_boot.cpp
     src/cpu.cpp
     src/ram.cpp
+    src/interrupt_handler.cpp
     src/disk.cpp
     src/display.cpp
     src/input.cpp
