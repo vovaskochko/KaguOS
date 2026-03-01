@@ -5,6 +5,7 @@
 // # KERNEL BOOT                            #
 // ##########################################
 label kernel_entry_point
+DEBUG_OFF
 
 // Initialize FREE_MEMORY_START from REG_F
 // After bootloader loads kernel via firmware disk copy, REG_F points to first free address
