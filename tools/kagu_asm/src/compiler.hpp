@@ -89,6 +89,7 @@ private:
     int firstInstructionNo_;
     int nextInstrAddress_;
     std::string outputFile_;
+    std::string mapFile_;
     int compilationErrorCount_;
 
     // Parsing state
@@ -121,6 +122,9 @@ private:
     bool pass2();
     std::string evalLexeme(const Lexeme& lex, const std::string& position);
     std::string evalDebugInfo(const Lexeme& lex, const std::string& position);
+
+    // Source map
+    void writeSourceMap();
 
     // Error handling
     void compilationError(const std::string& expectedSyntax, const std::string& errorInfo = "");

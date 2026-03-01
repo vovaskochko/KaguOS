@@ -64,9 +64,15 @@ namespace config
     
     /// Default kernel disk path
     constexpr std::string_view KERNEL_DATA = "build/kernel.data";
-    
+
     /// Default user program disk path
     constexpr std::string_view USER_DISK = "build/user.disk";
+
+    /// Source map file for kernel (address → source:line)
+    constexpr std::string_view KERNEL_MAP = "build/kernel.map";
+
+    /// Source map file for user-space programs (address → source:line)
+    constexpr std::string_view USER_MAP = "build/user.map";
     
     /// RAM dump file for debugging (kernel mode)
     constexpr std::string_view RAM_DUMP_FILE = "tmp/RAM.txt";

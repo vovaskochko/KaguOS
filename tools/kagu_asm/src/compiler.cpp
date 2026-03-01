@@ -164,9 +164,11 @@ Compiler::Compiler(bool userSpace, bool debugInfo)
     if (userSpace_) {
         firstInstructionNo_ = kagu::config::USER_SPACE_START;
         outputFile_ = std::string(kagu::config::USER_DISK);
+        mapFile_ = std::string(kagu::config::USER_MAP);
     } else {
         firstInstructionNo_ = kagu::toInt(kagu::Address::KernelStart);
         outputFile_ = std::string(kagu::config::KERNEL_DATA);
+        mapFile_ = std::string(kagu::config::KERNEL_MAP);
     }
     
     nextInstrAddress_ = firstInstructionNo_;
@@ -189,8 +191,10 @@ bool Compiler::compile(const std::vector<std::string>& sourceFiles) {
         return false;
     }
 
-    std::cout << "\033[92mCompilation succeeded. Output image: " 
-              << outputFile_ << "\033[0m" << std::endl;
+    writeSourceMap();
+
+    std::cout << "\033[92mCompilation succeeded. Output image: "
+              << outputFile_ << " | Source map: " << mapFile_ << "\033[0m" << std::endl;
 
     return true;
 }
@@ -208,6 +212,20 @@ void Compiler::compilationError(const std::string& expectedSyntax, const std::st
     if (compilationErrorCount_ > 20) {
         std::cerr << "Too many compilation errors, aborting" << std::endl;
         std::exit(1);
+    }
+}
+
+void Compiler::writeSourceMap() {
+    std::ofstream out(mapFile_);
+    if (!out) {
+        std::cerr << "Warning: Cannot create source map: " << mapFile_ << std::endl;
+        return;
+    }
+
+    for (size_t i = 0; i < parsedInstructions_.size(); i++) {
+        int address = firstInstructionNo_ + static_cast<int>(i);
+        const auto& instr = parsedInstructions_[i];
+        out << address << " " << instr.sourceFile << ":" << instr.lineNumber << "\n";
     }
 }
 
