@@ -227,6 +227,12 @@ void Compiler::writeSourceMap() {
         const auto& instr = parsedInstructions_[i];
         out << address << " " << instr.sourceFile << ":" << instr.lineNumber << "\n";
     }
+
+    // Emit variable address mappings so debuggers can resolve var:name → address
+    for (const auto& [name, vi] : variablesOrdered_) {
+        out << "var:" << name << " " << vi.address
+            << " " << vi.file << ":" << vi.declarationLine << "\n";
+    }
 }
 
 bool Compiler::pass1(const std::vector<std::string>& sourceFiles) {
