@@ -145,10 +145,7 @@ void CPU::step()
 
     if (shouldDebugPrint())
     {
-        ram_.dumpToFile(
-            std::string(kagu::config::RAM_DUMP_FILE),
-            !ram_.isKernelMode()   // userOnly=true when in user mode
-        );
+        ram_.dumpToFile(dumpFile(), !ram_.isKernelMode());
 
         if (debugSleepMs_ > 0)
         {
@@ -160,7 +157,7 @@ void CPU::step()
 void CPU::halt()
 {
     display_.info("CPU halted.");
-    ram_.dumpToFile(std::string(kagu::config::RAM_DUMP_FILE));
+    ram_.dumpToFile(dumpFile());
     running_ = false;
 }
 
@@ -800,13 +797,13 @@ void CPU::handleMemoryError(const RamAccessViolation& e)
     if (ram_.isKernelMode())
     {
         display_.error(std::string("[FATAL] Kernel mode memory error: ") + e.what());
-        ram_.dumpToFile(std::string(kagu::config::RAM_DUMP_FILE));
+        ram_.dumpToFile(kagu::config::RAM_DUMP_FILE.data());
         running_ = false;
     }
     else
     {
         display_.error(std::string("[ERROR] Segmentation fault (SIGSEGV): ") + e.what());
-        ram_.dumpToFile(std::string(kagu::config::RAM_DUMP_FILE));
+        ram_.dumpToFile(kagu::config::USER_RAM_DUMP_FILE.data());
 
         // Synthesise SYS_CALL_EXIT(139) to hand control back to kernel shell
         ram_.writeRegister(kagu::Address::A,  "139");
@@ -827,13 +824,13 @@ void CPU::handleCpuError(const CpuException& e)
     if (ram_.isKernelMode())
     {
         display_.error(std::string("[FATAL] Kernel mode CPU error: ") + e.what());
-        ram_.dumpToFile(std::string(kagu::config::RAM_DUMP_FILE));
+        ram_.dumpToFile(kagu::config::RAM_DUMP_FILE.data());
         running_ = false;
     }
     else
     {
         display_.error(std::string("[ERROR] User program crashed: ") + e.what());
-        ram_.dumpToFile(std::string(kagu::config::RAM_DUMP_FILE));
+        ram_.dumpToFile(kagu::config::USER_RAM_DUMP_FILE.data());
 
         // Synthesise SYS_CALL_EXIT(1)
         ram_.writeRegister(kagu::Address::A,  "1");
@@ -853,6 +850,13 @@ bool CPU::shouldDebugPrint() const noexcept
     return debugMode_ || (debugUserOnly_ && !ram_.isKernelMode());
 }
 
+const char* CPU::dumpFile() const noexcept
+{
+    return ram_.isKernelMode()
+        ? kagu::config::RAM_DUMP_FILE.data()
+        : kagu::config::USER_RAM_DUMP_FILE.data();
+}
+
 void CPU::printDebugInfo()
 {
     kagu::ProgramCounter pc = getProgramCounter();
@@ -862,7 +866,7 @@ void CPU::printDebugInfo()
         ? "\033[34m[KERNEL]"
         : "\033[33m[USER]  ";
 
-    std::cout << prefix << "\033[0m Command " << pc
+    std::cerr << prefix << "\033[0m Command " << pc
               << ": \033[35m" << cmd << "\033[0m" << std::endl;
 }
 

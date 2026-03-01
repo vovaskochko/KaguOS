@@ -146,6 +146,7 @@ private:
 
     // Debug Helpers
     [[nodiscard]] bool shouldDebugPrint() const noexcept;
+    [[nodiscard]] const char* dumpFile() const noexcept;
     void printDebugInfo();
 
     // Utility Functions
