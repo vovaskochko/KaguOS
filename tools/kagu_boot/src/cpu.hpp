@@ -16,8 +16,11 @@
 #include "disk.hpp"
 #include "interrupt_handler.hpp"
 
+#include <memory>
 #include <string>
 #include <stdexcept>
+
+namespace kagu_boot { class DebugServer; }
 
 namespace kagu_boot
 {
@@ -61,6 +64,7 @@ public:
     void setDebugUserOnly(bool enabled) noexcept;
     void setDebugPrintJumps(bool enabled) noexcept;
     void setDebugSleep(int milliseconds) noexcept;
+    void setDebugServer(std::unique_ptr<DebugServer> server) noexcept;
 
 private:
     RAM& ram_;
@@ -74,6 +78,7 @@ private:
     bool debugUserOnly_;
     bool debugPrintJumps_;
     int debugSleepMs_;
+    std::unique_ptr<DebugServer> debugServer_;
 
     // Program Counter Management
     [[nodiscard]] kagu::ProgramCounter getProgramCounter();

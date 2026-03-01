@@ -8,6 +8,7 @@ add_executable(kagu_boot
     src/disk.cpp
     src/display.cpp
     src/input.cpp
+    src/debug_server.cpp
 )
 
 target_include_directories(kagu_boot PRIVATE

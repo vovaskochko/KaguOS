@@ -12,11 +12,13 @@
 #include "display.hpp"
 #include "input.hpp"
 #include "interrupt_handler.hpp"
+#include "debug_server.hpp"
 
 #include <kagu/kagu.hpp>
 
 #include <iostream>
 #include <fstream>
+#include <memory>
 #include <string>
 #include <filesystem>
 
@@ -33,15 +35,16 @@ void printUsage(const char* progName)
               << kagu::config::MIN_RAM_SIZE << ")\n";
     std::cerr << "\n";
     std::cerr << "Options:\n";
-    std::cerr << "  -d            Enable debug mode (dump RAM after each step)\n";
-    std::cerr << "  -u            Enable debug only for user space instructions\n";
-    std::cerr << "  -j            Print instruction info during execution\n";
-    std::cerr << "  -s <ms>       Sleep between steps in debug mode (milliseconds)\n";
+    std::cerr << "  -d               Enable debug mode (dump RAM after each step)\n";
+    std::cerr << "  -u               Enable debug only for user space instructions\n";
+    std::cerr << "  -j               Print instruction info during execution\n";
+    std::cerr << "  -s <ms>          Sleep between steps in debug mode (milliseconds)\n";
+    std::cerr << "  --debug-port <p> Start TCP debug server on port p (DAP back-end)\n";
     std::cerr << "\n";
     std::cerr << "Examples:\n";
     std::cerr << "  " << progName << " hw/cpu_firmware.bin 2048\n";
     std::cerr << "  " << progName << " hw/cpu_firmware.bin 2048 -j\n";
-    std::cerr << "  " << progName << " hw/cpu_firmware.bin 2048 -u -j\n";
+    std::cerr << "  " << progName << " hw/cpu_firmware.bin 2048 --debug-port 4711\n";
 }
 
 
@@ -85,6 +88,7 @@ int main(int argc, char* argv[])
     bool debugUserOnly = false;
     bool printJumps    = false;
     int  debugSleepMs  = 0;
+    int  debugPort     = 0;   // 0 = no debug server
 
     for (int i = 3; i < argc; i++)
     {
@@ -120,6 +124,24 @@ int main(int argc, char* argv[])
             }
             i++;
         }
+        else if (opt == "--debug-port")
+        {
+            if (i + 1 >= argc)
+            {
+                std::cerr << "Error: --debug-port requires an argument\n";
+                return 1;
+            }
+            try
+            {
+                debugPort = std::stoi(argv[i + 1]);
+            }
+            catch (const std::exception&)
+            {
+                std::cerr << "Error: Invalid port value: " << argv[i + 1] << "\n";
+                return 1;
+            }
+            i++;
+        }
         else
         {
             std::cerr << "Error: Unknown option: " << opt << "\n";
@@ -141,7 +163,14 @@ int main(int argc, char* argv[])
     cpu.setDebugUserOnly(debugUserOnly);
     cpu.setDebugPrintJumps(printJumps);
     cpu.setDebugSleep(debugSleepMs);
-    
+
+    if (debugPort > 0)
+    {
+        auto server = std::make_unique<kagu_boot::DebugServer>(debugPort);
+        server->listen();
+        server->waitForClient();
+        cpu.setDebugServer(std::move(server));
+    }
 
     try
     {

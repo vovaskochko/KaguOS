@@ -4,6 +4,7 @@
  */
 
 #include "cpu.hpp"
+#include "debug_server.hpp"
 #include <sstream>
 #include <regex>
 #include <chrono>
@@ -93,6 +94,16 @@ void CPU::step()
     }
 
     kagu::ProgramCounter pc = getProgramCounter();
+
+    if (debugServer_)
+    {
+        if (!debugServer_->checkBreakpoint(static_cast<int>(pc), ram_))
+        {
+            running_ = false;
+            return;
+        }
+    }
+
     std::string instruction = ram_.read(pc);
 
     // DEBUG_ON / DEBUG_OFF are mode-aware: in kernel mode they set the global
@@ -158,6 +169,10 @@ void CPU::halt()
 {
     display_.info("CPU halted.");
     ram_.dumpToFile(dumpFile());
+    if (debugServer_)
+    {
+        debugServer_->notifyHalted(ram_);
+    }
     running_ = false;
 }
 
@@ -174,6 +189,10 @@ void CPU::setDebugMode(bool enabled) noexcept      { debugMode_      = enabled; 
 void CPU::setDebugUserOnly(bool enabled) noexcept  { debugUserOnly_  = enabled; }
 void CPU::setDebugPrintJumps(bool enabled) noexcept{ debugPrintJumps_= enabled; }
 void CPU::setDebugSleep(int milliseconds) noexcept { debugSleepMs_   = milliseconds; }
+void CPU::setDebugServer(std::unique_ptr<DebugServer> server) noexcept
+{
+    debugServer_ = std::move(server);
+}
 
 // ============================================================================
 // Program Counter Management
