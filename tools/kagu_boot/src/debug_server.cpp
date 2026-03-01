@@ -23,8 +23,9 @@ namespace kagu_boot
 // Construction / Destruction
 // ============================================================================
 
-DebugServer::DebugServer(int port)
+DebugServer::DebugServer(int port, int ramSize)
     : port_(port)
+    , ramSize_(ramSize)
     , serverFd_(-1)
     , clientFd_(-1)
     , stepMode_(false)
@@ -76,6 +77,9 @@ void DebugServer::waitForClient()
             std::string("[DEBUG SERVER] accept() failed: ") + std::strerror(errno));
 
     std::cerr << "[DEBUG SERVER] Client connected.\n";
+
+    // Announce RAM size so the adapter doesn't need to know it upfront.
+    sendLine("READY " + std::to_string(ramSize_));
 
     // Start in step-mode so the very first instruction is reported to the adapter.
     stepMode_ = true;

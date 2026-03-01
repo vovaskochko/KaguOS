@@ -36,7 +36,7 @@ class RAM;
 class DebugServer
 {
 public:
-    explicit DebugServer(int port);
+    DebugServer(int port, int ramSize);
     ~DebugServer();
 
     // Non-copyable — owns OS file descriptors
@@ -60,6 +60,7 @@ public:
 
 private:
     int port_;
+    int ramSize_;
     int serverFd_;
     int clientFd_;
 

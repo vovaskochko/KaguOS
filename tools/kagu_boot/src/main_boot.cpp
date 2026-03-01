@@ -166,7 +166,7 @@ int main(int argc, char* argv[])
 
     if (debugPort > 0)
     {
-        auto server = std::make_unique<kagu_boot::DebugServer>(debugPort);
+        auto server = std::make_unique<kagu_boot::DebugServer>(debugPort, ram.size());
         server->listen();
         server->waitForClient();
         cpu.setDebugServer(std::move(server));
