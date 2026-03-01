@@ -50,6 +50,8 @@ cpu_exec
 
     var exitStr
     write "exit" to var:exitStr
+    var debugStr
+    write "debug" to var:debugStr
 
 label kernel_start
     // Display prompt: current_dir :)
@@ -87,6 +89,13 @@ label kernel_start
     cpu_exec
     jump_if label:kernel_end
 
+    // Check whether command is debug
+    copy var:parsedCmd to REG_A
+    copy var:debugStr to REG_B
+    // write OP_CMP_EQ to REG_OP  <= already set
+    cpu_exec
+    jump_if label:kernel_cmd_debug
+
     // Check that command is not empty, if so display error
     copy var:parsedCmd to REG_A
     write "" to REG_B
@@ -96,6 +105,43 @@ label kernel_start
 
     // Empty input - just loop back
     jump label:kernel_start
+
+
+// ##########################################
+// # debug on / debug off                   #
+// ##########################################
+label kernel_cmd_debug
+    // Get second word (argument)
+    copy KEYBOARD_BUFFER to REG_A
+    write 2 to REG_B
+    write " " to REG_C
+    write OP_GET_COLUMN to REG_OP
+    cpu_exec
+
+    // Check for "on"
+    copy REG_RES to REG_A
+    write "on" to REG_B
+    write OP_CMP_EQ to REG_OP
+    cpu_exec
+    jump_if label:kernel_cmd_debug_on
+
+    // Check for "off"
+    copy REG_RES to REG_A
+    write "off" to REG_B
+    // write OP_CMP_EQ to REG_OP  <= already set
+    cpu_exec
+    jump_if label:kernel_cmd_debug_off
+
+    // Any other argument - ignore silently
+    jump label:kernel_start
+
+    label kernel_cmd_debug_on
+        DEBUG_ON
+        jump label:kernel_start
+
+    label kernel_cmd_debug_off
+        DEBUG_OFF
+        jump label:kernel_start
 
 
 // ##########################################
