@@ -15,7 +15,7 @@
       Remaining:   Kernel data
 
 .EXAMPLE
-    .\build_disk.ps1 -KernelPath "hw/kernel.data"
+    .\build_bootable_disk.ps1 -KernelPath "build/kernel.data"
 #>
 
 param(
