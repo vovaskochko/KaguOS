@@ -12,9 +12,21 @@
 #include <cstring>
 #include <cerrno>
 
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <unistd.h>
+#ifdef _WIN32
+#  ifndef WIN32_LEAN_AND_MEAN
+#    define WIN32_LEAN_AND_MEAN
+#  endif
+#  include <winsock2.h>
+#  include <ws2tcpip.h>
+#  pragma comment(lib, "ws2_32.lib")
+   using ssize_t = int;
+#  define sock_close(s) ::closesocket(s)
+#else
+#  include <sys/socket.h>
+#  include <netinet/in.h>
+#  include <unistd.h>
+#  define sock_close(s) ::close(s)
+#endif
 
 namespace kagu_boot
 {
@@ -26,16 +38,24 @@ namespace kagu_boot
 DebugServer::DebugServer(int port, int ramSize)
     : port_(port)
     , ramSize_(ramSize)
-    , serverFd_(-1)
-    , clientFd_(-1)
+    , serverFd_(kInvalidSocket)
+    , clientFd_(kInvalidSocket)
     , stepMode_(false)
 {
+#ifdef _WIN32
+    WSADATA wsa{};
+    if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0)
+        throw std::runtime_error("[DEBUG SERVER] WSAStartup() failed");
+#endif
 }
 
 DebugServer::~DebugServer()
 {
-    if (clientFd_ >= 0) ::close(clientFd_);
-    if (serverFd_ >= 0) ::close(serverFd_);
+    if (clientFd_ != kInvalidSocket) sock_close(clientFd_);
+    if (serverFd_ != kInvalidSocket) sock_close(serverFd_);
+#ifdef _WIN32
+    WSACleanup();
+#endif
 }
 
 // ============================================================================
@@ -50,7 +70,8 @@ void DebugServer::listen()
             std::string("[DEBUG SERVER] socket() failed: ") + std::strerror(errno));
 
     int opt = 1;
-    ::setsockopt(serverFd_, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+    ::setsockopt(serverFd_, SOL_SOCKET, SO_REUSEADDR,
+                 reinterpret_cast<const char*>(&opt), sizeof(opt));
 
     sockaddr_in addr{};
     addr.sin_family      = AF_INET;
@@ -198,7 +219,7 @@ bool DebugServer::handleCommand(const std::string& cmd, RAM& ram, bool& out_quit
 
 bool DebugServer::checkBreakpoint(int pc, RAM& ram)
 {
-    if (clientFd_ < 0) return true;
+    if (clientFd_ == kInvalidSocket) return true;
 
     bool hit = breakpoints_.count(pc) > 0 || stepMode_;
     if (!hit) return true;
@@ -219,7 +240,7 @@ bool DebugServer::checkBreakpoint(int pc, RAM& ram)
 
 void DebugServer::notifyHalted(RAM& ram)
 {
-    if (clientFd_ < 0) return;
+    if (clientFd_ == kInvalidSocket) return;
 
     sendLine("HALTED");
 

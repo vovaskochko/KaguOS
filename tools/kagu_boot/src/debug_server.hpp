@@ -28,6 +28,18 @@
 #include <string>
 #include <unordered_set>
 
+#ifdef _WIN32
+#  ifndef WIN32_LEAN_AND_MEAN
+#    define WIN32_LEAN_AND_MEAN
+#  endif
+#  include <winsock2.h>
+   using SocketHandle = SOCKET;
+   static constexpr SocketHandle kInvalidSocket = INVALID_SOCKET;
+#else
+   using SocketHandle = int;
+   static constexpr SocketHandle kInvalidSocket = -1;
+#endif
+
 namespace kagu_boot
 {
 
@@ -60,10 +72,10 @@ public:
     void notifyHalted(RAM& ram);
 
 private:
-    int port_;
-    int ramSize_;
-    int serverFd_;
-    int clientFd_;
+    int          port_;
+    int          ramSize_;
+    SocketHandle serverFd_;
+    SocketHandle clientFd_;
 
     std::unordered_set<int> breakpoints_;
     bool stepMode_;   ///< true → pause after every instruction

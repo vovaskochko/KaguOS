@@ -18,3 +18,7 @@ target_include_directories(kagu_boot PRIVATE
 target_link_libraries(kagu_boot PRIVATE
     kagu::libkagu
 )
+
+if (WIN32)
+    target_link_libraries(kagu_boot PRIVATE ws2_32)
+endif()
