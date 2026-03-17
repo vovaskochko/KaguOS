@@ -8,7 +8,8 @@
             "firmware": "hw/cpu_firmware.bin",
             "mapFile": "build/kernel.map",
             "kaguBoot": "./kagu_boot",
-            "debugPort": 4711
+            "debugPort": 4711,
+            "ramSize": 6000
         }
     ]
 }

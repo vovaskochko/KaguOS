@@ -27,17 +27,17 @@ clear 5 5 5 root root BLOCKS 703 715
 
 
 
-
-
-
-
-
-
-
-
 FS_HEADER_END
-just
-a
+proc_memory 250
+max_proc_count 10
+max_fd_count 50
+schedule_quantum 10
+
+
+
+
+
+
 file
 with some data
 and empty space
@@ -113,18 +113,11 @@ Host:         localhost
 Night Cook:   Daemon (never goes home)
 Hello from KaguOS!
 
-If you can read this, congratulations!
-Your kernel successfully:
-  1. Initialized the file system
-  2. Mounted the disk partitions
-  3. Opened this file
-  4. Read it line by line
-  5. Displayed it on screen
-Well done! The Kagu bird is proud of you!
-and here
-another
-chunk
-of the file
+
+
+
+
+
 1 1 87         #  copy REG_A => var:input_file
 1 71 2         #  write "" => REG_B
 1 72 7         #  write OP_CMP_EQ => REG_OP
@@ -200,6 +193,8 @@ cat: missing file argument
 3
 cat: cannot open: 
 2
+
+
 
 1 1 163        #  copy REG_A => var:iterations
 1 125 1        #  write COLOR_CYAN => REG_A
@@ -349,6 +344,11 @@ cccccccccBBBcccBBBccccccccccc
 c
 
 17
+202
+0
+0
+
+
 1 1 165        #  copy REG_A => var:iterations
 1 125 1        #  write COLOR_CYAN => REG_A
 1 126 5        #  write SYS_CALL_SET_BACKGROUND => REG_E
