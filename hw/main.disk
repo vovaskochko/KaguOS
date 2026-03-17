@@ -16,6 +16,7 @@ reviews.txt 4 4 4 kagu kagu BLOCKS 81 95
 staff.txt 4 4 4 kagu kagu BLOCKS 96 105
 hello.txt 4 4 4 kagu kagu BLOCKS 106 115
 cat 5 5 5 root root BLOCKS 121 198
+minion 5 5 5 root root BLOCKS 199 351
 
 
 
@@ -194,166 +195,166 @@ cat: missing file argument
 cat: cannot open: 
 2
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+1 1 163        #  copy REG_A => var:iterations
+1 125 1        #  write COLOR_CYAN => REG_A
+1 126 5        #  write SYS_CALL_SET_BACKGROUND => REG_E
+1 127 7        #  write OP_SYS_CALL => REG_OP
+0              #  cpu_exec
+1 128 180      #  write "cccccccccccccccccccccccccccc" => 180
+1 128 181      #  write "cccccccccccccccccccccccccccc" => 181
+1 128 182      #  write "cccccccccccccccccccccccccccc" => 182
+1 128 183      #  write "cccccccccccccccccccccccccccc" => 183
+1 129 184      #  write "ccccccccccyyyyyyycccccccccccc" => 184
+1 130 185      #  write "cccccccccyyyyyyyyyccccccccccc" => 185
+1 131 186      #  write "ccccccccyybbyyybbyyccccccccc" => 186
+1 132 187      #  write "ccccccccBbwBbBbwBbBccccccccc" => 187
+1 133 188      #  write "ccccccccBbwwbBbwwbBccccccccc" => 188
+1 131 189      #  write "ccccccccyybbyyybbyyccccccccc" => 189
+1 134 190      #  write "ccccccccyyyyyyyyyyycccccccccc" => 190
+1 135 191      #  write "ccccccccyyByyyyyByycccccccccc" => 191
+1 136 192      #  write "ccccccccyyyBBBBByyycccccccccc" => 192
+1 137 193      #  write "ccccccccbyyyyyyyyybcccccccccc" => 193
+1 138 194      #  write "ccccccccybbbbbbbbbycccccccccc" => 194
+1 139 195      #  write "ccccccccyybbbbbbbyycccccccccc" => 195
+1 139 196      #  write "ccccccccyybbbbbbbyycccccccccc" => 196
+1 138 197      #  write "ccccccccybbbbbbbbbycccccccccc" => 197
+1 140 198      #  write "cccccccBBbbbbbbbbbBBccccccccc" => 198
+1 141 199      #  write "ccccccccBbbbbbbbbbBcccccccccc" => 199
+1 142 200      #  write "ccccccccccBBcccBBcccccccccccc" => 200
+1 143 201      #  write "cccccccccBBBcccBBBccccccccccc" => 201
+1 128 202      #  write "cccccccccccccccccccccccccccc" => 202
+1 128 203      #  write "cccccccccccccccccccccccccccc" => 203
+1 128 204      #  write "cccccccccccccccccccccccccccc" => 204
+1 163 1        #  copy var:iterations => REG_A
+1 144 7        #  write OP_DECR => REG_OP
+0              #  cpu_exec
+1 8 163        #  copy REG_RES => var:iterations
+1 163 1        #  copy var:iterations => REG_A
+1 145 2        #  write "0" => REG_B
+1 146 7        #  write OP_CMP_EQ => REG_OP
+0              #  cpu_exec
+3 117          #  jump_if lbl:exit
+1 147 164      #  write "180" => var:counter
+1 164 1        #  copy var:counter => REG_A
+1 148 7        #  write OP_INCR => REG_OP
+0              #  cpu_exec
+1 8 164        #  copy REG_RES => var:counter
+1 164 1        #  copy var:counter => REG_A
+1 149 2        #  write "21" => REG_B
+1 150 7        #  write OP_ADD => REG_OP
+0              #  cpu_exec
+1 164 1        #  copy var:counter => REG_A
+1 8 2          #  copy REG_RES => REG_B
+1 145 3        #  write "0" => REG_C
+1 145 4        #  write "0" => REG_D
+1 151 5        #  write SYS_CALL_RENDER_BITMAP => REG_E
+1 127 7        #  write OP_SYS_CALL => REG_OP
+0              #  cpu_exec
+1 152 1        #  write "0.1" => REG_A
+1 153 5        #  write SYS_CALL_SLEEP => REG_E
+1 127 7        #  write OP_SYS_CALL => REG_OP
+0              #  cpu_exec
+1 164 1        #  copy var:counter => REG_A
+1 154 2        #  write "184" => REG_B
+1 155 7        #  write OP_CMP_NEQ => REG_OP
+0              #  cpu_exec
+3 52           #  jump_if lbl:loop_move_up
+1 164 1        #  copy var:counter => REG_A
+1 144 7        #  write OP_DECR => REG_OP
+0              #  cpu_exec
+1 8 164        #  copy REG_RES => var:counter
+1 164 1        #  copy var:counter => REG_A
+1 149 2        #  write "21" => REG_B
+1 150 7        #  write OP_ADD => REG_OP
+0              #  cpu_exec
+1 164 1        #  copy var:counter => REG_A
+1 8 2          #  copy REG_RES => REG_B
+1 145 3        #  write "0" => REG_C
+1 145 4        #  write "0" => REG_D
+1 151 5        #  write SYS_CALL_RENDER_BITMAP => REG_E
+1 127 7        #  write OP_SYS_CALL => REG_OP
+0              #  cpu_exec
+1 152 1        #  write "0.1" => REG_A
+1 153 5        #  write SYS_CALL_SLEEP => REG_E
+1 127 7        #  write OP_SYS_CALL => REG_OP
+0              #  cpu_exec
+1 147 1        #  write "180" => REG_A
+1 164 2        #  copy var:counter => REG_B
+1 156 7        #  write OP_CMP_LT => REG_OP
+0              #  cpu_exec
+3 76           #  jump_if lbl:loop_move_down
+1 147 164      #  write "180" => var:counter
+1 157 1        #  write "c" => REG_A
+1 *164 2       #  copy *var:counter => REG_B
+1 158 3        #  write "" => REG_C
+1 159 7        #  write OP_CONCAT_WITH => REG_OP
+0              #  cpu_exec
+1 8 *164       #  copy REG_RES => *var:counter
+1 164 1        #  copy var:counter => REG_A
+1 148 7        #  write OP_INCR => REG_OP
+0              #  cpu_exec
+1 8 164        #  copy REG_RES => var:counter
+1 164 1        #  copy var:counter => REG_A
+1 160 2        #  write "202" => REG_B
+1 156 7        #  write OP_CMP_LT => REG_OP
+0              #  cpu_exec
+3 101          #  jump_if lbl:shift_right
+2 42           #  jump lbl:start
+1 161 1        #  write COLOR_NO => REG_A
+1 126 5        #  write SYS_CALL_SET_BACKGROUND => REG_E
+1 127 7        #  write OP_SYS_CALL => REG_OP
+0              #  cpu_exec
+1 145 1        #  write "0" => REG_A
+1 162 5        #  write SYS_CALL_EXIT => REG_E
+1 127 7        #  write OP_SYS_CALL => REG_OP
+0              #  cpu_exec
+7
+9
+25
+cccccccccccccccccccccccccccc
+ccccccccccyyyyyyycccccccccccc
+cccccccccyyyyyyyyyccccccccccc
+ccccccccyybbyyybbyyccccccccc
+ccccccccBbwBbBbwBbBccccccccc
+ccccccccBbwwbBbwwbBccccccccc
+ccccccccyyyyyyyyyyycccccccccc
+ccccccccyyByyyyyByycccccccccc
+ccccccccyyyBBBBByyycccccccccc
+ccccccccbyyyyyyyyybcccccccccc
+ccccccccybbbbbbbbbycccccccccc
+ccccccccyybbbbbbbyycccccccccc
+cccccccBBbbbbbbbbbBBccccccccc
+ccccccccBbbbbbbbbbBcccccccccc
+ccccccccccBBcccBBcccccccccccc
+cccccccccBBBcccBBBccccccccccc
+3
+0
+8
+180
+2
+21
+0
+10
+0.1
+11
+184
+9
+10
+c
+
+17
+202
+0
+0
+
+
+1 16 1         #  write "0" => REG_A
+1 17 5         #  write SYS_CALL_EXIT => REG_E
+1 18 7         #  write OP_SYS_CALL => REG_OP
+0              #  cpu_exec
+0
+0
+25
 
 
 

@@ -163,6 +163,11 @@ void CPU::step()
             std::this_thread::sleep_for(std::chrono::milliseconds(debugSleepMs_));
         }
     }
+
+    if (!ram_.isKernelMode() && interrupts_.checkTimer())
+    {
+        handleTimerInterrupt();
+    }
 }
 
 void CPU::halt()
@@ -858,6 +863,20 @@ void CPU::handleCpuError(const CpuException& e)
             std::to_string(kagu::toInt(kagu::Operation::SysCall)));
         executeCpuExec();
     }
+}
+
+// ============================================================================
+// Timer Interrupt
+// ============================================================================
+
+void CPU::handleTimerInterrupt()
+{
+    kagu::ProgramCounter pc = getProgramCounter();
+    ram_.directAccess(kagu::toInt(kagu::Address::SysInterruptData)) =
+        "1 " + std::to_string(pc) + " 1";
+    ram_.setKernelMode(true);
+    ram_.dumpToFile(dumpFile());
+    jump(interrupts_.getInterruptHandler());
 }
 
 // ============================================================================

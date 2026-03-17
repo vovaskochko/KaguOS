@@ -142,6 +142,9 @@ private:
     void execSysCall();
     void execSysReturn(const std::string& savedRes, const std::string& savedErr);
 
+    // Timer Interrupt
+    void handleTimerInterrupt();
+
     // Control Operations
     void execNop(const std::string& a);
 

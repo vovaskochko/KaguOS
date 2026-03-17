@@ -1,11 +1,9 @@
 // KaguOS kernel main code
-// Shell supporting built-in commands (exit) and user-space program execution.
 
 // ##########################################
-// # KERNEL BOOT                            #
+// # INITRAMFS_START                        #
 // ##########################################
 label kernel_entry_point
-DEBUG_OFF
 
 // Initialize FREE_MEMORY_START from REG_F
 // After bootloader loads kernel via firmware disk copy, REG_F points to first free address
@@ -24,25 +22,38 @@ copy REG_RES to var:sys_stack_ptr
 copy PROGRAM_COUNTER to var:sys_return
 jump label:sys_fs_init
 
+// init system calls table and handler
+copy PROGRAM_COUNTER to var:sys_return
+jump label:sys_call_table_init
+
+// Read system variables from config file
+copy PROGRAM_COUNTER to var:sys_return
+jump label:sys_read_config
+
+// Allocate memory for system resources like file descriptors and process control blocks
+copy PROGRAM_COUNTER to var:sys_return
+jump label:sys_prepare_memory
+
+// Setup interrupt handler:
+write label:sys_interrupt_handler to REG_SYS_INTERRUPT_HANDLER
+write "" to REG_SYS_INTERRUPT_DATA
+write "-1" to REG_SYS_HW_TIMER
+
 // Print welcome message
 write "RAMFS init - done." to DISPLAY_BUFFER
 write COLOR_GREEN to DISPLAY_COLOR
 write OP_DISPLAY_LN to REG_OP
 cpu_exec
 
-// init system call table
-copy PROGRAM_COUNTER to var:sys_return
-jump label:sys_call_table_init
+// ##########################################
+// # INITRAMFS_END                          #
+// ##########################################
 
-write "SysCalls init - done." to DISPLAY_BUFFER
-write COLOR_GREEN to DISPLAY_COLOR
-write OP_DISPLAY_LN to REG_OP
-cpu_exec
 
 // ##########################################
 // # KERNEL_START                           #
 // ##########################################
-    // Display welcome message:
+    // # Display welcome message:
     write "Welcome to KaguOS" to DISPLAY_BUFFER
     write COLOR_GREEN to DISPLAY_COLOR
     write OP_DISPLAY_LN to REG_OP
@@ -50,11 +61,12 @@ cpu_exec
 
     var exitStr
     write "exit" to var:exitStr
-    var debugStr
-    write "debug" to var:debugStr
+
+    var schedStr
+    write "sched" to var:schedStr
 
 label kernel_start
-    // Display prompt: current_dir :)
+    // Display prompt to enter the value:
     copy var:sys_work_dir to DISPLAY_BUFFER
     write "" to DISPLAY_COLOR
     write OP_DISPLAY to REG_OP
@@ -73,7 +85,7 @@ label kernel_start
     jump label:sys_remove_unneeded_spaces
     copy REG_RES to KEYBOARD_BUFFER
 
-    // Get command name (first word):
+    // Get command name:
     var parsedCmd
     copy KEYBOARD_BUFFER to REG_A
     write 1 to REG_B
@@ -82,104 +94,122 @@ label kernel_start
     cpu_exec
     copy REG_RES to var:parsedCmd
 
-    // Check whether command is exit
+
+    // Check whether command is exit if not then jump to the start of the loop
+    // otherwise we will go to the next instruction which is exit
     copy var:parsedCmd to REG_A
     copy var:exitStr to REG_B
     write OP_CMP_EQ to REG_OP
     cpu_exec
     jump_if label:kernel_end
 
-    // Check whether command is debug
+    // Check whether command is sched, if so then handle it to either load a program for further execution or run already scheduled programs
     copy var:parsedCmd to REG_A
-    copy var:debugStr to REG_B
-    // write OP_CMP_EQ to REG_OP  <= already set
+    copy var:schedStr to REG_B
+    write OP_CMP_EQ to REG_OP
     cpu_exec
-    jump_if label:kernel_cmd_debug
+    jump_if label:sched_cmd
 
-    // Check that command is not empty, if so display error
+    // Check that command is not empty and exec corresponding file :
     copy var:parsedCmd to REG_A
     write "" to REG_B
     write OP_CMP_NEQ to REG_OP
     cpu_exec
-    jump_if label:kernel_exec_file
+    jump_if label:exec_file
 
-    // Empty input - just loop back
     jump label:kernel_start
 
 
-// ##########################################
-// # debug on / debug off                   #
-// ##########################################
-label kernel_cmd_debug
-    // Get second word (argument)
-    copy KEYBOARD_BUFFER to REG_A
-    write 2 to REG_B
-    write " " to REG_C
-    write OP_GET_COLUMN to REG_OP
-    cpu_exec
 
-    // Check for "on"
-    copy REG_RES to REG_A
-    write "on" to REG_B
+
+label sched_cmd
+    copy KEYBOARD_BUFFER to REG_A
+    write "sched -- " to REG_B
+    write OP_STARTS_WITH to REG_OP
+    cpu_exec
+    jump_if label:do_sched_load
+
+    // copy KEYBOARD_BUFFER to REG_A
+    write "sched run" to REG_B
     write OP_CMP_EQ to REG_OP
     cpu_exec
-    jump_if label:kernel_cmd_debug_on
+    jump_if label:do_sched_run
 
-    // Check for "off"
-    copy REG_RES to REG_A
-    write "off" to REG_B
-    // write OP_CMP_EQ to REG_OP  <= already set
-    cpu_exec
-    jump_if label:kernel_cmd_debug_off
+    jump label:do_sched_incorrect_arg
 
-    // Any other argument - ignore silently
-    jump label:kernel_start
+    label do_sched_load
+        var do_sched_load_cmdline
+        copy REG_RES to var:do_sched_load_cmdline
 
-    label kernel_cmd_debug_on
-        DEBUG_ON
+        // Load program for further execution:
+        copy var:do_sched_load_cmdline to REG_A
+        write 50 to REG_B // set priority of the process
+        copy PROGRAM_COUNTER to var:sys_return
+        jump label:sys_sched_process_load
+        jump_err label:do_sched_file_error
+
+        write "Successfully loaded: " to DISPLAY_BUFFER
+        write COLOR_GREEN to DISPLAY_COLOR
+        write OP_DISPLAY to REG_OP
+        cpu_exec
+
+        copy KEYBOARD_BUFFER to DISPLAY_BUFFER
+        // write COLOR_GREEN to DISPLAY_COLOR
+        write OP_DISPLAY_LN to REG_OP
+        cpu_exec
         jump label:kernel_start
 
-    label kernel_cmd_debug_off
-        DEBUG_OFF
+    label do_sched_run
+        write "List of scheduled processes:" to DISPLAY_BUFFER
+        write COLOR_NO to DISPLAY_COLOR
+        write OP_DISPLAY_LN to REG_OP
+        cpu_exec
+
+        copy PROGRAM_COUNTER to var:sys_return
+        jump label:sys_sched_print_all
+
+        copy PROGRAM_COUNTER to var:sys_return
+        jump label:sys_sched_run
         jump label:kernel_start
 
-
-// ##########################################
-// # Execute user-space program             #
-// ##########################################
-// Tries to load and run the typed command as a user program.
-// The full command line (including arguments) is passed as REG_A to sys_exec_load.
-label kernel_exec_file
-    copy KEYBOARD_BUFFER to REG_A
-    copy PROGRAM_COUNTER to var:sys_return
-    jump label:sys_exec_load
-    jump_err label:kernel_exec_file_error
-
-    // Program loaded successfully - run it
-    copy PROGRAM_COUNTER to var:sys_return
-    jump label:sys_exec_run
-
-    // User program exited - return to shell
-    jump label:kernel_start
-
-    label kernel_exec_file_error
-        copy var:parsedCmd to DISPLAY_BUFFER
+    label do_sched_incorrect_arg
+        write "Incorrect parameters for sched:" to DISPLAY_BUFFER
         write COLOR_RED to DISPLAY_COLOR
-        write OP_DISPLAY to REG_OP
+        write OP_DISPLAY_LN to REG_OP
         cpu_exec
-        write ": " to DISPLAY_BUFFER
-        write "" to DISPLAY_COLOR
-        write OP_DISPLAY to REG_OP
+        write "Load program:          sched -- cmd arg1 arg2 arg3" to DISPLAY_BUFFER
         cpu_exec
+        write "Run loaded tasks:      sched run" to DISPLAY_BUFFER
+        cpu_exec
+        jump label:kernel_start
+
+    label do_sched_file_error
         copy REG_ERROR to DISPLAY_BUFFER
+        write COLOR_RED to DISPLAY_COLOR
+        write OP_DISPLAY_LN to REG_OP
+        cpu_exec
+        jump label:kernel_start
+
+label exec_file
+    // Load program for further execution:
+    copy KEYBOARD_BUFFER to REG_A
+    write 100 to REG_B // set process priority
+    copy PROGRAM_COUNTER to var:sys_return
+    jump label:sys_sched_process_load
+    jump_err label:exec_file_error
+
+    copy PROGRAM_COUNTER to var:sys_return
+    jump label:sys_sched_run
+    jump label:kernel_start
+
+    label exec_file_error
+        copy REG_ERROR to DISPLAY_BUFFER
+        write COLOR_RED to DISPLAY_COLOR
         write OP_DISPLAY_LN to REG_OP
         cpu_exec
         jump label:kernel_start
 
 
-// ##########################################
-// # KERNEL_END                             #
-// ##########################################
 label kernel_end
     // Print bye message and exit:
     write "Good bye!" to DISPLAY_BUFFER
@@ -189,44 +219,6 @@ label kernel_end
 
     write OP_HALT to REG_OP
     cpu_exec
-
-
 // ##########################################
-// # Utility: sys_remove_unneeded_spaces    #
+// # KERNEL_END                             #
 // ##########################################
-// Removes leading and duplicated spaces from a string
-// Input: REG_A - string to clean
-// Output: REG_RES - cleaned string
-label sys_remove_unneeded_spaces
-    copy PROGRAM_COUNTER to var:sys_stack_return
-    jump label:sys_stack_push
-
-    // REG_A contains the input string for cleanup so we can use it directly from register
-    write OP_STARTS_WITH to REG_OP
-    write " " to REG_B
-    label sys_remove_unneeded_spaces_leading
-        cpu_exec
-        jump_if_not label:sys_remove_unneeded_spaces_duplicated
-
-        copy REG_RES to REG_A
-        jump label:sys_remove_unneeded_spaces_leading
-
-    // Now we should remove duplicated spaces
-    label sys_remove_unneeded_spaces_duplicated
-        write "  " to REG_B
-        write OP_CONTAINS to REG_OP
-        cpu_exec
-        jump_if_not label:sys_remove_unneeded_spaces_done
-
-        copy REG_RES to REG_B
-        write " " to REG_C
-        write "" to REG_D
-        write OP_REPLACE_COLUMN to REG_OP
-        cpu_exec
-        copy REG_RES to REG_A
-
-        jump label:sys_remove_unneeded_spaces_duplicated
-
-    label sys_remove_unneeded_spaces_done
-        copy REG_A to REG_RES
-        jump label:sys_stack_pop
