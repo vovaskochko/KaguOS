@@ -1,0 +1,85 @@
+// bitmap_test.kga - Test bitmap rendering with X,Y coordinates
+// Tests overlapping bitmaps at different positions
+
+// Set background to blue
+write COLOR_BLUE to REG_A
+write SYS_CALL_SET_BACKGROUND to REG_E
+write OP_SYS_CALL to REG_OP
+cpu_exec
+
+// Define first bitmap - red square (5x5) at addresses 180-184
+write "rrrrr" to 180
+write "rrrrr" to 181
+write "rrrrr" to 182
+write "rrrrr" to 183
+write "rrrrr" to 184
+
+// Define second bitmap - green square (5x5) at addresses 190-194
+write "ggggg" to 190
+write "ggggg" to 191
+write "ggggg" to 192
+write "ggggg" to 193
+write "ggggg" to 194
+
+// Define third bitmap - yellow star (5x5) at addresses 200-204
+write "  y  " to 200
+write " yyy " to 201
+write "yyyyy" to 202
+write " yyy " to 203
+write "  y  " to 204
+
+// Render red square at position (2, 1)
+write 180 to REG_A
+write 185 to REG_B
+write 2 to REG_C
+write 1 to REG_D
+write SYS_CALL_RENDER_BITMAP to REG_E
+write OP_SYS_CALL to REG_OP
+cpu_exec
+
+// Small delay
+write "0.5" to REG_A
+write SYS_CALL_SLEEP to REG_E
+write OP_SYS_CALL to REG_OP
+cpu_exec
+
+// Render green square at position (10, 3) - to the right
+write 190 to REG_A
+write 195 to REG_B
+write 10 to REG_C
+write 3 to REG_D
+write SYS_CALL_RENDER_BITMAP to REG_E
+write OP_SYS_CALL to REG_OP
+cpu_exec
+
+// Small delay
+write "0.5" to REG_A
+write SYS_CALL_SLEEP to REG_E
+write OP_SYS_CALL to REG_OP
+cpu_exec
+
+// Render yellow star at position (5, 2) - overlapping both
+write 200 to REG_A
+write 205 to REG_B
+write 5 to REG_C
+write 2 to REG_D
+write SYS_CALL_RENDER_BITMAP to REG_E
+write OP_SYS_CALL to REG_OP
+cpu_exec
+
+// Wait for user to see result
+write "2" to REG_A
+write SYS_CALL_SLEEP to REG_E
+write OP_SYS_CALL to REG_OP
+cpu_exec
+
+// Reset background and exit
+write COLOR_NO to REG_A
+write SYS_CALL_SET_BACKGROUND to REG_E
+write OP_SYS_CALL to REG_OP
+cpu_exec
+
+write 0 to REG_A
+write SYS_CALL_EXIT to REG_E
+write OP_SYS_CALL to REG_OP
+cpu_exec
